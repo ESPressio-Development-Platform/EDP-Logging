@@ -74,6 +74,16 @@ def analyse_attempts(
             raise EvidenceError("attempt evidence exceeds configured record bound")
 
         key = _identity(record)
+        if (
+            type(record.device_identifier) is not bytes
+            or len(record.device_identifier) != 16
+            or not any(record.device_identifier)
+            or type(record.incarnation) is not int
+            or not 1 <= record.incarnation <= 0xFFFFFFFF
+            or type(record.sequence_width) is not int
+            or record.sequence_width not in (16, 32, 64)
+        ):
+            raise EvidenceError("invalid device/incarnation or attempt width evidence")
         if key not in groups:
             if len(groups) >= max_groups:
                 raise EvidenceError("attempt evidence exceeds configured group bound")
@@ -132,11 +142,16 @@ def compare_record_time(left: RecordFacts, right: RecordFacts) -> TemporalOrder:
         return TemporalOrder.Overlaps
 
     if (
-        left.clock_era == 0 or left.clock_era != right.clock_era
+        type(left.clock_era) is not int or type(right.clock_era) is not int
+        or left.clock_era == 0 or left.clock_era != right.clock_era
         or left.synchronized_nanoseconds is None
         or right.synchronized_nanoseconds is None
         or left.synchronization_state not in (1, 2)
         or right.synchronization_state not in (1, 2)
+        or type(left.uncertainty_nanoseconds) is not int
+        or type(right.uncertainty_nanoseconds) is not int
+        or left.uncertainty_nanoseconds < 0
+        or right.uncertainty_nanoseconds < 0
         or left.uncertainty_nanoseconds >= MAXIMUM_UNCERTAINTY
         or right.uncertainty_nanoseconds >= MAXIMUM_UNCERTAINTY
     ):
