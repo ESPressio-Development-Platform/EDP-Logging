@@ -49,3 +49,11 @@ The CLI `--schema` selects historical schema validation and records exact messag
 ## Historical schema input hardening
 
 Schema document parsing rejects unknown top-level properties, duplicate members, booleans masquerading as schema version 1, nonfinite JSON constants, malformed or unhashable declaration properties and retired-message use for currently active diagnostic argument decoding. The loader still requires a trustworthy origin for the externally claimed SHA-256 identity; it is **not** a cryptographic verifier of the flattened JSON contents. Negative unit tests were authored but not executed on an available appliance.
+
+## LogRecord candidate facts (D13 FieldIds 0–14)
+
+`record_facts.py` now provides a bounded semantic-range check over a structurally decoded Typed Envelope. It validates all required D13 fields, optional field7 synchronized coordinate (zero is valid), emitted severity 0..5, 16-byte nonzero DeviceIdentifier, uint32 incarnation, attempt ticket within explicitly selected 16/32/64-bit width (nonzero, no wrap), unsigned nanosecond timestamps, EDP-Clock state 0..4, opaque Era, saturated uint32 uncertainty, exact 16-byte schema fingerprint and positional array. Missing or unregistered FieldIds fail. Incoherent `NeverSynchronized` plus coordinate and present coordinate without valid Era also fail.
+
+The root TypeIdentifier allocation is **not issued yet**. The function therefore returns a `RecordFacts` **candidate**, with optional `expected_root_type_identifier` for future registered equality checking; never treat unknown nonzero TypeIds as conclusively LogRecord. Field11 temporal provenance and field14 flags have no governed exact sub-vocabulary yet; they are preserved uninterpreted rather than manufactured. The CLI `--validate-record` exports qualified `logRecordCandidate=true`, `rootTypeGoverned=false`, without claiming chronology or authentication.
+
+This is structural/semantic-range groundwork only and the new unit tests have **not been executed**.

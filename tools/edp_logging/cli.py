@@ -11,6 +11,7 @@ from .archive import SEGMENT_HEADER_SIZE, SegmentHeaderError, parse_segment_head
 from .framing import Frame, scan_stream
 from .record_structure import EnvelopeError, PreservedFloat, inspect_typed_envelope
 from .schema import SchemaError, decode_declared_arguments, load_generated_schema
+from .record_facts import RecordFactError, inspect_log_record_facts
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -19,6 +20,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--archive", action="store_true", help="validate EDLS segment header before framing")
     parser.add_argument("--inspect-record", action="store_true", help="inspect typed envelope without guessing parameter semantics")
     parser.add_argument("--schema", type=Path, help="generated historical diagnostic-schema.json for validated CBOR argument typing")
+    parser.add_argument("--validate-record", action="store_true", help="validate known outer LogRecord V1 fields without claiming an issued root TypeIdentifier")
     parser.add_argument("--forensic", action="store_true", help="bounded resync; mark recovered candidate frames")
     parser.add_argument("--max-payload", type=int, default=65_536)
     parser.add_argument("--resync-limit", type=int, default=1_048_576)
@@ -67,7 +69,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "forensicCandidate": event.recovered_candidate,
                     "crc32c": f"{event.crc32c_value:08X}",
                 }
-                if args.inspect_record or historical_schema is not None:
+                if args.inspect_record or args.validate_record or historical_schema is not None:
                     try:
                         envelope = inspect_typed_envelope(event.payload, event.codec)
                     except EnvelopeError as error:
@@ -77,6 +79,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report["typeIdentifierHex"] = envelope.type_identifier.hex().upper()
                         report["fieldIdentifiers"] = sorted(envelope.fields)
                         report["parameterSchemaInterpreted"] = False
+                        if args.validate_record:
+                            try:
+                                facts = inspect_log_record_facts(envelope)
+                            except RecordFactError as error:
+                                failures += 1
+                                report["recordFactError"] = str(error)
+                            else:
+                                report["logRecordCandidate"] = True
+                                report["messageIdentifier"] = list(facts.message_identifier)
+                                report["deviceIdentifierHex"] = facts.device_identifier.hex().upper()
+                                report["incarnation"] = facts.incarnation
+                                report["attemptSequence"] = facts.attempt_sequence
+                                report["attemptSequenceWidth"] = facts.sequence_width
+                                report["monotonicNanoseconds"] = facts.monotonic_nanoseconds
+                                report["synchronizedNanoseconds"] = facts.synchronized_nanoseconds
+                                report["clockEra"] = facts.clock_era
+                                report["uncertaintyNanoseconds"] = facts.uncertainty_nanoseconds
+                                report["rootTypeGoverned"] = False
                         if historical_schema is not None:
                             try:
                                 decoded = decode_declared_arguments(envelope, historical_schema)

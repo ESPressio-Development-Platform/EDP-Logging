@@ -208,5 +208,39 @@ class FramingTests(unittest.TestCase):
             )
 
 
+    def test_log_record_outer_sequence_and_zero_time(self) -> None:
+        from edp_logging.record_facts import RecordFactError, inspect_log_record_facts
+        from edp_logging.record_structure import TypedEnvelope
+
+        base = {
+            0: [1, 0, 3], 1: 4, 2: bytes(range(1, 17)), 3: 10,
+            4: 65535, 5: 16, 6: 1_000, 7: 0, 8: 1, 9: 17,
+            10: 999, 11: 1, 12: bytes(range(16)), 13: [],
+            14: 0,
+        }
+        sample = TypedEnvelope(bytes(range(1, 9)), base, FrameCodec.Cbor)
+        facts = inspect_log_record_facts(sample)
+        self.assertEqual((facts.sequence_width, facts.attempt_sequence), (16, 65535))
+        self.assertEqual(facts.synchronized_nanoseconds, 0)
+        for invalid in (
+            {**base, 4: 65536},
+            {**base, 5: 8},
+            {**base, 1: 6},
+            {**base, 7: 100, 9: 0},
+            {**base, 8: 0},
+            {**base, 2: bytes(16)},
+            {**base, 13: {}},
+            {**base, 15: 0},
+        ):
+            with self.assertRaises(RecordFactError):
+                inspect_log_record_facts(TypedEnvelope(sample.type_identifier, invalid, FrameCodec.Cbor))
+        without_sync = {key: value for key, value in base.items() if key != 7}
+        without_sync[8] = 0
+        without_sync[9] = 0
+        self.assertIsNone(inspect_log_record_facts(
+            TypedEnvelope(sample.type_identifier, without_sync, FrameCodec.Cbor)
+        ).synchronized_nanoseconds)
+
+
 if __name__ == "__main__":
     unittest.main()

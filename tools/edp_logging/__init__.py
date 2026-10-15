@@ -9,6 +9,7 @@ from .schema import (
     SchemaError, DiagnosticSchema, Message, Parameter,
     DecodedArguments, load_generated_schema, decode_declared_arguments,
 )
+from .record_facts import RecordFactError, RecordFacts, inspect_log_record_facts
 
 __all__ = [
     "Frame", "FrameIssue", "FrameCodec", "FrameStatus",
@@ -17,4 +18,5 @@ __all__ = [
     "EnvelopeError", "PreservedFloat", "TypedEnvelope", "inspect_typed_envelope",
     "SchemaError", "DiagnosticSchema", "Message", "Parameter",
     "DecodedArguments", "load_generated_schema", "decode_declared_arguments",
+    "RecordFactError", "RecordFacts", "inspect_log_record_facts",
 ]
