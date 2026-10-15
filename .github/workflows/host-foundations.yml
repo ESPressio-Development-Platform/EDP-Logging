@@ -1,0 +1,30 @@
+name: EDP-Logging Host Foundations
+
+on:
+  push:
+    branches:
+      - main
+      - feature/logging-v1
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Install Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run bounded host decoder unit tests
+        run: PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v
+
+  cpp-foundations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Compile and run C++20 sequence foundation tests
+        run: bash tests/run-host-tests.sh
