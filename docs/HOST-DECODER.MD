@@ -57,3 +57,7 @@ Schema document parsing rejects unknown top-level properties, duplicate members,
 The root TypeIdentifier allocation is **not issued yet**. The function therefore returns a `RecordFacts` **candidate**, with optional `expected_root_type_identifier` for future registered equality checking; never treat unknown nonzero TypeIds as conclusively LogRecord. Field11 temporal provenance and field14 flags have no governed exact sub-vocabulary yet; they are preserved uninterpreted rather than manufactured. The CLI `--validate-record` exports qualified `logRecordCandidate=true`, `rootTypeGoverned=false`, without claiming chronology or authentication.
 
 This is structural/semantic-range groundwork only and the new unit tests have **not been executed**.
+
+## Forensic continuity correction
+
+Once any corruption or resynchronisation has occurred, all subsequent individually valid frames in **that same scanned source stream** retain `recovered_candidate=True`, even when no additional damaged bytes appear between them. The inter-frame resync-search byte budget resets after each validated candidate, but CRC success alone never re-establishes the pre-damage archive chain. Added an authored test covering an intact prefix, corruption and two successive later valid frames. This test remains **NOT EXECUTED** on the unavailable appliances.

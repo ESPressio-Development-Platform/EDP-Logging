@@ -63,6 +63,18 @@ class FramingTests(unittest.TestCase):
         self.assertEqual(accepted[0].offset, len(damaged) + 7)
         self.assertTrue(any(isinstance(x, FrameIssue) for x in result))
 
+    def test_forensic_classification_stays_sticky_after_recovery(self) -> None:
+        first = encode_frame(FrameCodec.Cbor, b"intact")
+        second = encode_frame(FrameCodec.Cbor, b"salvaged")
+        third = encode_frame(FrameCodec.Cbor, b"still-forensic")
+        stream = first + b"corrupt" + second + third
+        items = list(scan_stream(io.BytesIO(stream), forensic=True, resync_limit=128))
+        frames = [item for item in items if isinstance(item, Frame)]
+        self.assertEqual(len(frames), 3)
+        self.assertFalse(frames[0].recovered_candidate)
+        self.assertTrue(frames[1].recovered_candidate)
+        self.assertTrue(frames[2].recovered_candidate)
+
     def test_resync_budget_enforced(self) -> None:
         output = list(scan_stream(
             io.BytesIO(b"q" * 100),

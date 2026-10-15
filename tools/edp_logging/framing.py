@@ -127,6 +127,8 @@ def scan_stream(
     buffer = bytearray()
     offset = base_offset
     eof = False
+    # Remains sticky after the first damaged region: even a sequence of later
+    # individually valid frames is forensically recovered, not continuous history.
     invalid_preceded = False
     discarded = 0
 
@@ -175,7 +177,9 @@ def scan_stream(
                 )
                 del buffer[:needed]
                 offset += needed
-                invalid_preceded = False
+                # Reset only the inter-frame search budget. Once any damage has
+                # occurred in this source, no later candidate regains verified
+                # pre-damage continuity from CRC alone.
                 discarded = 0
                 continue
 

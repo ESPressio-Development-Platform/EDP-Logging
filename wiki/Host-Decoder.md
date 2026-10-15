@@ -35,3 +35,7 @@ The CLI `--schema` selects historical schema validation and records exact messag
 The root TypeIdentifier allocation is **not issued yet**. The function therefore returns a `RecordFacts` **candidate**, with optional `expected_root_type_identifier` for future registered equality checking; never treat unknown nonzero TypeIds as conclusively LogRecord. Field11 temporal provenance and field14 flags have no governed exact sub-vocabulary yet; they are preserved uninterpreted rather than manufactured. The CLI `--validate-record` exports qualified `logRecordCandidate=true`, `rootTypeGoverned=false`, without claiming chronology or authentication.
 
 This is structural/semantic-range groundwork only and the new unit tests have **not been executed**.
+
+## Sticky post-corruption forensic provenance
+
+After first damage, the scanner classifies every later record in the same stream as a candidate requiring forensic qualification. Only the resync-search byte counter resets between recognized frames. This prevents later CRC-valid frames from being mislabeled as part of a continuous verified prefix. The authoring regression test is present but not run.
