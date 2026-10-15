@@ -106,13 +106,13 @@ namespace ESPressio::Logging {
         const auto outputBegin = reinterpret_cast<std::uintptr_t>(output.data());
         const auto payloadBegin = reinterpret_cast<std::uintptr_t>(payload.data());
         if (!payload.empty() && !output.empty()) {
-            // On platforms without a supported integral pointer-address model,
-            // callers must enforce this documented no-alias precondition.
-            // The straightforward address-range check is only an additional guard.
-            if (
-                payloadBegin <= outputBegin + output.size() - 1U &&
-                outputBegin <= payloadBegin + payload.size() - 1U
-            ) {
+            // Avoid address arithmetic overflow while checking supported linear
+            // pointer-address models. Nonlinear targets must still honour the
+            // public no-alias precondition.
+            const bool overlaps = payloadBegin >= outputBegin
+                ? (payloadBegin - outputBegin) < output.size()
+                : (outputBegin - payloadBegin) < payload.size();
+            if (overlaps) {
                 return EdlgFrameWriteResult::InvalidPayload;
             }
         }
