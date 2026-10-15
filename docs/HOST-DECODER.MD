@@ -45,3 +45,7 @@ The new `record_structure.py` can validate a **canonical** CBOR root `[1, bytes8
 `decode_declared_arguments(TypedEnvelope, DiagnosticSchema)` currently validates CBOR fields 0 (StringIdentifier triple), 12 (exact matching fingerprint) and 13 (positional array) and checks scalar values against their authorised types, including signed/unsigned range, distinct bool, preserved binary32/binary64 width and strong identifier shapes. It **refuses JSON semantic argument typing** until the JSON byte-string/strong-identity representation is locked; structural Typed Envelope validation still supports JSON.
 
 The CLI `--schema` selects historical schema validation and records exact message identity, argument count and canonical types in its JSON output without inventing translation wording. Missing/mismatched schema or invalid parameter values report a distinct `schemaError` while retaining independently verified frame/offset provenance. Original payload bytes remain in the caller's source file.
+
+## Historical schema input hardening
+
+Schema document parsing rejects unknown top-level properties, duplicate members, booleans masquerading as schema version 1, nonfinite JSON constants, malformed or unhashable declaration properties and retired-message use for currently active diagnostic argument decoding. The loader still requires a trustworthy origin for the externally claimed SHA-256 identity; it is **not** a cryptographic verifier of the flattened JSON contents. Negative unit tests were authored but not executed on an available appliance.

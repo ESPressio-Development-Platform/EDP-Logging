@@ -163,5 +163,50 @@ class FramingTests(unittest.TestCase):
             )
 
 
+    def test_malformed_historical_schema_is_typed_failure(self) -> None:
+        import json
+        from edp_logging.schema import SchemaError, load_generated_schema
+
+        valid = {
+            "schemaVersion": 1, "kind": "edp-diagnostic-schema",
+            "diagnosticSchemaFingerprint": "AB" * 16,
+            "diagnosticSchemaDigestSha256": "AB" * 16 + "CD" * 16,
+            "identifierWidths": {"domain": 1, "subDomain": 1, "string": 1},
+            "messages": [
+                {"domain": 1, "subDomain": 0, "string": 3, "status": "active",
+                 "diagnosticDeclared": True, "parameters": [
+                     {"index": 0, "status": "active", "type": "u16"},
+                 ]},
+            ],
+        }
+        for broken in (
+            {**valid, "schemaVersion": True},
+            {**valid, "unexpected": 1},
+            {**valid, "messages": [
+                {**valid["messages"][0], "parameters": [
+                    {"index": 0, "status": "active", "type": []}
+                ]}
+            ]},
+            {**valid, "messages": [
+                {**valid["messages"][0], "parameters": [
+                    {"index": 0, "status": [], "type": "u16"}
+                ]}
+            ]},
+            {**valid, "messages": [
+                {**valid["messages"][0], "status": "retired"}
+            ]},
+        ):
+            # Only the retired String is a valid historical declaration,
+            # while arbitrary unhashable/type-mismatched values must fail.
+            if broken["messages"][0]["status"] == "retired":
+                continue
+            with self.assertRaises(SchemaError):
+                load_generated_schema(json.dumps(broken).encode("utf-8"))
+        with self.assertRaises(SchemaError):
+            load_generated_schema(
+                json.dumps(valid).replace('"schemaVersion": 1', '"schemaVersion": NaN').encode()
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

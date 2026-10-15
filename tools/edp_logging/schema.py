@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import re
+import math
 from dataclasses import dataclass
 from typing import Any
 
-from .record_structure import EnvelopeError, PreservedFloat, TypedEnvelope
+from .record_structure import PreservedFloat, TypedEnvelope
 from .framing import FrameCodec
 
 KINDS = frozenset({
@@ -72,6 +73,10 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return value
 
 
+def _reject_nonfinite(_: str) -> None:
+    raise SchemaError("non-finite JSON schema token")
+
+
 def _bounded_unsigned(value: object, upper: int, name: str) -> int:
     if type(value) is not int or value < 0 or value > upper:
         raise SchemaError(f"{name} must be an unsigned integer in the configured range")
@@ -81,14 +86,24 @@ def _bounded_unsigned(value: object, upper: int, name: str) -> int:
 def load_generated_schema(data: bytes, *, max_source_bytes: int = 2_097_152,
                           max_messages: int = 65_536) -> DiagnosticSchema:
     """Read a finite generated artefact; preserve original digest provenance externally."""
-    if len(data) > max_source_bytes or max_messages < 0:
+    if max_source_bytes < 0 or len(data) > max_source_bytes or max_messages < 0:
         raise SchemaError("schema source exceeds limits")
     try:
-        document = json.loads(data.decode("utf-8", "strict"), object_pairs_hook=_unique_object)
+        document = json.loads(
+            data.decode("utf-8", "strict"),
+            object_pairs_hook=_unique_object,
+            parse_constant=_reject_nonfinite,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SchemaError("invalid diagnostic schema JSON") from exc
     if type(document) is not dict or (
-        document.get("schemaVersion") != 1 or document.get("kind") != "edp-diagnostic-schema"
+        type(document.get("schemaVersion")) is not int
+        or document["schemaVersion"] != 1
+        or document.get("kind") != "edp-diagnostic-schema"
+        or set(document) != {
+            "schemaVersion", "kind", "diagnosticSchemaFingerprint",
+            "diagnosticSchemaDigestSha256", "identifierWidths", "messages"
+        }
     ):
         raise SchemaError("unsupported diagnostic schema source/version")
 
@@ -125,7 +140,11 @@ def load_generated_schema(data: bytes, *, max_source_bytes: int = 2_097_152,
         if identity[2] < 3 or (previous is not None and identity <= previous):
             raise SchemaError("diagnostic Strings must be unique, canonical sorted and non-reserved")
         previous = identity
-        if entry["status"] not in ("active", "retired") or type(entry["diagnosticDeclared"]) is not bool:
+        if (
+            type(entry["status"]) is not str
+            or entry["status"] not in ("active", "retired")
+            or type(entry["diagnosticDeclared"]) is not bool
+        ):
             raise SchemaError("invalid governed diagnostic lifecycle/declaration")
         raw = entry["parameters"]
         if type(raw) is not list or len(raw) > 255:
@@ -136,7 +155,12 @@ def load_generated_schema(data: bytes, *, max_source_bytes: int = 2_097_152,
                 raise SchemaError("malformed parameter declaration")
             if type(p["index"]) is not int or p["index"] != index:
                 raise SchemaError("noncontiguous diagnostic parameter index")
-            if p["status"] not in ("active", "retired") or p["type"] not in KINDS:
+            if (
+                type(p["status"]) is not str
+                or p["status"] not in ("active", "retired")
+                or type(p["type"]) is not str
+                or p["type"] not in KINDS
+            ):
                 raise SchemaError("unknown diagnostic parameter lifecycle or type")
             if entry["status"] == "active" and p["status"] != "active":
                 raise SchemaError("active diagnostic String contains retired parameter")
@@ -169,7 +193,7 @@ def _argument_matches(kind: str, value: Any) -> bool:
     if kind == "type-identifier":
         return type(value) is bytes and len(value) == 8 and any(value)
     if kind == "device-identifier":
-        return type(value) is bytes and len(value) == 16
+        return type(value) is bytes and len(value) == 16 and any(value)
     if kind == "field-identifier":
         return type(value) is int and 0 <= value <= 255
     if kind == "string-identifier":
@@ -207,10 +231,12 @@ def decode_declared_arguments(
         raise SchemaError("unknown or mismatched diagnostic schema fingerprint")
     identity = tuple(identity_value)
     message = schema.messages.get(identity)
-    if message is None or not message.diagnostic_declared:
+    if message is None or message.status != "active" or not message.diagnostic_declared:
         raise SchemaError("message is not governed as a diagnostic String")
     if len(values) != len(message.parameters):
         raise SchemaError("diagnostic argument arity mismatch")
+    if any(p.status != "active" for p in message.parameters):
+        raise SchemaError("cannot decode retired diagnostic parameter as active")
     for parameter, value in zip(message.parameters, values):
         if not _argument_matches(parameter.type_name, value):
             raise SchemaError(
