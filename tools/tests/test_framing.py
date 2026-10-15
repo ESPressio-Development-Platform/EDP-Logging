@@ -87,5 +87,37 @@ class FramingTests(unittest.TestCase):
             parse_segment_header(bytes(header))
 
 
+    def test_cbor_typed_envelope_structural_inspection(self) -> None:
+        from edp_logging.record_structure import inspect_typed_envelope
+        root = bytes([0x83, 0x01, 0x48]) + bytes(range(1, 9)) + bytes([0xA1, 0x01, 0x02])
+        result = inspect_typed_envelope(root, FrameCodec.Cbor)
+        self.assertEqual(result.type_identifier, bytes(range(1, 9)))
+        self.assertEqual(result.fields, {1: 2})
+
+    def test_cbor_rejects_noncanonical_integer_and_field_order(self) -> None:
+        from edp_logging.record_structure import EnvelopeError, inspect_typed_envelope
+        prefix = bytes([0x83, 0x01, 0x48]) + bytes(range(1, 9))
+        for suffix in (
+            bytes([0xA1, 0x01, 0x18, 0x02]),
+            bytes([0xA2, 0x02, 0x01, 0x01, 0x01]),
+            bytes([0xA1, 0x01, 0xF9, 0, 0]),
+        ):
+            with self.assertRaises(EnvelopeError):
+                inspect_typed_envelope(prefix + suffix, FrameCodec.Cbor)
+
+    def test_json_envelope_exact_int_and_duplicate_rejected(self) -> None:
+        from edp_logging.record_structure import EnvelopeError, inspect_typed_envelope
+        valid = b'{"$edp":{"v":1,"type":"0102030405060708"},"value":{"4":18446744073709551615}}'
+        result = inspect_typed_envelope(valid, FrameCodec.Json)
+        self.assertEqual(result.fields[4], 0xFFFFFFFFFFFFFFFF)
+        for invalid in (
+            b'{"$edp":{"v":1,"type":"0102030405060708"},"value":{"4":1,"4":2}}',
+            b'{"$edp":{"v":1,"type":"0102030405060708"},"value":{"04":1}}',
+            b'{"$edp":{"v":1,"type":"0102030405060708"},"value":{"4":1e400}}',
+        ):
+            with self.assertRaises(EnvelopeError):
+                inspect_typed_envelope(invalid, FrameCodec.Json)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -31,3 +31,9 @@ EDLS header 40 bytes: `EDLS` (4), version=1 (1), flags=0 (1), physical slot LE16
 ## Tests
 
 `PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v` (after the user permits an execution environment) exercises CRC golden check, valid/truncated/corrupt records, oversized length, bad flags, forensic salvage, scanner bounds and EDLS checks. **Tests have been authored only, not executed.** No appliance access, C++ target build or physical tests occurred.
+
+## Structural Typed Envelope inspection (no catalogue assumptions)
+
+The new `record_structure.py` can validate a **canonical** CBOR root `[1, bytes8, numeric FieldId map]` or existing JSON Typed Envelope `{"$edp":{"v":1,"type":"lowercase-hex16"},"value":{"0":...}}`. CBOR rejects indefinite containers, tags, non-minimal integer/length encoding, unordered/duplicate/non-numeric map keys, half floats, nonfinite floating values, invalid UTF-8, NUL text, trailing bytes and excessive depth/total nodes. Float32 versus float64 remains distinguished by `PreservedFloat(width_bits)`; JSON integer values are parsed losslessly as Python integers, not forced through binary64.
+
+`inspect_typed_envelope` returns `TypedEnvelope` with the root TypeIdentifier, source codec and numeric-identity-keyed field map. **It deliberately does NOT infer the semantic meaning or signedness of positional argument values without the historical DiagnosticSchemaFingerprint**, nor validate LogRecord field 0–14 semantics yet; those future checks need the governed schema. `--inspect-record` on the CLI enables this optional inspection, preserves independently validated frame metadata when the inner record is malformed and reports the typed-envelope error separately. It never pretends valid frame CRC implies a valid semantic record.

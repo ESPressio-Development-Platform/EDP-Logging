@@ -29,3 +29,7 @@ See [Architecture](docs/ARCHITECTURE.MD) and [Dependency Graph](DEPENDENCY_GRAPH
 ## Python host framing (partial, independent of target firmware)
 
 The `tools/edp_logging` package (version **0.1.0**) provides strict incremental `EDLG` frame validation, finite forensic resynchronisation, `EDLS` segmented-header validation and a structural CLI. See [Host Decoder](docs/HOST-DECODER.MD). It does **not** yet interpret typed LogRecord arguments or original translations. No tests have been executed.
+
+## Important correctness boundary
+
+The scanner validates framing and the optional structural Typed Envelope only. Full LogRecord semantics require EDP-System-issued root TypeIdentifier and historical governed argument schema. The JSON reader rejects duplicate member names (rather than silently keeping the last), while CBOR requires canonical integer lengths/FieldId order. No typed args or translations are inferred when schema is missing. A separate malformed inner record produces a `recordError` alongside verified frame location rather than destroying capture provenance.
