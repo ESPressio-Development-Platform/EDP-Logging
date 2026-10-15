@@ -13,6 +13,10 @@ from .schema import (
     DecodedArguments, load_generated_schema, decode_declared_arguments,
 )
 from .record_facts import RecordFactError, RecordFacts, inspect_log_record_facts
+from .analysis import (
+    AttemptEvidence, EvidenceError, TemporalOrder,
+    analyse_attempts, compare_record_time,
+)
 
 __all__ = [
     "Frame", "FrameIssue", "FrameCodec", "FrameStatus",
@@ -23,4 +27,6 @@ __all__ = [
     "SchemaError", "DiagnosticSchema", "Message", "Parameter",
     "DecodedArguments", "load_generated_schema", "decode_declared_arguments",
     "RecordFactError", "RecordFacts", "inspect_log_record_facts",
+    "AttemptEvidence", "EvidenceError", "TemporalOrder",
+    "analyse_attempts", "compare_record_time",
 ]

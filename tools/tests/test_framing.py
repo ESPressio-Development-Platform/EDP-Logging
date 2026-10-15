@@ -340,5 +340,69 @@ class FramingTests(unittest.TestCase):
             self.assertIsNone(mismatch.next_generation)
 
 
+    def test_attempt_observations_not_loss_stage(self) -> None:
+        from edp_logging.analysis import analyse_attempts, EvidenceError
+        from edp_logging.record_facts import RecordFacts
+
+        def record(ticket: int, incarnation: int = 2, width: int = 16) -> RecordFacts:
+            return RecordFacts(
+                message_identifier=(1, 0, 3), severity=2,
+                device_identifier=bytes(range(1, 17)), incarnation=incarnation,
+                attempt_sequence=ticket, sequence_width=width,
+                monotonic_nanoseconds=ticket * 100,
+                synchronized_nanoseconds=None, synchronization_state=0,
+                clock_era=0, uncertainty_nanoseconds=0xFFFFFFFF,
+                diagnostic_fingerprint=bytes(range(16)), positional_arguments=[],
+                temporal_quality=0, record_flags=0, type_identifier=bytes(range(1, 9)),
+            )
+
+        evidence = analyse_attempts([record(1), record(3), record(3), record(6), record(2, 4)])
+        self.assertEqual(len(evidence), 2)
+        first = evidence[0]
+        self.assertEqual(first.observed_count, 3)
+        self.assertEqual(first.duplicate_observations, 1)
+        self.assertEqual(first.unseen_intervals, ((2, 2), (4, 5)))
+        self.assertTrue(first.partial_capture_possible)
+
+        with self.assertRaises(EvidenceError):
+            analyse_attempts([record(1), record(2, width=32)])
+        with self.assertRaises(EvidenceError):
+            analyse_attempts([record(1), record(2)], max_records=1)
+
+    def test_temporal_order_respects_era_and_uncertainty(self) -> None:
+        from dataclasses import replace
+        from edp_logging.analysis import TemporalOrder, compare_record_time
+        from edp_logging.record_facts import RecordFacts
+
+        left = RecordFacts(
+            message_identifier=(1, 0, 3), severity=2,
+            device_identifier=bytes(range(1, 17)), incarnation=4,
+            attempt_sequence=1, sequence_width=32,
+            monotonic_nanoseconds=1000, synchronized_nanoseconds=5000,
+            synchronization_state=1, clock_era=17, uncertainty_nanoseconds=100,
+            diagnostic_fingerprint=bytes(range(16)), positional_arguments=[],
+            temporal_quality=2, record_flags=0, type_identifier=bytes(range(1, 9)),
+        )
+        same_device = replace(left, monotonic_nanoseconds=1100, attempt_sequence=2)
+        self.assertEqual(compare_record_time(left, same_device), TemporalOrder.Earlier)
+        other = replace(
+            left, device_identifier=bytes(range(2, 18)),
+            synchronized_nanoseconds=5400, uncertainty_nanoseconds=100,
+        )
+        self.assertEqual(compare_record_time(left, other), TemporalOrder.Earlier)
+        self.assertEqual(
+            compare_record_time(left, replace(other, synchronized_nanoseconds=5150)),
+            TemporalOrder.Overlaps
+        )
+        self.assertEqual(
+            compare_record_time(left, replace(other, clock_era=18)),
+            TemporalOrder.Incomparable
+        )
+        self.assertEqual(
+            compare_record_time(left, replace(other, uncertainty_nanoseconds=0xFFFFFFFF)),
+            TemporalOrder.Incomparable
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

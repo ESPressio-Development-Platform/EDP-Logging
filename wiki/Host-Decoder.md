@@ -43,3 +43,7 @@ After first damage, the scanner classifies every later record in the same stream
 ## Read-only archive slot inspection
 
 `inspect_slot` and `inspect_archive_slots` in `archive_recovery.py` stream bounded fixed-slot sources, track contiguous verified frame prefixes, surface torn/corrupt tail, compare nonwrapping generations and refuse a conclusive next generation when any header is untrustworthy, duplicate or inconsistent. No automatic truncation/append, no rename/listing assumption, and no claim of atomic Flash durability. Generated tests are source-only until appliance access is granted.
+
+## Sequence and time provenance
+
+`analysis.py` offers strictly bounded per-incarnation observed attempt intervals/duplicates with no inference of why a ticket is unseen, and a deterministic pairwise `compare_record_time` that is monotonic within one Device/Incarnation and uncertainty-interval-aware only within the same valid ClockEra. Saturated uncertainty, missing time or mismatched Era results in Incomparable; overlapping intervals do not establish order. Test source is committed, not executed.
