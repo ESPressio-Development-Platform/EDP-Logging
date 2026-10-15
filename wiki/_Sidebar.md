@@ -6,3 +6,4 @@
 - [Python host framing](Host-Decoder)
 - [Architecture](../docs/ARCHITECTURE.MD)
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
+- [EDLG portable writer](Reference-logging-EdlgFrame)

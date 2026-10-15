@@ -9,4 +9,8 @@ trap 'rm -f "${OUTPUT}"' EXIT
   -I"${ROOT}/src" "${ROOT}/tests/AttemptSequenceTests.cpp" -o "${OUTPUT}"
 
 "${OUTPUT}"
-echo "EDP-Logging sequence foundation: PASS"
+
+"${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+  -I"${ROOT}/src" "${ROOT}/tests/EdlgFrameTests.cpp" -o "${OUTPUT}"
+"${OUTPUT}"
+echo "EDP-Logging C++20 foundation: PASS"

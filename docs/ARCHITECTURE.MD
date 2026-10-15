@@ -19,3 +19,7 @@ No production invocation/macro, identity attachment, source timestamp snapshot, 
 ## Test evidence
 
 `tests/AttemptSequenceTests.cpp` contains C++20 compile-time checks, full 16-bit sequence exhaustion and 32/64-bit boundary examples. `tests/run-host-tests.sh` describes how to compile/run these. **No executable test/CI/device validation was conducted**; RPI400 and AI-AGENT-02 remain unavailable.
+
+## C++ EDLG framing prerequisite
+
+`WriteEdlgFrame` is an allocation-free, bounded C++20 writer around *already encoded* CBOR/JSON payload bytes. It does not interpret LogRecord schema or claim durability/cryptographic integrity. Header/trailer and CRC32C match the 20-byte D13.2 format and Python host tooling; one 23-byte C++/Python golden vector for `abc` is committed but unexecuted. Source and output spans must not alias. The helper is not a stand-alone Logging sink/coordinator and remains pending verified target builds.
