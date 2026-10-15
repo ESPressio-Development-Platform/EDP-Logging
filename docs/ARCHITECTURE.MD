@@ -27,3 +27,7 @@ No production invocation/macro, identity attachment, source timestamp snapshot, 
 ## D4 compile-time site evaluation gate
 
 `logging/Instrumentation.hpp` adds `InvokeLogSite<SeverityThreshold, Severity>(thunk)` and statement-style `EDP_LOG_WHEN_ENABLED(...)`. The entire instrumentation work is inside a lambda, so disabled sites do not evaluate any runtime expression (unlike taking ordinary function parameters before checking a gate). `SiteInvocationResult` distinguishes `NotInstrumented` from `Invoked` but is **NOT** an admission status. When enabled, the callable is invoked exactly once; future strongly typed Localisation argument compatibility and Memory admission are independent work. No provider is instantiated solely by the gate. Test source is authored only; compiler/target evidence is pending.
+
+## C++ EDLG bounded reader
+
+`src/logging/EdlgFrameReader.hpp` defines `ReadEdlgFrame(span<const byte>, EdlgFrameView&, maxPayload)`. No allocations: result contains a borrowed payload span and exact consumed bytes after deterministic header, codec, flags, finite length, completion marker and CRC32C checks; output unchanged on any failure. Caller must honor buffer lifetime and stop at first error (no implicit resynchronisation). `EdlgFrameTests.cpp` includes successful read and corrupt/truncated/oversized native-read vectors. Tests are source-only, not actually run yet.
