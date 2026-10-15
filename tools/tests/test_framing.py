@@ -119,5 +119,49 @@ class FramingTests(unittest.TestCase):
                 inspect_typed_envelope(invalid, FrameCodec.Json)
 
 
+    def test_governed_historical_argument_validation(self) -> None:
+        import json
+        from edp_logging.schema import (
+            SchemaError, decode_declared_arguments, load_generated_schema,
+        )
+        from edp_logging.record_structure import inspect_typed_envelope
+        document = {
+            "schemaVersion": 1,
+            "kind": "edp-diagnostic-schema",
+            "diagnosticSchemaFingerprint": "AB" * 16,
+            "diagnosticSchemaDigestSha256": "AB" * 16 + "CD" * 16,
+            "identifierWidths": {"domain": 1, "subDomain": 1, "string": 2},
+            "messages": [{
+                "domain": 1, "subDomain": 0, "string": 3,
+                "status": "active", "diagnosticDeclared": True,
+                "parameters": [{"index": 0, "status": "active", "type": "u16"}],
+            }],
+        }
+        schema = load_generated_schema(json.dumps(document).encode("utf-8"))
+        typed_envelope = (
+            bytes([0x83, 0x01, 0x48]) + bytes(range(1, 9))
+            + bytes([0xA3, 0x00, 0x83, 0x01, 0x00, 0x03, 0x0C, 0x50])
+            + bytes.fromhex("AB" * 16)
+            + bytes([0x0D, 0x81, 0x18, 0x2A])
+        )
+        record = inspect_typed_envelope(typed_envelope, FrameCodec.Cbor)
+        resolved = decode_declared_arguments(record, schema)
+        self.assertEqual(resolved.message.identity, (1, 0, 3))
+        self.assertEqual(resolved.values, (42,))
+        with self.assertRaises(SchemaError):
+            decode_declared_arguments(record, load_generated_schema(
+                json.dumps({**document, "diagnosticSchemaFingerprint": "CD" * 16,
+                            "diagnosticSchemaDigestSha256": "CD" * 16 + "AB" * 16}).encode()
+            ))
+        with self.assertRaises(SchemaError):
+            load_generated_schema(
+                json.dumps({**document, "messages": [
+                    {**document["messages"][0], "parameters": [
+                        {"index": 1, "status": "active", "type": "u16"}
+                    ]}
+                ]}).encode()
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
