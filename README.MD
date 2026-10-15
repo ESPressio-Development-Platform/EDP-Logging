@@ -25,3 +25,7 @@ The complete D1–D13 approved design and ordered seven-tranche implementation p
 `bash tests/run-host-tests.sh` is provided for a later authorised host execution environment. It covers ticket width/default and full 16-bit exhaustion. **Test source is committed but it has not been executed.** Neither RPI400 nor AI-AGENT-02 is available for use.
 
 See [Architecture](docs/ARCHITECTURE.MD) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
+
+## Python host framing (partial, independent of target firmware)
+
+The `tools/edp_logging` package (version **0.1.0**) provides strict incremental `EDLG` frame validation, finite forensic resynchronisation, `EDLS` segmented-header validation and a structural CLI. See [Host Decoder](docs/HOST-DECODER.MD). It does **not** yet interpret typed LogRecord arguments or original translations. No tests have been executed.

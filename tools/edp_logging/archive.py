@@ -1,0 +1,48 @@
+"""Fixed 40-byte EDLS v1 segment header validation; no filesystem mutations."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .framing import crc32c
+
+SEGMENT_HEADER_SIZE = 40
+SEGMENT_MAGIC = b"EDLS"
+SEGMENT_VERSION = 1
+
+
+class SegmentHeaderError(ValueError):
+    """Invalid or incompatible segment header; do not infer valid stored records."""
+
+
+@dataclass(frozen=True)
+class SegmentHeader:
+    """Identifies a bounded archive slot and its nonzero unique generation."""
+
+    slot: int
+    generation: int
+    device_identifier: bytes
+    incarnation: int
+
+
+def parse_segment_header(data: bytes) -> SegmentHeader:
+    """Validate the exact versioned header, including its independent checksum."""
+    if len(data) != SEGMENT_HEADER_SIZE:
+        raise SegmentHeaderError("EDLS header must be exactly 40 bytes")
+    if data[:4] != SEGMENT_MAGIC or data[4] != SEGMENT_VERSION or data[5] != 0:
+        raise SegmentHeaderError("invalid EDLS magic/version/reserved flags")
+    if int.from_bytes(data[36:40], "little") != crc32c(data[:36]):
+        raise SegmentHeaderError("EDLS header CRC32C mismatch")
+    generation = int.from_bytes(data[8:16], "little")
+    incarnation = int.from_bytes(data[32:36], "little")
+    if generation == 0 or incarnation == 0:
+        raise SegmentHeaderError("EDLS generation and incarnation must be nonzero")
+    device = bytes(data[16:32])
+    if len(device) != 16:
+        raise SegmentHeaderError("invalid device identity width")
+    return SegmentHeader(
+        slot=int.from_bytes(data[6:8], "little"),
+        generation=generation,
+        device_identifier=device,
+        incarnation=incarnation,
+    )
