@@ -1,0 +1,19 @@
+{
+  "name": "EDP-Logging",
+  "description": "Bounded structured diagnostic logging contracts for ESPressio",
+  "keywords": "espressio,logging,diagnostics,embedded,deterministic",
+  "homepage": "https://espressio.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ESPressio-Development-Platform/EDP-Logging.git"
+  },
+  "build": {
+    "flags": ["-std=gnu++20"],
+    "unflags": ["-std=gnu++11", "-std=gnu++14", "-std=gnu++17"]
+  },
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "frameworks": "*",
+  "platforms": "*",
+  "dependencies": []
+}
