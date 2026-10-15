@@ -41,3 +41,7 @@ The scanner validates framing and the optional structural Typed Envelope only. F
 ## Portable EDLS segment header
 
 `src/logging/EdlsSegment.hpp` and `tools/edp_logging/archive.py` now encode/decode the same explicit 40-byte EDLS segment header, including generation, device/incarnation and CRC32C. C++/Python golden vectors and negative tests are authored. This is a format contract, not a durable archive implementation or a validated interoperable build.
+
+## Archive slot inspection (read-only)
+
+Python `inspect_archive_slots` validates a finite explicitly named archive topology, identifies known generations conservatively and reports only contiguous verified frame prefixes. It refuses confident generation advancement with missing/corrupt/ambiguous evidence; damaged tail is never an append target. Does not replace future production EDP-Persistence archive rotation/recovery, and no executable proof has been obtained.

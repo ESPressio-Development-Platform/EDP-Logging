@@ -274,5 +274,71 @@ class FramingTests(unittest.TestCase):
         ).synchronized_nanoseconds)
 
 
+    def test_archive_selects_largest_unique_generation(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from edp_logging.archive_recovery import inspect_archive_slots, SlotState
+
+        with tempfile.TemporaryDirectory() as root:
+            paths = [Path(root) / "slot0.edls", Path(root) / "slot1.edls"]
+            identity = bytes(range(1, 17))
+            paths[0].write_bytes(
+                encode_segment_header(SegmentHeader(0, 7, identity, 9))
+                + encode_frame(FrameCodec.Cbor, b"ok")
+            )
+            paths[1].write_bytes(
+                encode_segment_header(SegmentHeader(1, 8, identity, 10))
+                + encode_frame(FrameCodec.Cbor, b"new")
+            )
+            result = inspect_archive_slots(paths)
+            self.assertTrue(result.order_unambiguous)
+            self.assertEqual(result.newest_known_slot, 1)
+            self.assertEqual(result.next_generation, 9)
+            self.assertEqual(result.slots[0].verified_frames, 1)
+            self.assertEqual(result.slots[1].state, SlotState.Clean)
+
+            paths[1].write_bytes(
+                encode_segment_header(SegmentHeader(1, 8, identity, 10))
+                + encode_frame(FrameCodec.Cbor, b"good") + b"torn-tail"
+            )
+            torn = inspect_archive_slots(paths)
+            self.assertEqual(torn.slots[1].state, SlotState.DamagedTail)
+            self.assertEqual(torn.slots[1].verified_frames, 1)
+            self.assertTrue(torn.order_unambiguous)
+
+    def test_archive_ambiguity_does_not_issue_successor(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from edp_logging.archive_recovery import inspect_archive_slots, SlotState
+
+        with tempfile.TemporaryDirectory() as root:
+            paths = [Path(root) / "0", Path(root) / "1"]
+            identity = bytes(range(1, 17))
+            paths[0].write_bytes(
+                encode_segment_header(SegmentHeader(0, 2, identity, 9))
+            )
+            paths[1].write_bytes(b"partial header")
+            uncertain = inspect_archive_slots(paths)
+            self.assertFalse(uncertain.order_unambiguous)
+            self.assertEqual(uncertain.newest_known_slot, 0)
+            self.assertIsNone(uncertain.next_generation)
+            self.assertEqual(uncertain.slots[1].state, SlotState.InvalidHeader)
+
+            paths[1].write_bytes(
+                encode_segment_header(SegmentHeader(1, 2, identity, 9))
+            )
+            duplicate = inspect_archive_slots(paths)
+            self.assertFalse(duplicate.order_unambiguous)
+            self.assertIsNone(duplicate.newest_known_slot)
+            self.assertIsNone(duplicate.next_generation)
+
+            paths[1].write_bytes(
+                encode_segment_header(SegmentHeader(1, 3, bytes(range(2, 18)), 10))
+            )
+            mismatch = inspect_archive_slots(paths)
+            self.assertFalse(mismatch.order_unambiguous)
+            self.assertIsNone(mismatch.next_generation)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -39,3 +39,7 @@ This is structural/semantic-range groundwork only and the new unit tests have **
 ## Sticky post-corruption forensic provenance
 
 After first damage, the scanner classifies every later record in the same stream as a candidate requiring forensic qualification. Only the resync-search byte counter resets between recognized frames. This prevents later CRC-valid frames from being mislabeled as part of a continuous verified prefix. The authoring regression test is present but not run.
+
+## Read-only archive slot inspection
+
+`inspect_slot` and `inspect_archive_slots` in `archive_recovery.py` stream bounded fixed-slot sources, track contiguous verified frame prefixes, surface torn/corrupt tail, compare nonwrapping generations and refuse a conclusive next generation when any header is untrustworthy, duplicate or inconsistent. No automatic truncation/append, no rename/listing assumption, and no claim of atomic Flash durability. Generated tests are source-only until appliance access is granted.

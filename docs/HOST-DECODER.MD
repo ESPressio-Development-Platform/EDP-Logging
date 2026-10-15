@@ -65,3 +65,7 @@ Once any corruption or resynchronisation has occurred, all subsequent individual
 ## Portable EDLS segment header parity
 
 Both C++ `WriteEdlsHeader/ReadEdlsHeader` and Python `encode_segment_header/parse_segment_header` use a version-one 40-byte portable layout, little-endian fixed-width fields, nonzero generation/incarnation/device, zero flags and CRC32C over exactly bytes 0..35. A shared golden vector is documented in source tests: slot 2, generation 7, device 01..10 hex, incarnation 9, checksum LE `AE 4E 0C 51`. This is not a Flash append protocol and does not establish crash durability. C++/Python tests are authored only, not run on an authorised appliance.
+
+## Read-only bounded multi-slot inspection
+
+`archive_recovery.py` accepts a statically supplied finite list of physical slot paths (minimum two; explicit upper bound) and inspects each header and *contiguous* EDLG prefix without loading an entire archive. It reports slot state (empty, intact, damaged tail, malformed header, wrong physical slot, I/O failure), last verified byte offset and frame count. It identifies only the largest **known** generation; any unreadable/bad header, duplicate generation or mixed DeviceIdentifier makes the generation ordering ambiguous and prevents recommending an incremented generation. No generation wraps; 64-bit exhaustion is explicit. The Python reader **never mutates files** or appends behind a damaged tail. This reports read-only evidence, not a safe writer election or Flash durability. Mock file tests were authored, NOT executed on an authorised appliance.
