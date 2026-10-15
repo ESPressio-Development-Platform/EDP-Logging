@@ -8,3 +8,4 @@
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
 - [EDLG portable writer](Reference-logging-EdlgFrame)
 - [EDLS portable header](Reference-logging-EdlsSegment)
+- [Compile-time site gate](Reference-logging-Instrumentation)

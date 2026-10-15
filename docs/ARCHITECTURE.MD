@@ -23,3 +23,7 @@ No production invocation/macro, identity attachment, source timestamp snapshot, 
 ## C++ EDLG framing prerequisite
 
 `WriteEdlgFrame` is an allocation-free, bounded C++20 writer around *already encoded* CBOR/JSON payload bytes. It does not interpret LogRecord schema or claim durability/cryptographic integrity. Header/trailer and CRC32C match the 20-byte D13.2 format and Python host tooling; one 23-byte C++/Python golden vector for `abc` is committed but unexecuted. Source and output spans must not alias. The helper is not a stand-alone Logging sink/coordinator and remains pending verified target builds.
+
+## D4 compile-time site evaluation gate
+
+`logging/Instrumentation.hpp` adds `InvokeLogSite<SeverityThreshold, Severity>(thunk)` and statement-style `EDP_LOG_WHEN_ENABLED(...)`. The entire instrumentation work is inside a lambda, so disabled sites do not evaluate any runtime expression (unlike taking ordinary function parameters before checking a gate). `SiteInvocationResult` distinguishes `NotInstrumented` from `Invoked` but is **NOT** an admission status. When enabled, the callable is invoked exactly once; future strongly typed Localisation argument compatibility and Memory admission are independent work. No provider is instantiated solely by the gate. Test source is authored only; compiler/target evidence is pending.

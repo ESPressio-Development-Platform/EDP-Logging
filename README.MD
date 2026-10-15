@@ -45,3 +45,7 @@ The scanner validates framing and the optional structural Typed Envelope only. F
 ## Archive slot inspection (read-only)
 
 Python `inspect_archive_slots` validates a finite explicitly named archive topology, identifies known generations conservatively and reports only contiguous verified frame prefixes. It refuses confident generation advancement with missing/corrupt/ambiguous evidence; damaged tail is never an append target. Does not replace future production EDP-Persistence archive rotation/recovery, and no executable proof has been obtained.
+
+## Compile-time disabled-site evaluation
+
+The source now includes an explicitly limited `EDP_LOG_WHEN_ENABLED(Minimum, Severity, statements...)` macro wrapping a lazy `InvokeLogSite` template. Disabled sites do not evaluate time/provider/policy/argument expressions because those are located within the discarded callable. Enabled sites execute the thunk once. It does NOT yet submit a LogRecord, type-check message schemas or provide sink delivery; it is a D4 compile-out prerequisite. An authored host test probes disabled/filtered side effects and enabled once-only evaluation; no executable validation yet.

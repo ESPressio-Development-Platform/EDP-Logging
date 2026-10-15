@@ -4,3 +4,4 @@
 #include "logging/AttemptSequence.hpp"
 #include "logging/EdlgFrame.hpp"
 #include "logging/EdlsSegment.hpp"
+#include "logging/Instrumentation.hpp"
