@@ -37,3 +37,7 @@ The scanner validates framing and the optional structural Typed Envelope only. F
 ## Source-only EDLG v1 framing
 
 `logging/EdlgFrame.hpp` provides `WriteEdlgFrame` over caller-owned spans: binary 20-byte overhead, CRC32C, little-endian length, completion marker and preflight capacity checking. It formats no LogRecord semantics. `EdlgFrameTests.cpp` supplies a byte-for-byte golden fixture also usable with Python host tooling. No build or execution test has run.
+
+## Portable EDLS segment header
+
+`src/logging/EdlsSegment.hpp` and `tools/edp_logging/archive.py` now encode/decode the same explicit 40-byte EDLS segment header, including generation, device/incarnation and CRC32C. C++/Python golden vectors and negative tests are authored. This is a format contract, not a durable archive implementation or a validated interoperable build.

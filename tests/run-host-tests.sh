@@ -13,4 +13,7 @@ trap 'rm -f "${OUTPUT}"' EXIT
 "${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
   -I"${ROOT}/src" "${ROOT}/tests/EdlgFrameTests.cpp" -o "${OUTPUT}"
 "${OUTPUT}"
+"${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+  -I"${ROOT}/src" "${ROOT}/tests/EdlsSegmentTests.cpp" -o "${OUTPUT}"
+"${OUTPUT}"
 echo "EDP-Logging C++20 foundation: PASS"

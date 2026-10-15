@@ -61,3 +61,7 @@ This is structural/semantic-range groundwork only and the new unit tests have **
 ## Forensic continuity correction
 
 Once any corruption or resynchronisation has occurred, all subsequent individually valid frames in **that same scanned source stream** retain `recovered_candidate=True`, even when no additional damaged bytes appear between them. The inter-frame resync-search byte budget resets after each validated candidate, but CRC success alone never re-establishes the pre-damage archive chain. Added an authored test covering an intact prefix, corruption and two successive later valid frames. This test remains **NOT EXECUTED** on the unavailable appliances.
+
+## Portable EDLS segment header parity
+
+Both C++ `WriteEdlsHeader/ReadEdlsHeader` and Python `encode_segment_header/parse_segment_header` use a version-one 40-byte portable layout, little-endian fixed-width fields, nonzero generation/incarnation/device, zero flags and CRC32C over exactly bytes 0..35. A shared golden vector is documented in source tests: slot 2, generation 7, device 01..10 hex, incarnation 9, checksum LE `AE 4E 0C 51`. This is not a Flash append protocol and does not establish crash durability. C++/Python tests are authored only, not run on an authorised appliance.

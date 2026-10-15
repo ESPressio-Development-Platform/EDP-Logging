@@ -7,3 +7,4 @@
 - [Architecture](../docs/ARCHITECTURE.MD)
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
 - [EDLG portable writer](Reference-logging-EdlgFrame)
+- [EDLS portable header](Reference-logging-EdlsSegment)

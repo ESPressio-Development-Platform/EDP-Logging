@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import unittest
 
-from edp_logging.archive import SegmentHeaderError, parse_segment_header
+from edp_logging.archive import SegmentHeader, SegmentHeaderError, parse_segment_header, encode_segment_header
 from edp_logging.framing import (
     Frame, FrameCodec, FrameIssue, FrameStatus, crc32c, encode_frame, scan_stream,
 )
@@ -97,6 +97,26 @@ class FramingTests(unittest.TestCase):
         header[16] ^= 0x40
         with self.assertRaises(SegmentHeaderError):
             parse_segment_header(bytes(header))
+
+
+    def test_edls_cpp_python_golden_parity(self) -> None:
+        segment = SegmentHeader(
+            slot=2, generation=7, device_identifier=bytes(range(1, 17)), incarnation=9
+        )
+        encoded = encode_segment_header(segment)
+        self.assertEqual(
+            encoded.hex(),
+            "45444c530100020007000000000000000102030405060708"
+            "090a0b0c0d0e0f1009000000ae4e0c51"
+        )
+        self.assertEqual(parse_segment_header(encoded), segment)
+        for invalid in (
+            SegmentHeader(2, 0, segment.device_identifier, 9),
+            SegmentHeader(2, 7, bytes(16), 9),
+            SegmentHeader(2, 7, segment.device_identifier, 0),
+        ):
+            with self.assertRaises(SegmentHeaderError):
+                encode_segment_header(invalid)
 
 
     def test_cbor_typed_envelope_structural_inspection(self) -> None:
