@@ -28,6 +28,12 @@ This is a **prerequisite prototype only**, not a complete Logging producer, queu
 
 **Actual EDP-Memory/EDP-Threading composition and two-thread regression:** `EDP_LOGGING_DEPENDENCY_ROOT=/path/to/pinned-sibling-repositories CXX=g++ bash tests/run-composed-admission-tests.sh` (also `clang++`). On RPI400, both compilers passed 12 successive real multi-producer/full-capacity/wake-handoff cycles, wake-before-wait latching, expired deadline, notification failure after Memory release and native Memory mutex contention (detached run `20261016T073232-16bb29e5`). This does **not** prove full strict D2 multi-producer lifecycle, FIFO fairness, every independent RAII release notification, provider release deadline or HIL. See [precise contract and limitations](docs/ADMISSION-WAKE-COORDINATOR.MD), [Wiki](wiki/Reference-logging-AdmissionWakeCoordinator.md) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
 
+## Optional G2 coherent Clock transfer/qualification seam (partial)
+
+`logging/LogTemporalEvidence.hpp` introduces a strong EDP-Clock-only `CoherentLogClockSample` return-by-value contract, `CaptureLogTime(provider)` (exactly **one** composed provider capture), and `QualifyLogClockSample` to reject contradictory synchronized/ClockEra quality, distinguish Synchronized/Degraded/Unavailable/Incoherent, and always retain the original canonical Monotonic coordinate. A synchronized coordinate of zero is **valid**; availability uses explicit status, not a numeric sentinel.
+
+**G2 is NOT complete**: the required concrete Clock/coordinator owner must still atomically capture Monotonic, synchronized value/uncertainty/state and upstream-assigned Era in one revision. Logging cannot derive Era or independently read three clocks. New C++20 strict GCC+Clang qualification tests passed on RPI400 (run `20261016T073929-8ef41bf6`); no production provider or HIL was tested. See [G2 contract](docs/COHERENT-TEMPORAL-EVIDENCE.MD), [Wiki](wiki/Reference-logging-LogTemporalEvidence.md) and [Dependencies](DEPENDENCY_GRAPH.MD).
+
 ## Future architecture
 
 The complete D1–D13 approved design and ordered seven-tranche implementation plan live in the authoritative [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Package version remains exactly `0.1.0`. No implementation branch is a production release until host/target validation is actually run and recorded.
