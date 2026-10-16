@@ -167,3 +167,12 @@ adds one optional, strictly preflighted EDP-Persistence FileStorage
 AppendFile operation. This is not an atomic rotating archive writer and
 does not qualify external power-loss durability without a provider
 whose actual retention/atomicity contract supports it.
+
+## Optional conservative EDLS successor publication
+
+[EDLS safe successor](docs/EDLS-SAFE-SUCCESSOR.MD)
+extends the existing abstract FileStorage scanner and checked append
+with one write-verified generation in a **previously empty** slot.
+It refuses occupied-slot overwrite, ambiguous history and generation
+exhaustion. It cannot be marketed as full circular/wear rotation or
+as an independently durable power-cut recovery guarantee.

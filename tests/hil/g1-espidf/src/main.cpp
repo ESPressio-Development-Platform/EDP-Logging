@@ -18,6 +18,10 @@
 #include <logging/EdlgFrameReader.hpp>
 #include <serialisation/PositionalValueEncoding.hpp>
 #include <logging/EdlgCheckpoint.hpp>
+#include <logging/EdlsArchiveSuccessor.hpp>
+#include <VfsFileStorage.hpp>
+#include <esp_spiffs.h>
+#include <cstring>
 #include <ESPressio_Persistence_ESP_IDF.hpp>
 #include <memory/ByteOperationsProvider.hpp>
 #include <nvs_flash.h>
@@ -151,6 +155,92 @@ bool TestNvsCheckpointAcrossReboot() noexcept {
     native.Close();
     std::printf("EDP_LOGGING_HIL|PASS|PERSISTENCE_RESTART_RECOVERY\n");
     return true;
+}
+
+// Native app Bootstrap selects concrete ESP-IDF VFS; Logging consumes only
+// abstract EDP-Persistence FileStorage and generic bounded wire inspection.
+struct ArchiveMountIdentity final {};
+using ArchiveBinding = ESPressio::Persistence::EspIdf::VfsBindingProfile<
+ ESPressio::Persistence::RetentionLevel::Restart,
+ ESPressio::Persistence::TextCaseSensitivity::CaseSensitive,
+ ESPressio::Persistence::MediaRemovability::Fixed,
+ 32U,32U,4096U>;
+using ArchiveNativeVfs = ESPressio::Persistence::EspIdf::VfsFileStorage<
+ ArchiveMountIdentity,ArchiveBinding,ByteOps>;
+
+bool TestConcreteEdlsVfsSuccessor() noexcept {
+ namespace P=ESPressio::Persistence;
+ const esp_vfs_spiffs_conf_t config{
+    .base_path="/edpfs",
+    .partition_label="edpfs",
+    .max_files=4,
+    .format_if_mount_failed=true
+ };
+ if(!Check(esp_vfs_spiffs_register(&config)==ESP_OK,"edls-vfs-spiffs-mount"))
+    return false;
+ static ByteOps bytes;
+ ArchiveNativeVfs storage("/edpfs",bytes);
+ if(!Check(storage.IsFileStorageReady(),"edls-owner-vfs-ready"))return false;
+ constexpr auto path0=P::FilePathView::Validate("slot0");
+ constexpr auto path1=P::FilePathView::Validate("slot1");
+ static_assert(path0.IsValuePresent&&path1.IsValuePresent);
+ const std::array<P::FilePathView,2U> paths{path0.Value,path1.Value};
+ std::array<std::byte,16U> identity{};
+ identity.fill(std::byte{0x5AU});
+ constexpr std::array<std::byte,4U> payload{std::byte{0x83U},
+  std::byte{0x01U},std::byte{0x02U},std::byte{0x03U}};
+ std::array<std::byte,48U> serialized{};
+ std::size_t size=0U;
+ if(!Check(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,payload,serialized,size,32U)==
+           Logging::EdlgFrameWriteResult::Succeeded,"edls-successor-source-frame"))
+    return false;
+ const auto frame=std::span<const std::byte>(serialized.data(),size);
+ const auto first=Logging::PublishEdlsSuccessorIntoEmptySlot<2U,32U,1024U>(
+     storage,paths,identity,1U,frame
+ );
+ if(!Check(first.Status==Logging::EdlsSuccessorStatus::PublishedAndVerified &&
+           first.Slot==0U && first.Generation==1U,"edls-vfs-first-published"))
+    return false;
+ // Recreate the concrete FileStorage provider, using a new owner handle,
+ // to prove a real on-flash SPIFFS read rather than an in-process cache.
+ ArchiveNativeVfs opened("/edpfs",bytes);
+ const auto verified=Logging::InspectEdlsArchive<2U,32U>(opened,paths);
+ if(!Check(verified.Condition==Logging::EdlsArchiveCondition::Unambiguous &&
+           verified.Slots[0U].VerifiedFrames==1U &&
+           verified.NextGeneration==2U,"edls-vfs-reopen-verified"))return false;
+ const auto second=Logging::PublishEdlsSuccessorIntoEmptySlot<2U,32U,1024U>(
+     opened,paths,identity,2U,frame
+ );
+ if(!Check(second.Status==Logging::EdlsSuccessorStatus::PublishedAndVerified &&
+           second.Slot==1U && second.Generation==2U,"edls-vfs-next-generation"))
+    return false;
+ const auto full=Logging::PublishEdlsSuccessorIntoEmptySlot<2U,32U,1024U>(
+     opened,paths,identity,3U,frame
+ );
+ if(!Check(full.Status==Logging::EdlsSuccessorStatus::NoEmptySlot,
+           "edls-vfs-no-destructive-rotation"))return false;
+ // Controlled test-only direct corruption through native VFS, never called
+ // by Logging source, and never presented as an external power-cut test.
+ auto* tamper=std::fopen("/edpfs/slot1","r+b");
+ if(!Check(tamper!=nullptr,"edls-vfs-corrupt-fixture-open"))return false;
+ const auto position=std::fseek(tamper,Logging::EdlsHeaderBytes+16U,SEEK_SET);
+ const std::uint8_t damaged=0xFEU;
+ const auto written=position==0?std::fwrite(&damaged,1U,1U,tamper):0U;
+ const auto flushed=std::fflush(tamper);
+ const auto closed=std::fclose(tamper);
+ if(!Check(position==0 && written==1U && flushed==0 && closed==0,
+           "edls-vfs-corruption-committed"))return false;
+ const auto broken=Logging::InspectEdlsArchive<2U,32U>(opened,paths);
+ if(!Check(broken.Slots[0U].Condition==Logging::EdlsSlotCondition::Clean &&
+           broken.Slots[1U].Condition==Logging::EdlsSlotCondition::DamagedTail &&
+           broken.Slots[0U].VerifiedFrames==1U,
+           "edls-vfs-prefix-failure-isolation"))return false;
+ if(!Check(opened.RemoveFile(path0.Value)==P::FileRemoveStatus::Succeeded &&
+           opened.RemoveFile(path1.Value)==P::FileRemoveStatus::Succeeded,
+           "edls-vfs-test-cleanup"))return false;
+ esp_vfs_spiffs_unregister("edpfs");
+ std::printf("EDP_LOGGING_HIL|PASS|NATIVE_EDLS_VFS_SUCCESSOR_GUARD\n");
+ return true;
 }
 
 // All competing native UART writers are quiescent while FIFO is in flight.
@@ -489,7 +579,8 @@ bool Run() {
 extern "C" void app_main() {
     std::printf("EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS\n");
     const bool nvs=Test::TestNvsCheckpointAcrossReboot();
-    const bool core=nvs && Test::Run();
+    const bool vfs=nvs && Test::TestConcreteEdlsVfsSuccessor();
+    const bool core=vfs && Test::Run();
     const bool success=core && Test::TestComposedSerialHardwareEndpoint();
     std::printf("EDP_LOGGING_HIL|RESULT|%s\n",success?"PASS":"FAIL");
     std::fflush(stdout);

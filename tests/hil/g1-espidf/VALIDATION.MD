@@ -261,3 +261,82 @@ private recovery directory. No power cut or original-image bytes
 published. Versions all remain 0.1.0. Source multi-sink tests do
 NOT constitute async fanout, source-to-EDLS writer, or governed
 canonical 15-field LogRecord.
+
+## 2026-10-16 21:52–21:56 CEST — REAL SPIFFS native VFS EDLS successor, 3/3 HIL PASS, full restored image
+
+**Actual device:** RPI400 integrated ESP32-D0WD (dual core),
+physical /dev/serial0 at 115200, external 4 MiB SPI Flash.
+Pinned PioArduino d41d8383706dc146fd91a0e1d3c59a915a4d493e,
+ESP-IDF 5.5.5, Xtensa C++20. Test firmware FULL compile/link SUCCESS,
+build log /srv/espressio/qualification/logging-production-20261016/
+real-vfs-successor-wroom-build.log, 395.95 seconds.
+Toolchain test-app static RAM 14,304 bytes (4.4% of 320 KiB), app Flash
+257,541 bytes (6.1% of 4 MiB); factory merged binary 323,488 B.
+These are **HIL test app** figures, not complete product resource budgets.
+
+This test uses a **disposable custom partition table ONLY during HIL**,
+decoded independently from actual generated partitions.bin before
+flashing: nvs at 0x9000, phy_init at 0xF000, factory application at
+0x10000 2 MiB, isolated edpfs SPIFFS at 0x210000 length 1984 KiB
+(0x1F0000). No permanent board layout or flash changes were authorised
+or left on the device. Source: tests/hil/g1-espidf/partitions.csv.
+CMake lists spiffs as an application-only SDK component; EDP-Logging
+source itself does not depend on any native or concrete provider.
+
+**Flash safeguarding:** FRESH complete 4,194,304-byte physical original
+image was successfully backed up as eight independently checked 512KiB
+UART reads before any test writes. Original exact length and SHA-256
+reconstruction passed (FLASH_BACKUP ALL_4MB_VERIFIED PASS).
+Private original bytes and all UART logs reside ONLY on RPI400
+/srv/espressio/recovery/logging-successor-vfs-20261016,
+never in GitHub. Temporary test factory binary physically written to
+real flash and independently verified in ROM download mode, result
+Verification successful (digest matched), before first app boot.
+
+**Real on-device provider proof:** Application Bootstrap selects
+EDP-Persistence-ESP-IDF::VfsFileStorage bound to the mounted SPIFFS
+filesystem and EDP-Platform-Portable::Memory::ByteOperationsProvider,
+both existing library owners. It commits and readback-verifies a valid
+EDLS header+canonical EDLG frame to slot0 (generation 1), constructs
+a NEW concrete FileStorage provider and scans slot0, commits second
+generation 2 in previously empty slot1, refuses third publication
+(NoEmptySlot, older history preserved), then deliberately edits a
+checksum-covered byte via native VFS to mimic corrupted storage,
+and proves slot0 remains CRC-clean while slot1 has DamagedTail.
+The test removes its own files and unmounts SPIFFS, then proves
+the prior actual EDP-Persistence NVS committed esp_restart recovery,
+EDP-Clock monotonic source, EDP-Memory/Threading producer,
+three independent synchronous sink statuses, source reclamation,
+native EDP-Serial-ESP-IDF binary UART EDLG output and independent
+host frame CRC/codec/parser verification.
+
+Three **SEPARATE actual GPIO reset campaigns**, each including a real
+ESP32 app reboot, passed:
+    EDP_LOGGING_NATIVE_HIL_SUMMARY|markers=13/13|fail=0|binary_edlg_verified=True
+All three private captured files vfs-hil-run1/2/3.log contain actual
+NATIVE_EDLS_VFS_SUCCESSOR_GUARD app marker and independent raw
+serial-frame CRC verification. This is genuine Flash filesystem
+IO through an actual app-composed EDP-Persistence owner, not a mock,
+and not just UART debug printing.
+
+**RESTORED ORIGINAL FIRMWARE IN FULL, digest MATCH:** raw esptool
+rewrote the complete original 0x400000 (4,194,304) bytes, then
+independently verified exact full-chip digest before ANY normal app
+reboot, result:
+    Verification successful (digest matched).
+Only afterward did esp32-integrated reset allow original firmware
+to resume. Actual integrated status DTR=HIGH RTS=HIGH,
+UART=/dev/serial0 EXISTS=yes. Protected private logs:
+restore-original-write.log and restore-original-verify.log.
+Subsequent normal app NVS updates are expected after the complete
+preboot original image was verified.
+
+**Explicitly NOT certified:** REAL external power removal or an
+interrupted filesystem write; atomic ReplaceFile with the selected
+SPIFFS profile, because VfsFileStorage advertises
+FileFailurePreservation::MayModify and FileInterruptionAtomicity::None;
+automatic overwriting circular EDLS retention/erase/wear policy;
+signed/historically authenticated LogRecord source and its EDP-System
+permanent TypeIdentifier; full async multiworker fanout or product
+G1–G15 gate closure. No power loss is simulated by esptool ROM reset.
+Versions remain 0.1.0.

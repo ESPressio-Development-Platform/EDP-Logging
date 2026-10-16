@@ -158,3 +158,16 @@ EDP-Logging has no mandatory VFS, Mesh or Serial dependency.
     [internal existing owner validation]
 
 No concrete filesystem, Mesh, Serial or supplementary allocator.
+
+
+## Optional EDLS successor publication
+
+- EDP-Logging [logging/EdlsArchiveSuccessor.hpp only]
+  - EDP-Persistence [abstract FileStorage::ReplaceFile/GetFileSize/ReadFileAt]
+    - EDP-System [transitive Composition]
+  - Logging/EdlsArchiveInspection, EdlsSegment, EdlgFrameReader
+    [internal previously approved source]
+- Application-specific ESP32 HIL Bootstrap separately chooses
+  EDP-Persistence-ESP-IDF::VfsFileStorage with SPIFFS mounted by ESP-IDF,
+  EDP-Platform-Portable::Memory::ByteOperationsProvider. This is NOT
+  a Logging source dependency on any native ESP-IDF or concrete VFS.

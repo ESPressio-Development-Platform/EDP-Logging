@@ -5,6 +5,7 @@
 #include <span>
 #include <logging/EdlsArchiveInspection.hpp>
 #include <logging/EdlsArchiveAppend.hpp>
+#include <logging/EdlsArchiveSuccessor.hpp>
 namespace {
 namespace L=ESPressio::Logging;
 namespace P=ESPressio::Persistence;
@@ -14,6 +15,10 @@ struct Storage {
  bool fault=false;
  bool failAppend=false;
  bool skewSize=false;
+ bool failReplace=false;
+ bool tornReplace=false;
+ bool badReadback=false;
+ unsigned replaceCount=0U;
  mutable unsigned sizeQueries=0;
  static std::size_t index(P::FilePathView p){return p.Data()[4]=='0'?0U:1U;}
  P::FileSizeResult GetFileSize(P::FilePathView p) const noexcept {
@@ -35,6 +40,22 @@ struct Storage {
    static_cast<std::byte*>(d.Address)[k]=bytes[i][o.RawValue+k];
   return {P::FileReadStatus::Succeeded,
    static_cast<std::uint8_t>(P::ReadFact::AvailableDataSizeIsKnown),n,P::StorageSize{a}};
+ }
+ bool IsFileStorageReady() const noexcept { return true; }
+ P::FileRemoveStatus RemoveFile(P::FilePathView p) noexcept {
+  length[index(p)]=0U;return P::FileRemoveStatus::Succeeded;
+ }
+ P::FileReplaceStatus ReplaceFile(P::FilePathView p,P::SourceBufferView src) noexcept {
+  ++replaceCount;
+  if(failReplace)return P::FileReplaceStatus::IoFailure;
+  const auto i=index(p);
+  if(src.Size>bytes[i].size())return P::FileReplaceStatus::FileTooLarge;
+  const auto n=tornReplace ? src.Size/2U : src.Size;
+  for(std::size_t k=0U;k<n;++k)
+   bytes[i][k]=static_cast<const std::byte*>(src.Address)[k];
+  length[i]=n;
+  if(badReadback && n>=20U)bytes[i][16U]^=std::byte{1};
+  return P::FileReplaceStatus::Succeeded;
  }
  P::FileAppendStatus AppendFile(P::FilePathView p,P::SourceBufferView src) noexcept {
   if(failAppend)return P::FileAppendStatus::IoFailure;
@@ -134,4 +155,70 @@ int main(){
  journal.skewSize=true;journal.sizeQueries=0;
  posted=L::AppendEdlgToCleanEdlsSlot<16U,128U>(journal,p0.Value,0U,exact);
  assert(posted.Status==L::EdlsAppendStatus::ChangedDuringPreflight);
+
+ // Newly published successor is never permitted to overwrite a prior slot.
+ Storage successor{};
+ std::array<std::byte,16U> identity{};
+ identity.fill(std::byte{1U});
+ auto publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  successor,paths,identity,1U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::PublishedAndVerified);
+ assert(publish.Native==P::FileReplaceStatus::Succeeded &&
+        publish.Slot==0U && publish.Generation==1U);
+ assert(successor.replaceCount==1U && successor.length[0]==40U+n);
+ auto before0=successor.bytes[0];
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  successor,paths,identity,2U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::PublishedAndVerified &&
+        publish.Slot==1U && publish.Generation==2U);
+ assert(successor.bytes[0]==before0);
+ assert(successor.replaceCount==2U);
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  successor,paths,identity,3U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::NoEmptySlot &&
+        successor.replaceCount==2U);
+ auto invalidIdentity=identity;
+ invalidIdentity.fill(std::byte{3U});
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  successor,paths,invalidIdentity,4U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::InvalidIdentityOrFrame);
+ Storage deniedSuccessor{};
+ deniedSuccessor.failReplace=true;
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  deniedSuccessor,paths,identity,1U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::ProviderRejected &&
+        publish.Native==P::FileReplaceStatus::IoFailure &&
+        deniedSuccessor.length[0]==0U);
+ Storage tornSuccessor{};
+ tornSuccessor.tornReplace=true;
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  tornSuccessor,paths,identity,1U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::ReadbackUnconfirmed);
+ assert(tornSuccessor.length[0]>0U);
+ auto ambiguous=L::InspectEdlsArchive<2U,16U>(tornSuccessor,paths);
+ assert(ambiguous.Condition==L::EdlsArchiveCondition::Ambiguous);
+ Storage corruptSuccessor{};
+ corruptSuccessor.badReadback=true;
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  corruptSuccessor,paths,identity,1U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::ReadbackUnconfirmed);
+ Storage oldArchive{};
+ oldArchive.header(0U,7U);oldArchive.frame(0U);
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  oldArchive,paths,identity,2U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::PublishedAndVerified &&
+        publish.Slot==1U && publish.Generation==8U);
+ Storage badHeader{};
+ badHeader.header(0U,7U);
+ badHeader.bytes[0U][36U]^=std::byte{1U};
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  badHeader,paths,identity,2U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::ArchiveAmbiguous &&
+        badHeader.replaceCount==0U);
+ Storage exhausted{};
+ exhausted.header(0U,UINT64_MAX);
+ publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
+  exhausted,paths,identity,2U,exact);
+ assert(publish.Status==L::EdlsSuccessorStatus::ArchiveAmbiguous &&
+        exhausted.replaceCount==0U);
 }

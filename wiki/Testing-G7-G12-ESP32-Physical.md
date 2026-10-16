@@ -28,3 +28,19 @@ restart recovery, NOT interrupted external power-loss recovery, nor a
 rolling EDLS archive, published governed LogRecord schema, or source
 authenticity proof. Exact current evidence:
 tests/hil/g1-espidf/VALIDATION.MD and docs/EDLG-KEYVALUE-CHECKPOINT.MD.
+
+## 2026-10-16 real SPIFFS FileStorage successor on the WROOM
+
+Application-only disposable custom partition SPIFFS at 0x210000,
+1984 KiB, selects the existing concrete ESP-IDF VfsFileStorage
+through Bootstrap. Native Flash source readback confirms two
+distinct EDLS generations 1 and 2; a third is refused with
+NoEmptySlot rather than erasing historic data. Real filesystem
+byte-tamper detection finds corrupted slot1 tail while slot0
+remains CRC-clean. Three independent physical runs all pass
+13/13 test and host checkpoints, with real NVS restart and
+EDP-Serial UART CRC independently checked. Complete original
+0x400000 firmware image restored and separately digest-verified
+before normal firmware reboot. No external power interruption
+or actual PowerLoss atomicity demonstrated; VFS provider reports
+interruption atomicity None. See HIL VALIDATION.MD.

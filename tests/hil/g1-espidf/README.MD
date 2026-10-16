@@ -96,3 +96,25 @@ pool live-instance count returns to zero. Current capture script
 expects 12/12 lifecycle markers as well as actual NVS recovery
 and EDP-Serial raw wire CRC verification. This still does not
 constitute a multi-task worker/fork/durable LogRecord pipeline.
+
+## 2026-10-16 disposable SPIFFS VFS owner proof
+
+New application-only test partitions.csv isolates a **temporary**
+edpfs SPIFFS partition (0x210000, 1984 KiB) from the factory app.
+The HIL app imports existing EDP-Persistence-ESP-IDF VfsFileStorage
+and ESP-IDF SPIFFS **ONLY at application Bootstrap**, never inside
+Logging source. TestConcreteEdlsVfsSuccessor publishes generation 1
+into an empty physical file slot, reopens the native FileStorage,
+publishes generation 2 into the other empty slot, proves safe refusal
+to overwrite either slot, injects actual VFS file corruption and
+proves the first generation's CRC prefix remains clean. Files are
+cleaned and the mount closed. Host serial capture expects 13 app
+and host markers, including NATIVE_EDLS_VFS_SUCCESSOR_GUARD.
+
+THREE physical ESP32 campaigns succeeded 13/13 each; complete
+original 4 MiB flash was backed up immediately before HIL and
+restored with independent full-chip digest matching before normal
+original firmware reboot. See VALIDATION.MD for all source pins,
+evidence and limits. This is NOT externally interrupted POWERLOSS,
+atomic filesystem replace, destructive generation rotation, or
+final canonical LogRecord certification.

@@ -34,3 +34,4 @@
 - [Physical Persistence and native Serial](Testing-G7-G12-ESP32-Physical.md)
 - [EDLS archive inspection](Reference-logging-EdlsArchiveInspection.md)
 - [EDLS checked append](Reference-logging-EdlsArchiveAppend.md)
+- [Guarded EDLS successor](Reference-logging-EdlsArchiveSuccessor.md)

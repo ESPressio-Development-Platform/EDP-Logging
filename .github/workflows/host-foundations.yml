@@ -146,8 +146,49 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-edlg-checkpoint-tests.sh
+      - name: Checkout EDP-Persistence ESP-IDF VFS owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Persistence-ESP-IDF
+          ref: main
+          path: EDP-Persistence-ESP-IDF
+      - name: Checkout EDP-Memory abstraction
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Memory
+          ref: feature/logging-v1
+          path: EDP-Memory
+      - name: Checkout EDP-Platform-Portable ByteOperations provider
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform-Portable
+          ref: main
+          path: EDP-Platform-Portable
+      - name: Checkout EDP-BoundedTopology owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTopology
+          ref: main
+          path: EDP-BoundedTopology
+      - name: Checkout EDP-Threading owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Threading
+          ref: feature/logging-v1
+          path: EDP-Threading
+      - name: Checkout EDP-Clock abstraction
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Clock
+          ref: mesh_v1
+          path: EDP-Clock
       - name: Run bounded EDLS FileStorage read-only recovery tests
         env:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-edls-archive-inspection-tests.sh
+      - name: Test real EDP-Persistence VFS provider and guarded archive successor
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-real-vfs-successor-tests.sh
