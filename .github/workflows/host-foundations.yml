@@ -51,3 +51,55 @@ jobs:
         env:
           EDP_LOCALISATION_SOURCE_DIR: ${{ github.workspace }}/EDP-Localisation
         run: bash EDP-Logging/tests/run-historical-schema-tests.sh
+
+  transactional-record-fifo:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - name: Checkout Logging
+        uses: actions/checkout@v4
+        with:
+          path: EDP-Logging
+      - name: Checkout Memory owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Memory
+          ref: feature/logging-v1
+          path: EDP-Memory
+      - name: Checkout Threading owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Threading
+          ref: feature/logging-v1
+          path: EDP-Threading
+      - name: Checkout Clock owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Clock
+          ref: mesh_v1
+          path: EDP-Clock
+      - name: Checkout System owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-System
+          ref: serialisation_prerequisites
+          path: EDP-System
+      - name: Checkout Platform abstraction owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform
+          ref: main
+          path: EDP-Platform
+      - name: Checkout BoundedTopology owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTopology
+          ref: main
+          path: EDP-BoundedTopology
+      - name: Compile and run owner-integrated transactional FIFO tests
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-transactional-record-queue-tests.sh

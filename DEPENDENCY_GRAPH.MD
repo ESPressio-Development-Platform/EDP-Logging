@@ -49,6 +49,12 @@ The optional `BoundedAdmission` source is a partial reusable algorithm with fake
 
 `#include <logging/TrackedAdmissionCoordinator.hpp>` activates exactly the SAME abstract **EDP-Clock / EDP-Memory / EDP-Threading / EDP-Platform** dependency graph as the opt-in G1 lifecycle. It introduces only standard C++20 lock-free atomic counters and private owned EDP-Memory lease storage, while delegating all Memory capacity release and wake publication to already-composed G1/Threading abstractions. Neither Logging default umbrella nor any foundational dependency acquires a new reverse edge, and there is no EDP-Memory native finite Acquire call. Bootstrap chooses concrete providers; the tracked guard cannot make a raw lease outside its owner safe or cancel unknown external tasks.
 
+### Additional optional G1 transactional record queue (implemented partial)
+
+`#include <logging/TransactionalRecordQueue.hpp>` activates a **direct optional EDP-BoundedTopology dependency**, in addition to the existing EDP-Threading/Clock/Memory/Platform abstractions via the included `AdmissionWakeCoordinator.hpp`. Its state consists of the canonical bounded slot-occupancy bitmap, the canonical non-owning intrusive FIFO endpoints and each queue record's compact Next link, plus one move-only Memory lease, generation token and retirement coordination bit/state. All object allocation, destruction and active lease backing remain in **EDP-Memory**; the caller/Bootstrap selects the Threading ordinary mutex and bounded wait/wake providers. No platform-specific provider, EDP-Serial, EDP-Mesh, or Logging→Clock implementation dependency is introduced. This opt-in code is NOT imported by the core Logging umbrella.
+
+No reverse EDP-BoundedTopology→Logging/Memory dependency exists. Queue ‘Commit’ FIFO is relative to successful commits, not producer arrival or instrumentation ticket order. See `docs/TRANSACTIONAL-RECORD-QUEUE.MD` for unimplemented RAII/end-to-end producer limitations and the exact host + real EDP-Memory tests.
+
 ### Additional optional G2 coherent-clock evidence qualifier
 
 `#include <logging/LogTemporalEvidence.hpp>` activates a direct dependency on **EDP-Clock abstraction only**, with EDP-Clock's own existing transitive EDP-System and EDP-Platform dependencies. It introduces no Logging→Mesh, no new platform concrete and no reverse edge. The application-selected coherent revision-atomic capture provider is **not** supplied by EDP-Logging and must be Bootstrap-composed and qualified by the Clock/coordinator owner. The default Logging umbrella remains dependency-free.
@@ -62,7 +68,6 @@ The optional `BoundedAdmission` source is a partial reusable algorithm with fake
 ## Planned but not yet activated by Logging
 
 - EDP-System — governed Logging root TypeIdentifier, generated schemas and Composition
-- EDP-BoundedTopology — own FIFO queue and compact queue identities
 - EDP-Localisation — historical schema/pack contracts
 - EDP-Serialisation — bounded typed CBOR/JSON encoding
 - EDP-Persistence — archive sink provider

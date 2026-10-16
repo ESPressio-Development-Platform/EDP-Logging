@@ -8,6 +8,7 @@
 - [Composed producer wake coordinator](Reference-logging-AdmissionWakeCoordinator)
 - [Finite admission shutdown/drain (partial G1)](Reference-logging-AdmissionLifecycleCoordinator)
 - [Tracked RAII lease and strict drain (partial G1)](Reference-logging-TrackedAdmissionCoordinator)
+- [Transactional Memory-backed record FIFO (partial G1)](Reference-logging-TransactionalRecordQueue)
 - [Clock temporal evidence (partial G2)](Reference-logging-LogTemporalEvidence)
 - [Generated bounded diagnostics (partial G3)](Reference-logging-DiagnosticArgumentEncoding)
 - [Architecture](../docs/ARCHITECTURE.MD)

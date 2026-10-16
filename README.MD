@@ -2,7 +2,7 @@
 
 Bounded, structured embedded diagnostic logging for the ESPressio Development Platform.
 
-**Status — `feature/logging-v1`: foundation-only implementation.** Severity and attempt ticket primitives exist; a complete LogRecord, producer admission, coherent EDP-Clock capture, queue, coordinator, sinks, archive and decoder are **not yet implemented**. Do not use this library as a functioning logging pipeline.
+**Status — `feature/logging-v1`: partial implementation, NOT a production logging pipeline.** Severity, attempt tickets, EDLG/EDLS framing, partial Clock/diagnostic tooling, bounded Memory/Threading admission, tracked leases and now a transactional FIFO record queue are implemented as opt-in facilities. The complete governed LogRecord, unified producer, coherent Clock/Mesh source, production sinks and embedded durable archive remain incomplete. Do not use this library as a functioning end-to-end logging pipeline.
 
 ## Implemented API
 
@@ -39,6 +39,12 @@ This is a **prerequisite prototype only**, not a complete Logging producer, queu
 `logging/TrackedAdmissionCoordinator.hpp` adds an opt-in **nonmovable RAII lease guard** that privately owns the EDP-Memory ObjectPoolLease, pairs every successful explicit release or ordinary scope exit with composed EDP-Threading producer wake publication, and retains accurate outstanding-lease counts. `ShutdownTrackedUntil<MaxDrainWakes>(oneMonotonicDeadline)` can distinguish zero active calls from **still-outstanding tracked leases** and conservatively refuses a clean shutdown if an underlying native Memory release failed during guard destruction and the later native destructor's outcome could not be observed. A trailing notifier publishes a best-effort wake after native destruction to avoid a missed capacity wake if that retry succeeded. The original untracked G1 public surfaces remain unchanged.
 
 This **does not solve all G1**: raw Memory leases outside this opt-in owner are not tracked, a native lease destructor can still fail without exposing its status, producer FIFO/fairness and end-to-end provider operation deadlines are not proven, and Bootstrap must join all Tasks. GCC/Clang real EDP-Memory/Threading host tests including destructor-only wake of a blocked producer passed RPI400 `20261016T085118-8d57dc8a`. See [implementation limitations](docs/TRACKED-ADMISSION-LEASES.MD), [Wiki](wiki/Reference-logging-TrackedAdmissionCoordinator.md) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
+
+## Optional G1 transactional record publication FIFO (new, partial)
+
+`logging/TransactionalRecordQueue.hpp` now composes canonical EDP-BoundedTopology stable slot occupancy **and** intrusive FIFO over already-owned EDP-Memory ObjectPool leases, guarded by a Bootstrap-provided EDP-Threading OrdinaryMutex and notified via existing G1 bounded producer wake coordination. `Begin(lease,ticket)` reserves unpublished ownership; `Commit(ticket)` establishes the authoritative commit-order FIFO; `Abort(ticket)` returns reserved capacity; `Pop(ticket)` transfers exclusive consumer interest; `Complete(ticket)` releases the native Memory lease and publishes capacity availability. A generation-stamped ticket prevents reuse after reclamation, while a retirement claim prevents concurrent duplicate native release. No heap, private Signal, new Clock timeline, extra allocation bitmap or permanent Memory waiter registry is introduced.
+
+This is **not yet the complete D12 RAII producer**: move-only publication/consumer guards, one end-to-end Memory+queue admission Clock deadline, strong release/lifecycle ownership after provider failure, production record envelope, fan-out and physical target qualification remain pending. Host GCC/Clang tests with actual EDP-Memory and EDP-Threading providers including duplicate-ticket concurrency have passed on RPI400. Use `CXX=g++ EDP_LOGGING_DEPENDENCY_ROOT=/path/to/pinned-siblings bash tests/run-transactional-record-queue-tests.sh` (also `clang++`). See [contract and limitations](docs/TRANSACTIONAL-RECORD-QUEUE.MD). This opt-in header is not part of the lightweight default umbrella.
 
 ## Optional G2 coherent Clock transfer/qualification seam (partial)
 
