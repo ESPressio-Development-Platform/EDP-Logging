@@ -177,9 +177,61 @@ namespace {
         assert(queue.IntegrityFailed());
     }
 
+    void TestMoveOnlyRaiiTransactionAndConsumerClaim() {
+        using Reservation = TestQueue::Reservation;
+        using Consumer = TestQueue::ConsumerClaim;
+        static_assert(!std::is_copy_constructible_v<Reservation>);
+        static_assert(!std::is_copy_assignable_v<Reservation>);
+        static_assert(std::is_nothrow_move_constructible_v<Reservation>);
+        static_assert(!std::is_copy_constructible_v<Consumer>);
+        static_assert(!std::is_copy_assignable_v<Consumer>);
+        static_assert(std::is_nothrow_move_constructible_v<Consumer>);
+
+        Mutex mutex;
+        Coordinator coordinator;
+        TestQueue queue(mutex, coordinator);
+        Lease first(41);
+        {
+            Reservation unpublished;
+            assert(queue.Begin(first, unpublished) == Result::Succeeded);
+            assert(first.IsEmpty() && unpublished.IsActive());
+            assert(unpublished.Borrow() && unpublished.Borrow()->Value == 41);
+            Reservation moved(std::move(unpublished));
+            assert(!unpublished.IsActive() && moved.IsActive());
+            Lease competing(42);
+            assert(queue.Begin(competing, moved) == Result::OutputHandleOccupied);
+            assert(!competing.IsEmpty());
+            assert(moved.Commit() == Result::Succeeded);
+            assert(!moved.IsActive());
+        }
+        {
+            Consumer consumer;
+            assert(queue.Pop(consumer) == Result::Succeeded);
+            assert(consumer.IsActive() && consumer.Borrow()->Value == 41);
+            Consumer moved(std::move(consumer));
+            assert(!consumer.IsActive() && moved.IsActive());
+            // Destructor of moved is the final reader and releases capacity.
+        }
+        assert(coordinator.Releases == 1U);
+        assert(coordinator.Publications == 2U);
+
+        Lease aborted(99);
+        {
+            Reservation forgotten;
+            assert(queue.Begin(aborted, forgotten) == Result::Succeeded);
+            assert(forgotten.IsActive());
+            // Destructor must roll back the unpublished queue/Memory claim.
+        }
+        assert(coordinator.Releases == 2U);
+        TestQueue::Ticket empty;
+        assert(queue.Pop(empty) == Result::Empty);
+        assert(!queue.IntegrityFailed());
+    }
+
     void TestCompileTimeMemoryBudgetAndEmptyLease() {
         static_assert(TestQueue::Capacity == 2U);
         static_assert(sizeof(TestQueue::Index) == 1U);
+        static_assert(TestQueue::StorageBytes == sizeof(TestQueue));
         Mutex mutex;
         Coordinator callbacks;
         TestQueue queue(mutex, callbacks);
@@ -195,5 +247,6 @@ int main() {
     TestFailedMemoryReleaseRetryAndWakeReport();
     TestMutexBusyAndFailure();
     TestNativeMutexReleaseFailureIsNotHidden();
+    TestMoveOnlyRaiiTransactionAndConsumerClaim();
     TestCompileTimeMemoryBudgetAndEmptyLease();
 }

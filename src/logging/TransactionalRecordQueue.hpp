@@ -29,7 +29,8 @@ namespace ESPressio::Logging {
         GenerationExhausted = 7U,
         ReleasedNotificationFailed = 8U,
         ReleaseUnconfirmed = 9U,
-        IntegrityFailure = 10U
+        IntegrityFailure = 10U,
+        OutputHandleOccupied = 11U
     };
 
     /// Logging-specific transactional ordering of already acquired Memory leases.
@@ -80,6 +81,105 @@ namespace ESPressio::Logging {
 
             [[nodiscard]] bool IsValid() const noexcept {
                 return Slot.IsValid() && Generation != 0U;
+            }
+        };
+
+        /// Move-only owner of an unpublished reservation. Its destructor
+        /// aborts the Memory lease unless Commit disarms this handle.
+        class Reservation final {
+            friend class TransactionalRecordQueue;
+
+            TransactionalRecordQueue* _owner{nullptr};
+            Ticket _ticket{};
+
+            void AbandonOnScopeExit() noexcept {
+                if (!_owner) return;
+                auto* owner = _owner;
+                const auto status = Abort();
+                if (status != RecordQueueResult::Succeeded &&
+                    status != RecordQueueResult::ReleasedNotificationFailed) {
+                    // Do not silently allow Bootstrap to tear down an owner
+                    // whose required native lease release was not verified.
+                    owner->_integrityFailed.store(true, std::memory_order_release);
+                }
+            }
+
+        public:
+            Reservation() noexcept = default;
+            Reservation(const Reservation&) = delete;
+            Reservation& operator=(const Reservation&) = delete;
+            Reservation(Reservation&& other) noexcept :
+                _owner(std::exchange(other._owner, nullptr)),
+                _ticket(std::exchange(other._ticket, Ticket{})) {}
+            Reservation& operator=(Reservation&&) = delete;
+            ~Reservation() noexcept { AbandonOnScopeExit(); }
+
+            [[nodiscard]] bool IsActive() const noexcept { return _owner != nullptr; }
+
+            [[nodiscard]] TLease* Borrow() noexcept {
+                return _owner ? _owner->Borrow(_ticket) : nullptr;
+            }
+
+            [[nodiscard]] RecordQueueResult Commit() noexcept {
+                if (!_owner) return RecordQueueResult::InvalidTicket;
+                const auto outcome = _owner->Commit(_ticket);
+                if (outcome == RecordQueueResult::Succeeded) _owner = nullptr;
+                return outcome;
+            }
+
+            [[nodiscard]] RecordQueueResult Abort() noexcept {
+                if (!_owner) return RecordQueueResult::InvalidTicket;
+                const auto outcome = _owner->Abort(_ticket);
+                if (outcome == RecordQueueResult::Succeeded ||
+                    outcome == RecordQueueResult::ReleasedNotificationFailed) {
+                    _owner = nullptr;
+                }
+                return outcome;
+            }
+        };
+
+        /// Move-only exclusive consumer interest. Final source reader releases
+        /// through the original Memory/Threading coordinator on completion.
+        class ConsumerClaim final {
+            friend class TransactionalRecordQueue;
+
+            TransactionalRecordQueue* _owner{nullptr};
+            Ticket _ticket{};
+
+            void CompleteOnScopeExit() noexcept {
+                if (!_owner) return;
+                auto* owner = _owner;
+                const auto status = Complete();
+                if (status != RecordQueueResult::Succeeded &&
+                    status != RecordQueueResult::ReleasedNotificationFailed) {
+                    owner->_integrityFailed.store(true, std::memory_order_release);
+                }
+            }
+
+        public:
+            ConsumerClaim() noexcept = default;
+            ConsumerClaim(const ConsumerClaim&) = delete;
+            ConsumerClaim& operator=(const ConsumerClaim&) = delete;
+            ConsumerClaim(ConsumerClaim&& other) noexcept :
+                _owner(std::exchange(other._owner, nullptr)),
+                _ticket(std::exchange(other._ticket, Ticket{})) {}
+            ConsumerClaim& operator=(ConsumerClaim&&) = delete;
+            ~ConsumerClaim() noexcept { CompleteOnScopeExit(); }
+
+            [[nodiscard]] bool IsActive() const noexcept { return _owner != nullptr; }
+
+            [[nodiscard]] TLease* Borrow() noexcept {
+                return _owner ? _owner->Borrow(_ticket) : nullptr;
+            }
+
+            [[nodiscard]] RecordQueueResult Complete() noexcept {
+                if (!_owner) return RecordQueueResult::InvalidTicket;
+                const auto outcome = _owner->Complete(_ticket);
+                if (outcome == RecordQueueResult::Succeeded ||
+                    outcome == RecordQueueResult::ReleasedNotificationFailed) {
+                    _owner = nullptr;
+                }
+                return outcome;
             }
         };
 
@@ -281,6 +381,24 @@ namespace ESPressio::Logging {
             return UnlockWith(RecordQueueResult::GenerationExhausted);
         }
 
+        /// Strong RAII form: assigns one inactive move-only unpublished owner.
+        /// All failure paths that retain caller Memory ownership leave out
+        /// inactive. If a native mutex release failed after lease transfer,
+        /// out still retains the ticket so the error cannot be misread as
+        /// failure-before-ownership-transfer.
+        [[nodiscard]] RecordQueueResult Begin(
+            TLease& lease, Reservation& out
+        ) noexcept {
+            if (out.IsActive()) return RecordQueueResult::OutputHandleOccupied;
+            Ticket ticket{};
+            const auto result = Begin(lease, ticket);
+            if (ticket.IsValid() && lease.IsEmpty()) {
+                out._owner = this;
+                out._ticket = ticket;
+            }
+            return result;
+        }
+
         /// Transaction commit publishes the already-owned record to FIFO once.
         [[nodiscard]] RecordQueueResult Commit(Ticket ticket) noexcept {
             auto outcome = Lock();
@@ -327,6 +445,19 @@ namespace ESPressio::Logging {
             ticket = Ticket{index, record.Generation};
             return Unlock() ? RecordQueueResult::Succeeded
                             : RecordQueueResult::IntegrityFailure;
+        }
+
+        /// Strong RAII form: a successful Pop creates a move-only consuming
+        /// handle. On normal scope exit it confirms Memory lease release.
+        [[nodiscard]] RecordQueueResult Pop(ConsumerClaim& out) noexcept {
+            if (out.IsActive()) return RecordQueueResult::OutputHandleOccupied;
+            Ticket ticket{};
+            const auto result = Pop(ticket);
+            if (ticket.IsValid()) {
+                out._owner = this;
+                out._ticket = ticket;
+            }
+            return result;
         }
 
         /// Borrow the source's Memory lease while holding the exclusive

@@ -27,7 +27,9 @@ The record queue does **not** replace the upstream Logging `AcquirePoolUntil`/Tr
 
 The separate `RetirementClaimed` flag prevents concurrent duplicate `Complete`/`Abort` invocations with the same copied ticket from releasing a native Memory lease twice. An unconfirmed provider release **retains** the stable Retiring slot, and a later retry can be attempted if the native lease is still visibly owned. A provider that reports failure while ownership inexplicably disappears is treated as integrity failure, not proof of a clean release.
 
-**Current deliberate limitations:** This is a composable core, not the complete producer interface. Its ticket is a typed value rather than the finally planned exclusive move-only RAII transaction; exclusive producer/consumer borrowing is still a stated caller precondition. Queue capacity starvation is signalled as `CapacityUnavailable` and has not yet been folded into one end-to-end canonical Clock deadline for the entire producer transaction. Queue `Busy` requires caller scheduling; no implicit spin or waiting. Single-actor consumption and forked sink reader lifetimes remain the higher-level coordinator's responsibility. A sticky integrity failure requires refusing operation/teardown, not guessing lock ownership.
+**Move-only RAII ownership now available:** `Begin(lease, Reservation&)` establishes one exclusive `Reservation`. The guard is noncopyable, move-constructible, exposes `Borrow()` and `Commit()/Abort()`, and automatically aborts the native Memory lease if unpublished when its scope ends. Similarly `Pop(ConsumerClaim&)` establishes a noncopyable, move-constructible final-reader `ConsumerClaim` which automatically invokes `Complete()` on scope exit. A failed automatic release marks the queue's integrity failed rather than fabricating clean shutdown. Earlier raw `Ticket` overloads remain an explicitly lower-level interface whose caller must enforce exclusive ownership; the RAII overloads are preferred for new consumers.
+
+**Current deliberate limitations:** This is a composable core, not the complete producer interface. Queue capacity starvation is signalled as `CapacityUnavailable` and has not yet been folded into one end-to-end canonical Clock deadline for the entire producer transaction. Queue `Busy` requires caller scheduling; no implicit spin or waiting. Single-actor consumption and forked sink reader lifetimes remain the higher-level coordinator's responsibility. A sticky integrity failure requires refusing operation/teardown, not guessing lock ownership.
 
 ## Validation
 
@@ -40,7 +42,7 @@ Tests run with `g++` and `clang++` on RPI400 in mandatory persisted detached run
 
 ## Architectural next work
 
-- Move-only RAII unpublished transaction handle with failure reporting and a consumer claim that cannot be aliased, maintaining the current stable slot and its native lease.
+- Expand the new move-only RAII Reservation/ConsumerClaim into the full composer-level producer and sink reader lifetimes, with explicit failure propagation for automatic unwinding and no borrowed references escaping the last owner.
 - Compose queue-slot and Memory-capacity admission under one canonical EDP-Clock deadline without duplicated Threading wake slots; comprehensive lost-wake/fairness/producer cancellation tests.
 - Complete LogRecord provenance/argument model, generated diagnostic schemas, governed permanent root TypeIdentifier, 1:1 consumer/raw-record ownership and separate encoded-buffer sink leases.
 - PlatformIO ESP32-WROOM and ESP32-S3 footprints and physical producer/consumer HIL, deterministic mutex/notify/memory/power fault tests.

@@ -66,6 +66,37 @@ namespace {
             assert(queue.Borrow(current)->Get()->Value() == 11);
             assert(queue.Complete(current) == L::RecordQueueResult::Succeeded);
             assert(queue.Pop(current) == L::RecordQueueResult::Empty);
+
+            PooledLease third;
+            assert(pool.Acquire(
+                third, Platform::Synchronization::WaitTimeout::NoWait(), 33
+            ) == Memory::ObjectPoolAcquisitionResult::Succeeded);
+            {
+                Queue::Reservation reserved;
+                assert(queue.Begin(third, reserved) == L::RecordQueueResult::Succeeded);
+                assert(reserved.Borrow()->Get()->Value() == 33);
+                assert(reserved.Commit() == L::RecordQueueResult::Succeeded);
+                assert(!reserved.IsActive());
+            }
+            {
+                Queue::ConsumerClaim consumed;
+                assert(queue.Pop(consumed) == L::RecordQueueResult::Succeeded);
+                assert(consumed.Borrow()->Get()->Value() == 33);
+                // Consumer scope end automatically returns the real Memory lease.
+            }
+            assert(TestSupport::PooledObject::LiveCount.load() == 0);
+
+            PooledLease fourth;
+            assert(pool.Acquire(
+                fourth, Platform::Synchronization::WaitTimeout::NoWait(), 44
+            ) == Memory::ObjectPoolAcquisitionResult::Succeeded);
+            {
+                Queue::Reservation uncommitted;
+                assert(queue.Begin(fourth, uncommitted) == L::RecordQueueResult::Succeeded);
+                assert(uncommitted.Borrow()->Get()->Value() == 44);
+                // Producer scope exit rolls back unpublished capacity.
+            }
+            assert(TestSupport::PooledObject::LiveCount.load() == 0);
         }
 
         assert(TestSupport::PooledObject::LiveCount.load() == 0);
