@@ -56,6 +56,10 @@ namespace ESPressio::Logging {
                 return TKind::TypeIdentifier;
             else if constexpr (std::is_same_v<Value, ESPressio::System::FieldIdentifier>)
                 return TKind::FieldIdentifier;
+            else if constexpr (std::is_same_v<Value, ESPressio::System::Identity::DeviceIdentifier>)
+                return TKind::DeviceIdentifier;
+            else if constexpr (std::is_same_v<Value, ESPressio::System::Identity::RuntimeIncarnationId>)
+                return TKind::RuntimeIncarnationId;
             else {
                 static_assert(
                     std::is_same_v<Value, void>,

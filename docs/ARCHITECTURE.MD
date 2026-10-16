@@ -39,3 +39,7 @@ No production Logging invocation/identity attachment, genuinely *coherent produc
 ## Incremental G3 owner-certified bounded diagnostics
 
 The optional `DiagnosticArgumentEncoding.hpp` now recognizes generated `Utf8`/`Bytes` from `Bounded::String`/`Bounded::Bytes` and canonical `System::TypeIdentifier`/`FieldIdentifier`, with validation against the already-generated EDP-Localisation Type list and Serialisation owner `SerialisableType`. It adds no new owner dependencies or direct concrete imports; the previous scalar comparator remains as an alias. All other semantic identifier kinds require explicit reversible owner adapters and remain fail-closed. See `docs/DIAGNOSTIC-BOUNDED-ARGUMENTS.MD`.
+
+## G3 generated device and incarnation strong values
+
+The existing conditional generated argument adapter now recognizes `System::Identity::DeviceIdentifier` and `System::Identity::RuntimeIncarnationId` under exact Localisation declared kinds. No new Logging owner dependencies: Serialisation owns the existing binary/uint32 conversion, System owns strong identity types and provenance. Cannot call these valid LogRecord identities solely from successful encoding, and G4 governed TypeIdentifier remains unissued. See `docs/DIAGNOSTIC-SYSTEM-IDENTITY-ARGUMENTS.MD`.

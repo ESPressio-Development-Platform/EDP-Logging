@@ -76,3 +76,7 @@ This optional activation has no new foundational reverse edge or cycle. EDP-Memo
 ### Optional G5 Python host-only archival resolver (additional, no C++ graph edge)
 
 `edp_logging.historical_schema` lazily imports **EDP-Localisation's existing Python archival verifier/GeneratedContractFamily** only when an offline CLI caller opts into `--historical-archive`. All embedded `src/logging` code remains unchanged and does not import Python, EDP-Serial or platform concretes. The archive library retains owner responsibility for EDPL/manifest verification; EDP-Logging checks the selected diagnostic schema using its own current owner tools. This conditional tooling edge is **EDP-Logging host tooling → EDP-Localisation tooling**, not a compiled dependency cycle. See `docs/HISTORICAL-DIAGNOSTIC-SCHEMA-BRIDGE.MD`.
+
+### G3 generated System strong identities (conditional existing DAG)
+
+The existing opt-in Logging -> EDP-Serialisation -> EDP-System & EDP-BoundedTypes graph now admits two more owner-certified types: `System::Identity::DeviceIdentifier` and `System::Identity::RuntimeIncarnationId`. No new Clock, Mesh, EDP-Serial-ESP-IDF or platform concrete dependency introduced; the C++ default Logging umbrella is unchanged.

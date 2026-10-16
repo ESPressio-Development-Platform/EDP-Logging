@@ -17,3 +17,5 @@
 - [Compile-time site gate](Reference-logging-Instrumentation)
 
 - [Historical diagnostic host bridge (partial G5)](Tooling-edp-logging-historical-diagnostic)
+
+- [Generated Device and Incarnation diagnostic kinds](Reference-logging-SystemIdentityDiagnosticArguments)

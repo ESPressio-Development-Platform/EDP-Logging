@@ -7,3 +7,5 @@ Implemented: [Severity](Reference-logging-Severity), [Attempt Sequence](Referenc
 No functional Logging producer/sinks exist yet. The existing C++20 foundation suites passed GCC and Clang on RPI400 on 2026-10-16; the Python host suite (20 tests including exact-byte schema-pin regression) also passed. Firmware/physical storage and end-to-end runtime validation remain outstanding. The [Host Decoder](Host-Decoder) page describes the source-level schema pin verification boundary.
 
 The [optional historical diagnostic schema host bridge](Tooling-edp-logging-historical-diagnostic) links pinned Localisation archived ContractFamilies to the offline decoder without a new embedded library dependency.
+
+[System Identity generated diagnostic arguments](Reference-logging-SystemIdentityDiagnosticArguments) extend the optional owner-certified G3 path without adding new direct dependencies.
