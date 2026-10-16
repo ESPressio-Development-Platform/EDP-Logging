@@ -1,0 +1,87 @@
+name: EDP-Logging G1 ESP32-WROOM Firmware Build
+
+on:
+  push:
+    branches: [main, feature/logging-v1]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  espidf-wroom-compile-and-link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Logging feature source
+        uses: actions/checkout@v4
+        with:
+          path: EDP-Logging
+      - name: Checkout Memory owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Memory
+          ref: feature/logging-v1
+          path: EDP-Memory
+      - name: Checkout Threading owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Threading
+          ref: feature/logging-v1
+          path: EDP-Threading
+      - name: Checkout Clock owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Clock
+          ref: mesh_v1
+          path: EDP-Clock
+      - name: Checkout System owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-System
+          ref: serialisation_prerequisites
+          path: EDP-System
+      - name: Checkout BoundedTopology owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTopology
+          ref: main
+          path: EDP-BoundedTopology
+      - name: Checkout BoundedTypes owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTypes
+          ref: main
+          path: EDP-BoundedTypes
+      - name: Checkout abstract Platform owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform
+          ref: main
+          path: EDP-Platform
+      - name: Checkout FreeRTOS concrete (application composition only)
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform-FreeRTOS
+          ref: main
+          path: EDP-Platform-FreeRTOS
+      - name: Checkout Portable memory resource (application composition only)
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform-Portable
+          ref: main
+          path: EDP-Platform-Portable
+      - name: Prepare Python for PlatformIO
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PlatformIO
+        run: python -m pip install platformio
+      - name: Record exact checked-out dependency commit pins
+        run: |
+          for repo in EDP-Logging EDP-Memory EDP-Threading EDP-Clock EDP-System EDP-BoundedTopology EDP-BoundedTypes EDP-Platform EDP-Platform-FreeRTOS EDP-Platform-Portable; do
+            printf '%s=' "$repo"
+            git -C "$repo" rev-parse HEAD
+          done
+      - name: Compile and link ESP-IDF physical HIL firmware (not an actual device test)
+        working-directory: EDP-Logging/tests/hil/g1-espidf
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: pio run -e esp32dev

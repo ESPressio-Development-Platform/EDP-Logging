@@ -1,0 +1,52 @@
+# EDP-Logging G1 physical ESP32-WROOM / ESP-IDF qualification
+
+This opt-in test exercises the partial G1 transactional queue-before-Memory
+admission on a physical ESP32, using real EDP-Memory object pool leases,
+EDP-Threading bounded wake and ordinary mutex providers, platform-specific
+FreeRTOS Mutex/Signal concretes selected by application Bootstrap, and a
+single canonical EDP-Clock timebase. It is NOT a complete LogRecord producer,
+worker, sink or durable archive.
+
+## Authoritative dependencies
+
+Read Policy/main/V2 and the current Logging living handoff. All EDP package
+versions remain 0.1.0. Ignore deprecated ESPressio-* repositories. Supply
+a source-pinned EDP_LOGGING_DEPENDENCY_ROOT with EDP-Logging, EDP-Memory,
+EDP-Threading, EDP-Clock, EDP-System, EDP-BoundedTopology, EDP-BoundedTypes,
+EDP-Platform, EDP-Platform-FreeRTOS and EDP-Platform-Portable siblings.
+PlatformIO intentionally uses direct pinned source include roots rather than
+allowing library metadata to pull unrelated main branch revisions. The
+PioArduino platform commit is d41d8383706dc146fd91a0e1d3c59a915a4d493e,
+with ESP-IDF 5.5.5 and C++20.
+
+## Build
+
+From this directory, with matching approved cached PlatformIO toolchain:
+
+    export EDP_LOGGING_DEPENDENCY_ROOT=/absolute/path/to/pinned/siblings
+    export PLATFORMIO_CORE_DIR=/absolute/path/to/platformio/cache
+    pio run -e esp32dev
+
+## Physical execution and expected results
+
+The RPI400-integrated ESP32 reset/download pins are controlled by the
+esp32-integrated helper; USB-UART DTR/RTS assumptions do not apply.
+A tester MUST inspect board security/flash size, back up the complete flash,
+verify it, then flash the correct bootloader, partition table and firmware
+using the integrated helper. Collect actual 115200 baud Serial after reset.
+
+    EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS
+    EDP_LOGGING_HIL|CLOCK|CANONICAL_1MHZ
+    EDP_LOGGING_HIL|PASS|FIFO_MEMORY_OWNERSHIP
+    EDP_LOGGING_HIL|PASS|DUAL_CORE_PRODUCER_WAKE
+    EDP_LOGGING_HIL|PASS|DRAIN_SLOT_ISOLATION
+    EDP_LOGGING_HIL|PASS|SHUTDOWN_AND_TEARDOWN
+    EDP_LOGGING_HIL|RESULT|PASS
+
+Any FAIL marker or missing expected marker is NOT physical PASS. Restore the
+original flash image after testing unless the user explicitly authorises
+permanent replacement. Original flash images may contain secrets: retain
+only in secured appliance recovery storage and never publish/commit them.
+Record genuine HIL run IDs, firmware/source SHA, observed serial, backup and
+actual restoration evidence in the living Policy handoff. Do not confuse
+build success, simulation, physical operation and proven power-loss durability.

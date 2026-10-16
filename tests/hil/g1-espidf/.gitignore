@@ -1,0 +1,6 @@
+/.pio/
+/lib/
+/sdkconfig
+/sdkconfig.*
+/build/
+/managed_components/
