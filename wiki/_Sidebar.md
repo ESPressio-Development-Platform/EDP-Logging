@@ -7,6 +7,7 @@
 - [Bounded admission (partial G1)](Reference-logging-BoundedAdmission)
 - [Composed producer wake coordinator](Reference-logging-AdmissionWakeCoordinator)
 - [Clock temporal evidence (partial G2)](Reference-logging-LogTemporalEvidence)
+- [Generated scalar diagnostics (partial G3)](Reference-logging-DiagnosticArgumentEncoding)
 - [Architecture](../docs/ARCHITECTURE.MD)
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
 - [EDLG portable writer](Reference-logging-EdlgFrame)
