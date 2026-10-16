@@ -23,3 +23,7 @@ The application must **stop spawning callers, join all producer/consumer tasks, 
 ## Tests
 
 `tests/AdmissionLifecycleTests.cpp` and `tests/run-admission-lifecycle-tests.sh` reuse the actual MemoryTopology host fixture and EDP-Threading fixed signal owner. GCC+Clang PASS RPI400 **20261016T082446-9a9fb25f**: 15 real two-producer shutdown cycles, no-new-admission, late grant ownership, failed wake and deliberately active producer timeout, and after-join quiescence retry. See [G1 lifecycle contract](../docs/ADMISSION-LIFECYCLE.MD), [prior capacity-release coordinator](Reference-logging-AdmissionWakeCoordinator) and [owner dependency graph](../DEPENDENCY_GRAPH.MD).
+
+## Queue-before-Memory lifecycle additions
+
+TrackAdmission() returns an internal noncopyable scope which registers an active admission before queue waiting begins and retires it after all rollback and Memory work. Nested counts with AcquireUntil's existing scope are intentional; all teardown must still follow task join and native lease return. PublishCapacityAvailable() forwards to the existing AdmissionWakeCoordinator producer wake fanout after an empty queue-slot retirement; it creates no additional signal. Quiescent does not certify sink callbacks or pool teardown. See [composed admission](Reference-logging-BoundedRecordAdmission).

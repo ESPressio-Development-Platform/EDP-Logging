@@ -22,3 +22,5 @@
 - [Generated Device and Incarnation diagnostic kinds](Reference-logging-SystemIdentityDiagnosticArguments)
 
 - [Optional ClockEra diagnostic argument](Reference-logging-ClockEraDiagnostic)
+
+- [Queue-before-Memory bounded record admission (partial G1)](Reference-logging-BoundedRecordAdmission)

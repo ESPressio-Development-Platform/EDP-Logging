@@ -1,0 +1,19 @@
+# logging/BoundedRecordAdmission.hpp
+
+**PUBLIC opt-in G1 composition**, not part of the ordinary Logging umbrella. Source src/logging/BoundedRecordAdmission.hpp on feature/logging-v1. Canonical normative contract: [bounded record admission](../docs/BOUNDED-RECORD-ADMISSION.MD).
+
+## Public result contract
+
+RecordAdmissionStatus : uint8_t has all explicitly assigned values: Admitted=0 (queue reservation owns a lease but is not published); DeadlineElapsed=1; ShutdownRequested=2; QueueWakeRetryLimit=3; QueueWaitProviderFailure=4; QueueFailure=5; MemoryFailure=6; LateMemoryGrantReturned=7 (late grant is being returned); ReleaseUnconfirmed=8 (native Memory still owned); ReleaseNotificationFailed=9 (required wake not confirmed); OutputOccupied=10 (caller input/output owner not empty). Each failure must be distinguished from successful admission and from downstream sink/commit processing.
+
+RecordAdmissionOutcome stores Status (composed truth), Queue (queue-owner result), Memory (admission-owner result), Release (release-owner result), MemoryAttempted and ReleaseAttempted (whether remaining fields were actually produced by an operation). Outcome has no hidden dynamic storage. Failure can leave an explicitly owned Reservation or scratch lease requiring attention; never discard an active lease.
+
+## Public function template
+
+AcquireRecordUntil<MaximumQueueWakes,MaximumMemoryWakes,TQueue,TAdmissionCoordinator,TWaitWakeProvider,TObjectPool,TLease,TStopPredicate,TArguments...> accepts queue, admission, waitWake, exclusive producerSlot, ObjectPool, initially empty scratchLease, inactive Reservation output, one canonical EDP-Clock deadline, noexcept stopRequested predicate, and nothrow forwarded object-construction arguments. Each maximum-wake parameter statically bounds one retry phase; TQueue selects the fixed topology and owner guard; TAdmissionCoordinator owns Memory NoWait/shutdown counters/releases; TWaitWakeProvider is Bootstrap's existing EDP-Threading latched wait; TObjectPool/TLease are actual EDP-Memory resource contracts. Every provider, queue and owner must outlive all borrowers. The function reserves queue capacity, waits for a bounded wake if full, acquires Memory with NoWait through the lifecycle, checks stop/deadline and attaches the lease. The caller must still Commit or Abort the guard.
+
+## Internal helper and lifecycle
+
+Detail::RemainingRecordAdmissionWait(deadline) is an INTERNAL API, returning the EDP-Platform native mutex wait budget derived from Clock::MonotonicNow and the provided canonical timestamp; it creates no independent timeline. The helper does not own user task scheduling. AdmissionLifecycleCoordinator::TrackAdmission guards the full queue wait and Memory phase; the inner AcquireUntil scope temporarily adds one more admission count. All real queue slot releases use the original producer-slot wake fanout, not an invented second Signal. Shutdown quiescence still does not imply that all records, sink callbacks or external tasks are finished.
+
+There is no persistent state in this header beyond the owning Queue/Lifecycle/Memory/Threading objects. ISR use is unsupported, and EDP-Memory's native finite ObjectPool path is prohibited (EDP-Memory#16). Host GCC/Clang + genuine Memory/Threading tests exercise the opt-in composition, not physical ESP32 runtime, full producer semantics or flash durability.

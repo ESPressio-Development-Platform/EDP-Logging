@@ -47,3 +47,7 @@ Tests run with `g++` and `clang++` on RPI400 in mandatory persisted detached run
 - Complete LogRecord provenance/argument model, generated diagnostic schemas, governed permanent root TypeIdentifier, 1:1 consumer/raw-record ownership and separate encoded-buffer sink leases.
 - PlatformIO ESP32-WROOM and ESP32-S3 footprints and physical producer/consumer HIL, deterministic mutex/notify/memory/power fault tests.
 - G2 Clock/Mesh coherent revision and G4 TypeIdentifier governance remain separate owner-level dependencies. All versions remain `0.1.0`.
+
+## Queue-before-Memory extension (new partial composition)
+
+ReserveSlot(output, nativeRemaining) claims a bounded queue index and establishes exclusive move-only RAII ownership in the AwaitingMemory phase, before any physical EDP-Memory lease exists. AttachLease(output, lease, nativeRemaining) transfers the EDP-Memory NoWait acquired lease into that reservation under the injected EDP-Threading mutex and transitions to Reserved. Both accept the remaining EDP-Platform mutex timeout from the higher-domain canonical EDP-Clock deadline; Queue creates no parallel timebase. Aborting AwaitingMemory retires the empty slot and notifies existing producer slots without performing a Memory lease release. The optional [composed bounded admission owner](BOUNDED-RECORD-ADMISSION.MD) now provides a single queue-plus-Memory budget; the low-level queue alone remains a transaction primitive, not the complete Logging producer.

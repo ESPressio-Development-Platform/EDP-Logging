@@ -40,6 +40,10 @@ namespace {
         bool FailRelease{false};
         bool Held{false};
 
+        [[nodiscard]] Threading::OrdinaryMutexAcquireResult Acquire(
+            Platform::Synchronization::WaitTimeout
+        ) noexcept { return TryAcquire(); }
+
         [[nodiscard]] Threading::OrdinaryMutexAcquireResult TryAcquire() noexcept {
             if (FailAcquire) return Threading::OrdinaryMutexAcquireResult::ProviderFailure;
             if (Busy || Held) return Threading::OrdinaryMutexAcquireResult::TimedOut;
@@ -228,6 +232,41 @@ namespace {
         assert(!queue.IntegrityFailed());
     }
 
+    void TestQueueSlotReservationBeforeMemoryOwnership() {
+        using Timeout = Platform::Synchronization::WaitTimeout;
+        Mutex mutex;
+        Coordinator callbacks;
+        TestQueue queue(mutex, callbacks);
+        {
+            TestQueue::Reservation first, second, third;
+            mutex.Busy = true;
+            assert(queue.ReserveSlot(first, Timeout::NoWait()) == Result::Busy);
+            assert(!first.IsActive());
+            mutex.Busy = false;
+            assert(queue.ReserveSlot(first, Timeout::NoWait()) == Result::Succeeded);
+            assert(first.IsActive() && first.Borrow() == nullptr);
+            assert(queue.ReserveSlot(second, Timeout::NoWait()) == Result::Succeeded);
+            assert(queue.ReserveSlot(third, Timeout::NoWait()) == Result::CapacityUnavailable);
+            assert(!third.IsActive());
+            // Releasing empty reserved slot needs no native Memory lease.
+            assert(second.Abort() == Result::Succeeded);
+            assert(callbacks.Releases == 0U && callbacks.Publications == 1U);
+            assert(queue.ReserveSlot(third, Timeout::NoWait()) == Result::Succeeded);
+
+            Lease actual(56);
+            assert(queue.AttachLease(first, actual, Timeout::NoWait()) == Result::Succeeded);
+            assert(actual.IsEmpty() && first.Borrow()->Value == 56);
+            assert(first.Commit() == Result::Succeeded);
+            assert(third.Abort() == Result::Succeeded);
+            TestQueue::ConsumerClaim consuming;
+            assert(queue.Pop(consuming) == Result::Succeeded);
+            assert(consuming.Borrow()->Value == 56);
+            assert(consuming.Complete() == Result::Succeeded);
+        }
+        assert(callbacks.Releases == 1U);
+        assert(!queue.IntegrityFailed());
+    }
+
     void TestCompileTimeMemoryBudgetAndEmptyLease() {
         static_assert(TestQueue::Capacity == 2U);
         static_assert(sizeof(TestQueue::Index) == 1U);
@@ -248,5 +287,6 @@ int main() {
     TestMutexBusyAndFailure();
     TestNativeMutexReleaseFailureIsNotHidden();
     TestMoveOnlyRaiiTransactionAndConsumerClaim();
+    TestQueueSlotReservationBeforeMemoryOwnership();
     TestCompileTimeMemoryBudgetAndEmptyLease();
 }

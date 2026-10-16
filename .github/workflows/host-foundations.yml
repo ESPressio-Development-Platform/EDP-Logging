@@ -98,6 +98,11 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-BoundedTopology
           ref: main
           path: EDP-BoundedTopology
+      - name: Compile and run bounded queue-before-Memory admission tests
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-bounded-record-admission-tests.sh
       - name: Compile and run owner-integrated transactional FIFO tests
         env:
           CXX: ${{ matrix.compiler }}

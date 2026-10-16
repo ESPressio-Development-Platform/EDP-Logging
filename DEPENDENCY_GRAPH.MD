@@ -89,3 +89,7 @@ The existing opt-in Logging -> EDP-Serialisation -> EDP-System & EDP-BoundedType
 ### Optional ClockEra diagnostic profile (activated only by exact header)
 
 `<logging/DiagnosticClockEraArguments.hpp>` activates optional **Logging → EDP-Serialisation** and **Logging → EDP-Clock** direct abstract owner edges, together with `EDP-Serialisation → EDP-Clock` only for its own optional `ClockEraAdapters.hpp`. All edges point toward Clock/System/Platform foundations; **no reverse Clock→Logging/Serialisation, no Mesh import and no platform SDK import**. The default Logging diagnostic header retains its previous dependency profile and only carries an inactive owner-type certification trait. The consuming application declares EDP-Clock when opting into this header.
+
+## Optional G1 bounded record admission activation (new)
+
+The opt-in header logging/BoundedRecordAdmission.hpp uses exactly the preexisting direct abstract EDP-Clock, EDP-Threading, EDP-Platform and EDP-BoundedTopology edges of TransactionalRecordQueue and AdmissionLifecycleCoordinator plus the supplied EDP-Memory pool/lease contract. No new dependency, reverse edge, platform-specific SDK, circular dependency, or private allocation/wake implementation is introduced. Application Bootstrap selects every concrete implementation. The default Logging umbrella remains dependency-free. See [contract](docs/BOUNDED-RECORD-ADMISSION.MD).

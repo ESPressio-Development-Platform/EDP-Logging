@@ -67,7 +67,10 @@ namespace ESPressio::Logging {
             AdmissionLifecycleCoordinator* Owner;
 
             explicit ActiveAdmissionScope(AdmissionLifecycleCoordinator* owner) noexcept :
-                Owner(owner) {}
+                Owner(owner) {
+                // Register before any queue wait or Memory acquisition can start.
+                Owner->_activeAdmissions.fetch_add(1U, std::memory_order_acq_rel);
+            }
 
             ActiveAdmissionScope(const ActiveAdmissionScope&) = delete;
             ActiveAdmissionScope& operator=(const ActiveAdmissionScope&) = delete;
@@ -99,6 +102,14 @@ namespace ESPressio::Logging {
 
         [[nodiscard]] std::uint32_t ActiveAdmissions() const noexcept {
             return _activeAdmissions.load(std::memory_order_acquire);
+        }
+
+        /// Track one complete producer transaction, including queue wait, Memory
+        /// admission and rollback. The returned non-copyable scope must stay
+        /// alive through every exit path; Bootstrap joins producer tasks before
+        /// destroying this coordinator.
+        [[nodiscard]] ActiveAdmissionScope TrackAdmission() noexcept {
+            return ActiveAdmissionScope(this);
         }
 
         /// Prevents future grants by this coordinator and wakes all producers.
@@ -136,7 +147,6 @@ namespace ESPressio::Logging {
 
             // Count before examining shutdown. If shutdown is already set,
             // no pool claim can occur; this call only briefly enters/exits.
-            _activeAdmissions.fetch_add(1U, std::memory_order_acq_rel);
             ActiveAdmissionScope active{this};
             if (ShutdownRequested()) {
                 return {
@@ -162,6 +172,12 @@ namespace ESPressio::Logging {
                 return {status, _coordinator.PublishCapacityAvailable()};
             }
             return {status, AdmissionWakePublicationResult::NotAttempted};
+        }
+
+        /// Publish bounded capacity wake fanout for queue-slot retirement.
+        /// This reuses the same exclusive producer wake slots as Memory admission.
+        [[nodiscard]] AdmissionWakePublicationResult PublishCapacityAvailable() noexcept {
+            return _coordinator.PublishCapacityAvailable();
         }
 
         /// Remains usable during shutdown to return outstanding Memory leases.

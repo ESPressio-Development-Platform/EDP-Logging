@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <ESPressio_BoundedTopology.hpp>
+#include <ESPressio_Platform.hpp>
 #include <ESPressio_Threading.hpp>
 
 #include "AdmissionWakeCoordinator.hpp"
@@ -185,7 +186,7 @@ namespace ESPressio::Logging {
 
     private:
         enum class Phase : std::uint8_t {
-            Vacant, Reserved, Queued, InFlight, Retiring, Exhausted
+            Vacant, AwaitingMemory, Reserved, Queued, InFlight, Retiring, Exhausted
         };
 
         struct Record final {
@@ -236,10 +237,61 @@ namespace ESPressio::Logging {
             return true;
         }
 
+        /// Reserve mutex using an already-computed native remaining budget;
+        /// the caller owns the canonical Clock deadline and never restarts it.
+        [[nodiscard]] RecordQueueResult LockWith(
+            ESPressio::Platform::Synchronization::WaitTimeout remaining
+        ) noexcept {
+            if (remaining.IsNoWait()) return Lock();
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                return RecordQueueResult::IntegrityFailure;
+            }
+            const auto acquired = _mutex->Acquire(remaining);
+            if (acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut) {
+                return RecordQueueResult::Busy;
+            }
+            if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
+                _integrityFailed.store(true, std::memory_order_release);
+                return RecordQueueResult::IntegrityFailure;
+            }
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            return RecordQueueResult::Succeeded;
+        }
+
         [[nodiscard]] RecordQueueResult UnlockWith(
             RecordQueueResult outcome
         ) noexcept {
             return Unlock() ? outcome : RecordQueueResult::IntegrityFailure;
+        }
+
+        /// The single compact slot-allocation algorithm shared by native
+        /// Begin and ahead-of-Memory slot reservation. Called under mutex.
+        [[nodiscard]] RecordQueueResult ClaimSlot(
+            Phase initial, Ticket& ticket
+        ) noexcept {
+            bool exhausted = false;
+            for (std::size_t i = 0U; i < TCapacity; ++i) {
+                const auto claim = _slots.Acquire();
+                if (!claim.IsSucceeded()) {
+                    return exhausted ? RecordQueueResult::GenerationExhausted
+                                     : RecordQueueResult::CapacityUnavailable;
+                }
+                const auto index = claim.AcquiredIndex();
+                auto& record = _records[static_cast<std::size_t>(index.Value())];
+                if (record.Generation == std::numeric_limits<TGeneration>::max()) {
+                    record.State = Phase::Exhausted;
+                    exhausted = true;
+                    continue;
+                }
+                ++record.Generation;
+                record.State = initial;
+                ticket = Ticket{index, record.Generation};
+                return RecordQueueResult::Succeeded;
+            }
+            return RecordQueueResult::GenerationExhausted;
         }
 
         [[nodiscard]] bool Matches(Ticket ticket) const noexcept {
@@ -250,7 +302,8 @@ namespace ESPressio::Logging {
         }
 
         [[nodiscard]] static constexpr bool Live(Phase phase) noexcept {
-            return phase == Phase::Reserved || phase == Phase::Queued ||
+            return phase == Phase::AwaitingMemory ||
+                phase == Phase::Reserved || phase == Phase::Queued ||
                 phase == Phase::InFlight || phase == Phase::Retiring;
         }
 
@@ -264,7 +317,8 @@ namespace ESPressio::Logging {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
             auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
-            if (record.State != expected && record.State != Phase::Retiring) {
+            if (record.State != expected && record.State != Phase::Retiring &&
+                !(expected == Phase::Reserved && record.State == Phase::AwaitingMemory)) {
                 return UnlockWith(RecordQueueResult::WrongPhase);
             }
             if (record.RetirementClaimed.exchange(true, std::memory_order_acq_rel)) {
@@ -356,29 +410,14 @@ namespace ESPressio::Logging {
             auto outcome = Lock();
             if (outcome != RecordQueueResult::Succeeded) return outcome;
 
-            bool exhausted = false;
-            for (std::size_t i = 0U; i < TCapacity; ++i) {
-                const auto claim = _slots.Acquire();
-                if (!claim.IsSucceeded()) {
-                    return UnlockWith(exhausted
-                        ? RecordQueueResult::GenerationExhausted
-                        : RecordQueueResult::CapacityUnavailable);
-                }
-                auto index = claim.AcquiredIndex();
-                auto& record = _records[static_cast<std::size_t>(index.Value())];
-                if (record.Generation == std::numeric_limits<TGeneration>::max()) {
-                    record.State = Phase::Exhausted;
-                    exhausted = true;
-                    continue; // retired forever: never recycle stale generation
-                }
-                ++record.Generation;
-                record.Lease = std::move(lease);
-                record.State = Phase::Reserved;
-                ticket = Ticket{index, record.Generation};
-                return Unlock() ? RecordQueueResult::Succeeded
-                                : RecordQueueResult::IntegrityFailure;
+            Ticket candidate{};
+            const auto claimed = ClaimSlot(Phase::Reserved, candidate);
+            if (claimed == RecordQueueResult::Succeeded) {
+                _records[static_cast<std::size_t>(candidate.Slot.Value())].Lease =
+                    std::move(lease);
+                ticket = candidate;
             }
-            return UnlockWith(RecordQueueResult::GenerationExhausted);
+            return UnlockWith(claimed);
         }
 
         /// Strong RAII form: assigns one inactive move-only unpublished owner.
@@ -397,6 +436,54 @@ namespace ESPressio::Logging {
                 out._ticket = ticket;
             }
             return result;
+        }
+
+        /// Reserve the queue slot first, before any potentially long Memory
+        /// pool acquisition. This avoids holding a scarce pool lease while
+        /// waiting for FIFO admission. Mutex remaining is derived by the
+        /// higher-domain canonical EDP-Clock deadline owner.
+        [[nodiscard]] RecordQueueResult ReserveSlot(
+            Reservation& out,
+            ESPressio::Platform::Synchronization::WaitTimeout mutexRemaining
+        ) noexcept {
+            if (out.IsActive()) return RecordQueueResult::OutputHandleOccupied;
+            const auto acquired = LockWith(mutexRemaining);
+            if (acquired != RecordQueueResult::Succeeded) return acquired;
+            Ticket candidate{};
+            const auto claimed = ClaimSlot(Phase::AwaitingMemory, candidate);
+            const auto released = UnlockWith(claimed);
+            if (candidate.IsValid()) {
+                out._owner = this;
+                out._ticket = candidate;
+            }
+            return released;
+        }
+
+        /// Attach one real owned Memory lease to a previously reserved queue
+        /// slot. A failed lock attempt leaves the lease with the caller.
+        [[nodiscard]] RecordQueueResult AttachLease(
+            Reservation& out,
+            TLease& lease,
+            ESPressio::Platform::Synchronization::WaitTimeout mutexRemaining
+        ) noexcept {
+            if (!out.IsActive() || out._owner != this) {
+                return RecordQueueResult::InvalidTicket;
+            }
+            if (lease.IsEmpty()) return RecordQueueResult::OutputLeaseEmpty;
+            const auto acquired = LockWith(mutexRemaining);
+            if (acquired != RecordQueueResult::Succeeded) return acquired;
+            if (!Matches(out._ticket)) {
+                return UnlockWith(RecordQueueResult::InvalidTicket);
+            }
+            auto& record = _records[
+                static_cast<std::size_t>(out._ticket.Slot.Value())
+            ];
+            if (record.State != Phase::AwaitingMemory) {
+                return UnlockWith(RecordQueueResult::WrongPhase);
+            }
+            record.Lease = std::move(lease);
+            record.State = Phase::Reserved;
+            return UnlockWith(RecordQueueResult::Succeeded);
         }
 
         /// Transaction commit publishes the already-owned record to FIFO once.
