@@ -8,6 +8,7 @@
 #include <ESPressio_Threading.hpp>
 
 #include "BoundedAdmission.hpp"
+#include "detail/ThreadingWaitSlot.hpp"
 
 namespace ESPressio::Logging {
 
@@ -56,25 +57,6 @@ namespace ESPressio::Logging {
 
         TWaitWakeProvider* _waitWake;
 
-        struct SlotWaitPoint final {
-            TWaitWakeProvider* WaitWake;
-            std::size_t Slot;
-
-            ESPressio::Threading::BoundedWaitResult WaitUntil(
-                ESPressio::Clock::MonotonicTimestamp deadline
-            ) noexcept {
-                switch (WaitWake->WaitUntil(Slot, deadline)) {
-                    case ESPressio::Threading::BoundedWaitWakeResult::Woken:
-                        return ESPressio::Threading::BoundedWaitResult::Woken;
-
-                    case ESPressio::Threading::BoundedWaitWakeResult::TimedOut:
-                        return ESPressio::Threading::BoundedWaitResult::TimedOut;
-
-                    default:
-                        return ESPressio::Threading::BoundedWaitResult::ProviderFailure;
-                }
-            }
-        };
 
     public:
         /// The composed wait/wake provider must outlive all active producers.
@@ -139,7 +121,7 @@ namespace ESPressio::Logging {
                 };
             }
 
-            SlotWaitPoint waiter{_waitWake, slot};
+            Detail::ThreadingWaitSlot<TWaitWakeProvider> waiter{_waitWake, slot};
             const auto acquired = AcquirePoolUntil<TMaximumWakeRetries>(
                 pool, waiter, lease, deadline,
                 std::forward<TArguments>(arguments)...
