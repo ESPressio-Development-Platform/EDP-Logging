@@ -223,3 +223,41 @@ return the original application to normal boot. Full logs:
 restore-original-write.log, restore-original-verify.log.
 Native host GCC/Clang and UBSan results remain separately recorded
 in the authoritative Policy living handoff. All packages remain 0.1.0.
+
+## 2026-10-16 20:40 CEST — three actual hardware multi-sink record lifecycles
+
+RPI400-integrated dual-core ESP32-D0WD on physical /dev/serial0.
+The ordinary application HIL gained an extra three-sink test using
+ONE Memory-owned Record, ONE FIFO ConsumerClaim and the same reclaim
+path through DrainOneRecord: sink1 Accepted, sink2 Rejected, sink3
+ProviderFailure, all called exactly once; aggregate status Partial,
+FailedAndReclaimed; native Memory live count zero. It reuses
+EDP-Threading/EDP-Memory; no Mesh or alternate allocator.
+
+PioArduino pinned ESP-IDF 5.5.5 C++20 target build/link SUCCESS
+(multisink-hil-build.log); RAM 14,288 bytes (4.4%) and application
+Flash 226,261 bytes (5.4%) toolchain-estimated for THIS TEST APP
+only; temporary combined binary 292,208 bytes.
+
+New complete 4,194,304-byte original image freshly read from the
+physical device in eight 512 KiB chunks, reassembled and independently
+SHA256 verified BEFORE any test write, under private RPI400 directory
+/srv/espressio/recovery/logging-multisink-20261016. Binary remains private.
+Actual firmware flash verified through separate esptool digest, then
+THREE independent physical reset/NVS committed-restart/Clock/Memory
+production/multi-sink/Serial UART tests all PASS, each exactly:
+    EDP_LOGGING_NATIVE_HIL_SUMMARY|markers=12/12|fail=0|binary_edlg_verified=True
+Raw actual UART EDLG CRC checked independently by existing Python
+decoder, not only app printed PASS. Private UART logs:
+multisink-run1.log, multisink-run2.log, multisink-run3.log.
+
+**Original image entirely restored and VERIFIED PASS.** Raw esptool
+wrote ALL 0x400000 bytes, then independently verified digest match
+without any intervening application boot:
+    Verification successful (digest matched).
+Only then normal GPIO reboot restored original firmware; status
+DTR=HIGH RTS=HIGH and /dev/serial0 available. Logs under same
+private recovery directory. No power cut or original-image bytes
+published. Versions all remain 0.1.0. Source multi-sink tests do
+NOT constitute async fanout, source-to-EDLS writer, or governed
+canonical 15-field LogRecord.

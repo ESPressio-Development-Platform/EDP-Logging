@@ -2,14 +2,14 @@
 
 Bounded, structured embedded diagnostic logging for the ESPressio Development Platform.
 
-**Status — `feature/logging-v1`: partial implementation, NOT a production logging pipeline.** Severity, attempt tickets, EDLG/EDLS framing, partial Clock/diagnostic tooling, bounded Memory/Threading admission, tracked leases and now a transactional FIFO record queue are implemented as opt-in facilities. The complete governed LogRecord, unified producer, coherent Clock/Mesh source, production sinks and embedded durable archive remain incomplete. Do not use this library as a functioning end-to-end logging pipeline.
+**Status — `feature/logging-v1`: partial implementation, NOT a production logging pipeline.** Severity, attempt tickets, EDLG/EDLS framing, partial Clock/diagnostic tooling, bounded Memory/Threading admission, tracked leases and now a transactional FIFO record queue are implemented as opt-in facilities. The complete governed LogRecord, unified producer, optional coherent synchronized Clock source, production sinks and embedded durable archive remain incomplete. Do not use this library as a functioning end-to-end logging pipeline.
 
 ## Implemented API
 
 `#include <ESPressio_Logging.hpp>` exposes:
 
 - `Severity` — six emitted levels Trace=0 through Fatal=5; Off is never an emitted severity.
-- `SeverityThreshold` and `SeverityEnabled<Minimum,Level>` — compile-time threshold check, default Off. The full zero-evaluation instrumentation macro is **not yet implemented**.
+- `SeverityThreshold` and `SeverityEnabled<Minimum,Level>` — compile-time threshold check, default Off. The lazy EDP_LOG_WHEN_ENABLED macro is available, but the governed LogRecord producer remains unfinished.
 - `AttemptSequenceWidth::Bits16/Bits32/Bits64` with a compile-time default Bits32.
 - `AttemptSequence<Width>` — strong invalid-zero ticket, exact 2/4/8-byte storage.
 - `AttemptSequenceCounter<Width>` — no-wrap generator of 1..max per-incarnation attempt tickets, typed `Issued`/`OutputOccupied`/`SequenceExhausted`.
@@ -151,3 +151,19 @@ EDP-Persistence-ESP-IDF NVS and EDP-Serial-ESP-IDF's UART FIFO writer via
 Bootstrap only, proving NVS checkpoint readback after runtime restart and
 owner-Serial binary EDLG transmission to an independent host parser.
 EDP-Logging itself imports neither Serial nor either concrete provider.
+
+
+## Optional multi-sink fanout and read-only EDLS inspection
+
+[Record production ownership](docs/RECORD-PRODUCTION-OWNERSHIP.MD)
+documents the bounded two-to-eight sink call interface, which reuses
+one EDP-Memory claim and records each sink outcome without pretending
+acceptance equals durability. [EDLS archive inspection](docs/EDLS-ARCHIVE-INSPECTION.MD)
+is a bounded, read-only EDP-Persistence::FileStorage adapter using existing
+canonical EDLS/EDLG CRC readers; it is **not** the rolling writer.
+
+[EDLS existing-slot checked append](docs/EDLS-ARCHIVE-APPEND.MD)
+adds one optional, strictly preflighted EDP-Persistence FileStorage
+AppendFile operation. This is not an atomic rotating archive writer and
+does not qualify external power-loss durability without a provider
+whose actual retention/atomicity contract supports it.

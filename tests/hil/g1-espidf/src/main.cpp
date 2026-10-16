@@ -381,6 +381,54 @@ bool Run() {
                   Record::Live.load()==0,"sink-rejection-accounted")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|SINK_REJECTION_ACCOUNTING\n");
     }
+    // Real ESP32 pooled source record, 3 ordered app-composed sinks, one
+    // nonduplicated native lease reclamation even with partial fanout.
+    {
+        Lease scratch;
+        Queue::Reservation reservation;
+        const auto acquired=Logging::AcquireRecordUntil<8U,8U>(
+            queue,lifecycle,wakes,0U,pool,scratch,reservation,
+            Deadline(2000U),neverStop,917);
+        if(!Check(acquired.Status==Logging::RecordAdmissionStatus::Admitted,
+                  "fanout-native-memory-acquisition")) return false;
+        if(!Check(reservation.Commit()==Logging::RecordQueueResult::Succeeded,
+                  "fanout-queue-commit")) return false;
+        unsigned called[3U]{};
+        const auto first=[&](const Record& record) noexcept ->
+            Logging::RecordSinkSubmission {
+            ++called[0]; return record.Value()==917
+                ? Logging::RecordSinkSubmission::Accepted
+                : Logging::RecordSinkSubmission::Rejected;
+        };
+        const auto second=[&](const Record& record) noexcept ->
+            Logging::RecordSinkSubmission {
+            ++called[1]; return record.Value()==917
+                ? Logging::RecordSinkSubmission::Rejected
+                : Logging::RecordSinkSubmission::ProviderFailure;
+        };
+        const auto third=[&](const Record& record) noexcept ->
+            Logging::RecordSinkSubmission {
+            ++called[2]; return record.Value()==917
+                ? Logging::RecordSinkSubmission::ProviderFailure
+                : Logging::RecordSinkSubmission::Rejected;
+        };
+        Queue::ConsumerClaim claim;
+        const auto report=Logging::DrainOneRecordToSinks(
+            queue,claim,first,second,third
+        );
+        if(!Check(report.Source.Status==
+                      Logging::RecordDrainStatus::FailedAndReclaimed &&
+                  report.Source.Submission==Logging::RecordSinkSubmission::Partial &&
+                  report.Attempted==3U && report.Accepted==1U &&
+                  report.Unaccepted==2U &&
+                  report.Submissions[0]==Logging::RecordSinkSubmission::Accepted &&
+                  report.Submissions[1]==Logging::RecordSinkSubmission::Rejected &&
+                  report.Submissions[2]==Logging::RecordSinkSubmission::ProviderFailure &&
+                  called[0]==1U && called[1]==1U && called[2]==1U &&
+                  Record::Live.load()==0 && !claim.IsActive(),
+                  "real-memory-multisink-source-retired")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|MULTI_SINK_NATIVE_RECLAMATION\n");
+    }
     {
         Lease scratch; Queue::Reservation owner;
         auto outcome=Logging::AcquireRecordUntil<4U,4U>(

@@ -139,3 +139,22 @@ by EDP-System-governed permanent TypeIdentifier issuance.
 This conditional graph introduces NO Logging-to-Serial, Logging-to-Mesh,
 Logging-to-ESP-IDF or non-abstraction reverse edge. KeyValueStorage snapshot
 is explicitly NOT a substitute for persistent EDLS rolling archive.
+
+## Optional embedded EDLS inspection
+
+- EDP-Logging [logging/EdlsArchiveInspection.hpp only]
+  - EDP-Persistence [direct abstract FileStorage and validated views]
+    - EDP-System [transitive Composition]
+  - Logging/EdlsSegment, Logging/EdlgFrameReader [internal canonical readers]
+
+EDP-Logging has no mandatory VFS, Mesh or Serial dependency.
+
+## Optional EDLS checked append
+
+- EDP-Logging [logging/EdlsArchiveAppend.hpp only]
+  - EDP-Persistence [direct abstract FileStorage::AppendFile/GetFileSize]
+    - EDP-System [transitive Composition]
+  - Logging/EdlsArchiveInspection and Logging/EdlgFrameReader
+    [internal existing owner validation]
+
+No concrete filesystem, Mesh, Serial or supplementary allocator.

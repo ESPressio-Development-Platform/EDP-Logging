@@ -126,5 +126,83 @@ void Test() {
  assert(seq.LastIssued()==3U&&Rec::Live.load()==0);
  assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
+
+void TestFanout() {
+ Resource resource; TestSupport::TestMutexProvider native;
+ MemoryComposition::Select<M::SharedReserveAllocationRequirement,
+ ESPressio::System::CompositionFramework::SelectUnique> allocator;
+ Runtime2 runtime(native,allocator,resource);
+ M::MemoryTopologyInitializationFailure failure{};
+ assert(runtime.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+ Wake wake; Life life(wake); Mutex mutex; Queue queue(mutex,life);
+ Sequencer seqMutex; L::AttemptSequenceCounter<> sequence; Temporal clock;
+ auto& pool=runtime.ObjectPoolFor<Rec>();
+ const auto running=[]() noexcept -> bool { return false; };
+ const auto produce=[&](int value) {
+  Lease scratch; Queue::Reservation reservation;
+  const auto out=L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits32,8U,8U>(
+   sequence,seqMutex,clock,queue,life,wake,0U,pool,scratch,reservation,
+   DeadlineAfter(std::chrono::milliseconds(1000)),running,value);
+  assert(out.Status==L::RecordProductionStatus::Published);
+  assert(scratch.IsEmpty()&&!reservation.IsActive());
+ };
+ int first=0,second=0,third=0;
+ auto ok1=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  ++first; assert(rec.Value==909);return L::RecordSinkSubmission::Accepted;
+ };
+ auto ok2=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  ++second; assert(rec.Value==909);return L::RecordSinkSubmission::Accepted;
+ };
+ Queue::ConsumerClaim claim;
+ auto empty=L::DrainOneRecordToSinks(queue,claim,ok1,ok2);
+ assert(empty.Source.Status==L::RecordDrainStatus::Empty &&
+  empty.Attempted==0U&&first==0&&second==0);
+ produce(909);
+ auto full=L::DrainOneRecordToSinks(queue,claim,ok1,ok2);
+ assert(full.FullySubmittedAndReclaimed()&&
+  full.Submissions[0]==L::RecordSinkSubmission::Accepted&&
+  full.Submissions[1]==L::RecordSinkSubmission::Accepted);
+ assert(full.Attempted==2U&&full.Accepted==2U&&full.Unaccepted==0U);
+ assert(!claim.IsActive()&&Rec::Live.load()==0);
+ assert(first==1&&second==1);
+ // Sink 1 commits but sink 2 rejects. No duplicate invocation/retry.
+ produce(910);
+ auto sinkAccepted=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  ++first;assert(rec.Value==910);return L::RecordSinkSubmission::Accepted;};
+ auto sinkReject=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  ++second;assert(rec.Value==910);return L::RecordSinkSubmission::Rejected;};
+ auto mixed=L::DrainOneRecordToSinks(queue,claim,sinkAccepted,sinkReject);
+ assert(!mixed.FullySubmittedAndReclaimed()&&
+  mixed.Source.Status==L::RecordDrainStatus::FailedAndReclaimed);
+ assert(mixed.Source.Submission==L::RecordSinkSubmission::Partial);
+ assert(mixed.Attempted==2U&&mixed.Accepted==1U&&mixed.Unaccepted==1U);
+ assert(first==2&&second==2&&Rec::Live.load()==0);
+ // Every sink receives one call on failure and is independently observed.
+ produce(911);
+ auto denied=[&](const Rec&) noexcept -> L::RecordSinkSubmission {
+  ++first;return L::RecordSinkSubmission::Rejected;};
+ auto partial=[&](const Rec&) noexcept -> L::RecordSinkSubmission {
+  ++second;return L::RecordSinkSubmission::Partial;};
+ auto fail=[&](const Rec&) noexcept -> L::RecordSinkSubmission {
+  ++third;return L::RecordSinkSubmission::ProviderFailure;};
+ auto errors=L::DrainOneRecordToSinks(queue,claim,denied,partial,fail);
+ assert(errors.Attempted==3U&&errors.Accepted==0U&&errors.Unaccepted==3U);
+ assert(errors.Source.Status==L::RecordDrainStatus::FailedAndReclaimed &&
+  errors.Source.Submission==L::RecordSinkSubmission::Partial);
+ assert(errors.Submissions[0]==L::RecordSinkSubmission::Rejected &&
+  errors.Submissions[1]==L::RecordSinkSubmission::Partial &&
+  errors.Submissions[2]==L::RecordSinkSubmission::ProviderFailure);
+ assert(first==3&&second==3&&third==1&&Rec::Live.load()==0);
+ produce(912);
+ assert(queue.Pop(claim)==L::RecordQueueResult::Succeeded);
+ auto occupied=L::DrainOneRecordToSinks(queue,claim,denied,partial);
+ assert(occupied.Attempted==0U&&
+  occupied.Source.Pop==L::RecordQueueResult::OutputHandleOccupied);
+ assert(claim.IsActive()&&claim.Complete()==L::RecordQueueResult::Succeeded);
+ assert(Rec::Live.load()==0);
+ assert(life.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
+  L::AdmissionShutdownStatus::Quiescent);
+ assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
-int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();}
+}
+int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestFanout();}

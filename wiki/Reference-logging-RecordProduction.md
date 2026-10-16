@@ -22,3 +22,17 @@ output PASS. Source sample payload is a TEST-ONLY positional tuple;
 the permanent System governed TypeIdentifier and full canonical LogRecord
 are still outstanding. Consult docs/RECORD-PRODUCTION-OWNERSHIP.MD
 and tests/hil/g1-espidf/VALIDATION.MD.
+
+## Bounded fanout — DrainOneRecordToSinks
+
+Drains one native Memory-owned source to 2..8 application-supplied
+noexcept synchronous sinks in argument order and returns
+RecordFanoutOutcome<TResultCount>. Source is the underlying
+RecordDrainOutcome; Submissions is a fixed array of native sink
+statuses; Attempted, Accepted, Unaccepted are exact counts.
+FullySubmittedAndReclaimed() requires all sinks accept and native
+Memory reclamation succeeds. Each sink is called exactly once,
+including after another sink rejects; no automatic retry. Borrowed
+source contents become invalid after the final sink and reclamation.
+This is not an asynchronous retained-buffer fanout, nor proof of
+durability, physical wire receipt or full LogRecord root identity.

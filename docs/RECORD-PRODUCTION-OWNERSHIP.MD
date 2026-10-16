@@ -38,3 +38,22 @@ BoundedTopology transactional FIFO and local Clock. Target ESP32 HIL additionall
 serialises a TEST-ONLY positional array [attempt, monotonic, value] through
 EDP-Serialisation, frames with canonical EDLG/CRC, emits UART proof and confirms
 source lease reclamation. This does not imply full G1-G15 qualification.
+
+## Bounded synchronous multi-sink submission (partial G1/G10)
+
+DrainOneRecordToSinks reuses the existing one-and-only-one source claim
+and native EDP-Memory reclamation through DrainOneRecord. It invokes two
+to eight app-composed synchronous noexcept sinks in supplied order,
+each exactly once, while the source is still Memory-owned. Every sink
+must own/copy its required content before returning (borrow never escapes).
+The separate per-sink Accepted/Rejected/Partial/ProviderFailure results,
+Attempted/Accepted/Unaccepted counts and final reclamation outcome prevent
+partial delivery being misreported as complete. A failed sink is NOT retried
+automatically because earlier sinks may have accepted the same record.
+Real multi-task fork/join, durable acknowledgements and sink retry/dedup
+policies remain future production work.
+
+GCC/Clang host tests reuse actual EDP-Memory and EDP-Threading, including
+all-accepted, partial, failed and occupied/empty source cases. The physical
+ESP32 application separately tests three sink statuses with a single real
+EDP-Memory lease reclamation.

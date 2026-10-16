@@ -84,3 +84,15 @@ cycles PASS; see VALIDATION.MD. Restoring and independently verifying
 all 4 MiB original firmware BEFORE final reboot is mandatory.
 NVS restart readback cannot stand in for an external power cut;
 the canonical LogRecord root remains unissued.
+
+## Extra 2026-10-16 physical three-sink Memory test
+
+The app now publishes one additional native pooled Record and reports
+MULTI_SINK_NATIVE_RECLAMATION after composing three synchronous sinks
+that return Accepted, Rejected, and ProviderFailure. The existing
+real EDP-Memory ConsumerClaim is shared, no sink is called twice,
+the aggregate outcome is Partial/FailedAndReclaimed, and native
+pool live-instance count returns to zero. Current capture script
+expects 12/12 lifecycle markers as well as actual NVS recovery
+and EDP-Serial raw wire CRC verification. This still does not
+constitute a multi-task worker/fork/durable LogRecord pipeline.

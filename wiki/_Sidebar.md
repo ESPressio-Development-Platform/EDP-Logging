@@ -26,4 +26,11 @@
 - [Queue-before-Memory bounded record admission (partial G1)](Reference-logging-BoundedRecordAdmission)
 
 - [Physical ESP32-WROOM G1 test (partial)](Testing-G1-ESP32-Physical)
-\n- [RecordProduction](Reference-logging-RecordProduction.md)\n\n- [EDLG checkpoint](Reference-logging-EdlgCheckpoint.md)\n\n- [Physical Persistence and native Serial](Testing-G7-G12-ESP32-Physical.md)\n
+
+- [RecordProduction](Reference-logging-RecordProduction.md)
+
+- [EDLG checkpoint](Reference-logging-EdlgCheckpoint.md)
+
+- [Physical Persistence and native Serial](Testing-G7-G12-ESP32-Physical.md)
+- [EDLS archive inspection](Reference-logging-EdlsArchiveInspection.md)
+- [EDLS checked append](Reference-logging-EdlsArchiveAppend.md)

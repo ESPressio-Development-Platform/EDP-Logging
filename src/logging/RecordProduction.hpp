@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -203,6 +204,94 @@ namespace ESPressio::Logging {
                 : RecordDrainStatus::FailedAndReclaimed;
         }
         return outcome;
+    }
+
+
+    /// Per-sink outcomes remain separate from one native Memory reclaim result.
+    /// TResultCount is the count of caller-composed independent delivery sinks.
+    template<std::size_t TResultCount>
+    struct RecordFanoutOutcome final {
+
+        /// Source lease ownership, sink aggregate, and native reclamation evidence.
+        RecordDrainOutcome Source{};
+
+        /// Native, per-sink submission results in invocation order.
+        std::array<RecordSinkSubmission, TResultCount> Submissions{};
+
+        /// Count of sinks invoked (zero if no available source).
+        std::size_t Attempted{0U};
+
+        /// Count of sinks which accepted a delivery submission (not durability).
+        std::size_t Accepted{0U};
+
+        /// Count of sinks which did not accept their delivery submission.
+        std::size_t Unaccepted{0U};
+
+        /// All participating submissions accepted AND native lease reclaimed.
+        [[nodiscard]] bool FullySubmittedAndReclaimed() const noexcept {
+            return Source.Status == RecordDrainStatus::AcceptedAndReclaimed &&
+                   Attempted == TResultCount && Accepted == TResultCount;
+        }
+
+    };
+
+    /// Deliver one source-owned record to 2..8 independently chosen sinks.
+    ///
+    /// Calls each sink once in provided order while ONE EDP-Memory claim exists.
+    /// Reuses DrainOneRecord for actual native claim/lease lifecycle.
+    /// Each sink must own/copy its payload before returning; any borrow from
+    /// the source expires at the return from this function. Sinks that returned
+    /// Accepted are NOT automatically called again if a later sink rejects.
+    /// Partial and failed outcomes are observable separately for each sink;
+    /// an accepted enqueue is NOT equivalent to durable/physical receipt.
+    /// No allocations or platform SDK/Mesh/Serial dependencies are introduced.
+    ///
+    /// @tparam TQueue Existing bounded transactional Logging record queue.
+    /// @tparam TSinks Bootstrap-provided noexcept synchronous sink callbacks.
+    template<class TQueue, class... TSinks>
+    [[nodiscard]] RecordFanoutOutcome<sizeof...(TSinks)> DrainOneRecordToSinks(
+        TQueue& queue,
+        typename TQueue::ConsumerClaim& owner,
+        TSinks&&... sinks
+    ) noexcept {
+        constexpr std::size_t SinkCount = sizeof...(TSinks);
+        static_assert(SinkCount >= 2U && SinkCount <= 8U,
+            "Multi-sink fanout requires 2 to 8 bounded sink callbacks");
+        RecordFanoutOutcome<SinkCount> result{};
+        result.Submissions.fill(RecordSinkSubmission::ProviderFailure);
+        const auto aggregate = [&](const auto& record) noexcept -> RecordSinkSubmission {
+            std::size_t index = 0U;
+            bool anyPartial = false;
+            bool anyFailure = false;
+            const auto submit = [&](auto&& sink) noexcept {
+                using TSink = decltype(sink);
+                static_assert(noexcept(std::declval<TSink>()(record)));
+                static_assert(std::is_same_v<
+                    decltype(std::declval<TSink>()(record)), RecordSinkSubmission>);
+                const auto status = sink(record);
+                result.Submissions[index++] = status;
+                ++result.Attempted;
+                if (status == RecordSinkSubmission::Accepted) {
+                    ++result.Accepted;
+                } else {
+                    ++result.Unaccepted;
+                }
+                anyPartial |= status == RecordSinkSubmission::Partial;
+                anyFailure |= status == RecordSinkSubmission::ProviderFailure;
+            };
+            (submit(sinks), ...);
+            if (result.Accepted == SinkCount) {
+                return RecordSinkSubmission::Accepted;
+            }
+            if (anyPartial || result.Accepted != 0U) {
+                return RecordSinkSubmission::Partial;
+            }
+            return anyFailure
+                ? RecordSinkSubmission::ProviderFailure
+                : RecordSinkSubmission::Rejected;
+        };
+        result.Source = DrainOneRecord(queue, owner, aggregate);
+        return result;
     }
 
 } // namespace ESPressio::Logging

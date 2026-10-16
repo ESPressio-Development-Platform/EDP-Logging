@@ -146,3 +146,8 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-edlg-checkpoint-tests.sh
+      - name: Run bounded EDLS FileStorage read-only recovery tests
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-edls-archive-inspection-tests.sh
