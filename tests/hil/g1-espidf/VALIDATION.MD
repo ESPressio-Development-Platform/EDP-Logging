@@ -87,3 +87,64 @@ G1 fault-injection cases, or complete G2-G15 programme. The source
 library itself was not modified by this test harness. The durable
 Policy/main Logging living handoff remains the authoritative overall
 completion and next-step register.
+
+## 2026-10-16 — extended standalone Clock / producer-to-EDLG physical proof
+
+Real dual-core ESP32-D0WD, /dev/serial0 115200, 4 MiB flash. Real Bootstrap
+providers: FreeRTOS EDP-Threading, EDP-Memory ObjectPool, standalone monotonic
+EDP-Clock (NO Mesh), producer sequencing with the dedicated Threading mutex,
+bounded queue, genuine EDP-Serialisation positional CBOR encoder, and canonical
+Logging EDLG CRC frame. App sink emitted exact EDLG bytes as UART hex.
+
+ESP-IDF 5.5.5/pioarduino pinned d41d8383706dc146fd91a0e1d3c59a915a4d493e,
+C++20, compiled/linked HIL SUCCESS. Static RAM 13,920 bytes (4.2%);
+Flash application 188,557 bytes (4.5%) of reported target limits, test app
+only. Temporary merged factory firmware 254,496 bytes.
+
+Before writing, complete fresh original flash read in eight 512 KiB chunks,
+reassembled full 4,194,304-byte original, SHA-256 independently checked PASS.
+Full original backup stays ONLY on RPI400 in the secured recovery directory.
+Temporary firmware actual esptool 254,496 byte FLASH PASS on-write hash verified.
+
+Independent PHYSICAL runs 1, 2 and 3:
+- each real GPIO reset and actual UART read;
+- each exactly 9/9 mandatory app markers PASS, fail=0;
+- independent *existing* Python EDLG framing/CRC scan of actual wire bytes
+  verifies a single canonical CBOR frame, codec and test payload
+  [attempt=1, monotonic timestamp, int 515], edlg_crc_cbor=True;
+- real sink rejection for second record accounted as failed submission,
+  and Memory reclaimed successfully;
+- legacy dual-core producer wake, queue lease ownership, reserved-drain-slot
+  isolation, bounded shutdown and native Memory teardown all PASS.
+
+**No permanent governed LogRecord was emitted.** Payload is TEST ONLY; G4
+TypeIdentifier allocation has not occurred, and no EDLS durable archive,
+Persistence power interruption, cryptographic proof or full multi-sink
+LogRecord worker pipeline was exercised. Acceptance is not durability.
+Physical proof is real but limited to this explicit scope.
+
+The original flash restoration, verification, normal reboot, source revision,
+native compiler tests and release are recorded in the authoritative Policy
+living handoff. The physical raw capture traces and private flash bytes stay
+on RPI400, not GitHub.
+
+### Extended HIL original firmware restoration — PASS, exact full flash digest
+
+After all three physical test runs, 2026-10-16 ~19:48–19:50 CEST,
+entered integrated ESP32 ROM-download mode and wrote the freshly backed
+up complete 4,194,304-byte original flash. A second independent raw
+esptool invocation, using both --before no-reset and --after no-reset,
+verified the ENTIRE 0x400000-byte original image against on-chip flash,
+**without a normal application reset between writing and verification**.
+Actual hardware tool returned:
+
+    Verifying 0x400000 (4194304) bytes at 0x00000000 in flash ...
+    Verification successful (digest matched).
+
+Only after passing the full-chip digest was the original application
+rebooted with normal GPIO reset (OK RESET). The restoration process
+completed with exit code zero; its private logs are
+logging-production-hil-20261016/restore-write.log and restore-verify.log
+on the RPI400. Later normal firmware activity may modify its NVS,
+as expected; equality was verified before that boot. The original image
+must not be published because it may contain private application data.

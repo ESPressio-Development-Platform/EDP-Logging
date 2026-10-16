@@ -121,3 +121,20 @@ The optional [BoundedRecordAdmission.hpp](src/logging/BoundedRecordAdmission.hpp
 ## Physical ESP32-WROOM-32 G1 qualification (opt-in feature only)
 
 The optional queue-before-Memory G1 composer was physically tested on RPI400's actual ESP32-D0WD using real EDP-Memory ObjectPool, EDP-Threading/FreeRTOS wake and mutex providers and a Bootstrap-composed EDP-Clock timebase. Three independent physical reset/run cycles **PASS** the record-pool/FIFO ownership, CPU1 producer-wake, dedicated shutdown wake-slot isolation and active producer cancellation/teardown cases. The **entire 4 MiB original firmware was backed up and restored with independent byte-identical digest verification before final normal reboot**. Build/run logs and exact source/target limitations: [HIL project](tests/hil/g1-espidf/README.MD), [durable evidence](tests/hil/g1-espidf/VALIDATION.MD) and [Wiki](wiki/Testing-G1-ESP32-Physical.md). **This is not evidence of complete Logging producer, sink, G2/G4 or durable persistence behaviour.**
+
+## Optional G1/G10 standalone Clock production/consumer handoff (physical partial)
+
+The optional source header logging/RecordProduction.hpp composes a dedicated
+EDP-Threading sequencer, one injected EDP-Clock coherent temporal capture,
+EDP-Memory record constructor, queue-first bounded transactional admission,
+and one explicitly owned sink submission/reclamation path. EDP-Mesh is NOT
+imported or needed: monotonic-only standalone Clock works correctly.
+
+The new GCC+Clang host tests and three extended real ESP32 runs prove bounded
+generic record production, actual FreeRTOS/Memory FIFO ownership, genuine
+EDP-Serialisation CBOR, canonical EDLG CRC output over UART, source lease
+reclamation and sink rejection accounting. The CBOR record is a TEST-ONLY
+positional tuple, not a governed LogRecord. Permanent EDP-System TypeIdentifier,
+full field envelope, multi-sink delivery, durable archives and power-cut
+recovery remain outstanding. See docs/RECORD-PRODUCTION-OWNERSHIP.MD,
+tests/hil/g1-espidf/VALIDATION.MD and Wiki RecordProduction reference.

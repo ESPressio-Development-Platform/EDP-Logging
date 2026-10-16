@@ -93,3 +93,30 @@ The existing opt-in Logging -> EDP-Serialisation -> EDP-System & EDP-BoundedType
 ## Optional G1 bounded record admission activation (new)
 
 The opt-in header logging/BoundedRecordAdmission.hpp uses exactly the preexisting direct abstract EDP-Clock, EDP-Threading, EDP-Platform and EDP-BoundedTopology edges of TransactionalRecordQueue and AdmissionLifecycleCoordinator plus the supplied EDP-Memory pool/lease contract. No new dependency, reverse edge, platform-specific SDK, circular dependency, or private allocation/wake implementation is introduced. Application Bootstrap selects every concrete implementation. The default Logging umbrella remains dependency-free. See [contract](docs/BOUNDED-RECORD-ADMISSION.MD).
+
+
+## 2026-10-16 — conditional source producer/consumer dependency audit
+
+The opt-in source logging/RecordProduction.hpp includes existing optional
+BoundedRecordAdmission.hpp, AttemptSequence.hpp and LogTemporalEvidence.hpp.
+Consequently its direct abstract owner requirements are EDP-Clock,
+EDP-Threading, EDP-Platform and EDP-BoundedTopology. EDP-Memory
+is used through Bootstrap-selected ObjectPool/Lease template contracts.
+No new platform-specific implementation or ad hoc Memory/Clock facility is
+created. Default ESPressio_Logging.hpp stays standard-C++ only.
+
+The opt-in physical HIL APPLICATION separately includes EDP-Serialisation
+and EDP-Localisation for test-only CBOR argument encoding, and
+EDP-Platform-FreeRTOS/Portable for Bootstrap composition. These are not
+mandatory Logging library edges.
+
+**There is no EDP-Logging -> EDP-Mesh dependency.** Monotonic-only
+CaptureCoherent is an accepted configuration and full basic Logging
+functionality must remain usable in the complete absence of Mesh.
+When Mesh happens to feed a synchronized Clock in another application,
+revision-coherent root/Era acquisition is the responsibility of that
+application's Clock/Mesh integration, not a universal prerequisite for
+EDP-Logging. No reverse Clock/Memory/Serialisation dependency on Logging.
+
+The G4 full canonical LogRecord typed root remains separate and blocked
+by EDP-System-governed permanent TypeIdentifier issuance.

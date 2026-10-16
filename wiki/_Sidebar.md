@@ -26,3 +26,4 @@
 - [Queue-before-Memory bounded record admission (partial G1)](Reference-logging-BoundedRecordAdmission)
 
 - [Physical ESP32-WROOM G1 test (partial)](Testing-G1-ESP32-Physical)
+\n- [RecordProduction](Reference-logging-RecordProduction.md)\n

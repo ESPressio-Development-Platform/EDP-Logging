@@ -108,3 +108,7 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-transactional-record-queue-tests.sh
+      - name: Standalone Clock source producer-consumer admission tests
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-record-production-tests.sh ${{ matrix.compiler }}

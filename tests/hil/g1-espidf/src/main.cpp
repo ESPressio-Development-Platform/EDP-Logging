@@ -2,6 +2,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <array>
+#include <span>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_timer.h>
@@ -11,6 +13,10 @@
 #include <ESPressio_Threading.hpp>
 #include <memory/MemoryResourceProvider.hpp>
 #include <logging/BoundedRecordAdmission.hpp>
+#include <logging/RecordProduction.hpp>
+#include <logging/EdlgFrame.hpp>
+#include <logging/EdlgFrameReader.hpp>
+#include <serialisation/PositionalValueEncoding.hpp>
 
 namespace Test {
 namespace Clock = ESPressio::Clock;
@@ -29,11 +35,19 @@ public:
 };
 class Record final {
     int _value;
+    std::uint32_t _attempt{0U};
+    std::uint64_t _timestamp{0U};
 public:
     static std::atomic<int> Live;
     explicit Record(int v) noexcept : _value(v) { ++Live; }
+    Record(Logging::AttemptSequence<> attempt, Logging::QualifiedLogTime stamp, int v) noexcept :
+        _value(v), _attempt(attempt.Value()), _timestamp(stamp.Monotonic.Nanoseconds()) {
+        ++Live;
+    }
     ~Record() noexcept { --Live; }
     int Value() const noexcept { return _value; }
+    std::uint32_t Attempt() const noexcept { return _attempt; }
+    std::uint64_t Timestamp() const noexcept { return _timestamp; }
 };
 std::atomic<int> Record::Live{0};
 
@@ -54,6 +68,18 @@ using Lease = Pool::LeaseType;
 using Wakes = Threading::BoundedWaitWakeProvider<Signal,3U>;
 using Lifecycle = Logging::AdmissionLifecycleCoordinator<2U,Wakes>;
 struct MutexIdentity final {};
+struct SequencerIdentity final {};
+using SequencerMutex = Threading::OrdinaryMutexProvider<SequencerIdentity,Mutex>;
+using Sequence = Logging::AttemptSequenceCounter<>;
+struct LocalClockCapture final {
+    Logging::CoherentLogClockSample CaptureCoherent() const noexcept {
+        return { Clock::MonotonicNow(), {
+            Clock::SynchronizedTimestamp::FromNanoseconds(0U),
+            Clock::SynchronizationUncertainty::Maximum(),
+            Clock::SynchronizationState::NeverSynchronized
+        }, Clock::ClockEra(), false };
+    }
+};
 using QueueMutex = Threading::OrdinaryMutexProvider<MutexIdentity,Mutex>;
 using Queue = Logging::TransactionalRecordQueue<2U,Lease,QueueMutex,Lifecycle>;
 
@@ -172,6 +198,78 @@ bool Run() {
                   "reclaim-other-slot")) return false;
         if(!Check(Record::Live.load()==0,"reclaimed-after-task")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|DUAL_CORE_PRODUCER_WAKE\n");
+    }
+    // Standalone Clock producer, genuine EDP-Serialisation CBOR, EDLG framing,
+    // UART evidence and Memory lease reclamation; NO Mesh is included.
+    {
+        static SequencerMutex sequencer;
+        static Sequence sequence;
+        static LocalClockCapture standaloneClock;
+        Lease scratch;
+        Queue::Reservation owner;
+        const auto production=Logging::ProduceRecordUntil<
+            Logging::AttemptSequenceWidth::Bits32,8U,8U
+        >(sequence,sequencer,standaloneClock,queue,lifecycle,wakes,0U,
+          pool,scratch,owner,Deadline(2000U),neverStop,515);
+        if(!Check(production.Status==Logging::RecordProductionStatus::Published &&
+                  production.Attempt.Value()==1U && production.TimeCaptured &&
+                  !owner.IsActive() && scratch.IsEmpty(),
+                  "standalone-production-committed")) return false;
+        bool verified=false;
+        auto uartSink=[&verified](const Record& record) noexcept ->
+            Logging::RecordSinkSubmission {
+            if(record.Attempt()!=1U || record.Timestamp()==0U ||
+               record.Value()!=515) return Logging::RecordSinkSubmission::Rejected;
+            std::array<std::byte,96U> payload{};
+            const auto encoded=ESPressio::Serialisation::SerialisePositionalCbor<3U>(
+                payload,record.Attempt(),record.Timestamp(),
+                static_cast<std::int32_t>(record.Value()));
+            if(!encoded.IsSuccessful()) return Logging::RecordSinkSubmission::Rejected;
+            std::array<std::byte,160U> frame{};
+            std::size_t written=0U;
+            if(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,
+                std::span<const std::byte>(payload.data(),encoded.BytesWritten),
+                frame,written,payload.size())!=Logging::EdlgFrameWriteResult::Succeeded)
+                return Logging::RecordSinkSubmission::Rejected;
+            Logging::EdlgFrameView view{};
+            if(Logging::ReadEdlgFrame(
+                std::span<const std::byte>(frame.data(),written),view,payload.size()
+            )!=Logging::EdlgFrameReadResult::Succeeded)
+                return Logging::RecordSinkSubmission::Rejected;
+            verified=view.Codec==Logging::EdlgCodec::Cbor &&
+                     view.Payload.size()==encoded.BytesWritten &&
+                     view.Consumed==written;
+            if(!verified) return Logging::RecordSinkSubmission::Rejected;
+            std::printf("EDP_LOGGING_HIL|CBOR_EDLG_HEX|");
+            for(std::size_t i=0U;i<written;++i)
+                std::printf("%02X",std::to_integer<unsigned>(frame[i]));
+            std::printf("\n");
+            return Logging::RecordSinkSubmission::Accepted;
+        };
+        Queue::ConsumerClaim claim;
+        const auto drained=Logging::DrainOneRecord(queue,claim,uartSink);
+        if(!Check(verified &&
+                  drained.Status==Logging::RecordDrainStatus::AcceptedAndReclaimed &&
+                  drained.SubmissionAttempted && !claim.IsActive() &&
+                  Record::Live.load()==0,
+                  "real-cbor-edlg-source-drained")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|STANDALONE_CLOCK_PRODUCER_CBOR_EDLG\n");
+        Queue::Reservation failedOwner;
+        Lease failedScratch;
+        const auto second=Logging::ProduceRecordUntil<
+            Logging::AttemptSequenceWidth::Bits32,8U,8U
+        >(sequence,sequencer,standaloneClock,queue,lifecycle,wakes,0U,
+          pool,failedScratch,failedOwner,Deadline(2000U),neverStop,516);
+        if(!Check(second.Status==Logging::RecordProductionStatus::Published &&
+                  second.Attempt.Value()==2U,"sequence-second-attempt")) return false;
+        Queue::ConsumerClaim rejectedClaim;
+        const auto reject=[](const Record&) noexcept ->
+            Logging::RecordSinkSubmission { return Logging::RecordSinkSubmission::Rejected; };
+        const auto dropped=Logging::DrainOneRecord(queue,rejectedClaim,reject);
+        if(!Check(dropped.Status==Logging::RecordDrainStatus::FailedAndReclaimed &&
+                  dropped.Submission==Logging::RecordSinkSubmission::Rejected &&
+                  Record::Live.load()==0,"sink-rejection-accounted")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|SINK_REJECTION_ACCOUNTING\n");
     }
     {
         Lease scratch; Queue::Reservation owner;

@@ -50,3 +50,14 @@ only in secured appliance recovery storage and never publish/commit them.
 Record genuine HIL run IDs, firmware/source SHA, observed serial, backup and
 actual restoration evidence in the living Policy handoff. Do not confuse
 build success, simulation, physical operation and proven power-loss durability.
+
+## Extended HIL source-to-UART case
+
+This application also tests RecordProduction.hpp using a standalone Clock
+provider with no synchronized coordinate and no Mesh. The Memory-owned
+record carries a unique attempt ticket and a pre-admission Clock reading,
+then a bounded sink encodes test-only CBOR with EDP-Serialisation and writes
+the EDLG/CRC frame to real UART. capture-production.py independently verifies
+all nine expected markers and the actual frame CRC. Tested on physical
+ESP32-D0WD, 3 independent reset runs. Not a canonical governed LogRecord or
+durability certification. Detailed proof in VALIDATION.MD.
