@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Sequence
 
@@ -20,6 +21,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--archive", action="store_true", help="validate EDLS segment header before framing")
     parser.add_argument("--inspect-record", action="store_true", help="inspect typed envelope without guessing parameter semantics")
     parser.add_argument("--schema", type=Path, help="generated historical diagnostic-schema.json for validated CBOR argument typing")
+    parser.add_argument("--schema-sha256", help="64-hex SHA-256 of exact schema bytes from an independently trusted pinned manifest")
     parser.add_argument("--validate-record", action="store_true", help="validate known outer LogRecord V1 fields without claiming an issued root TypeIdentifier")
     parser.add_argument("--forensic", action="store_true", help="bounded resync; mark recovered candidate frames")
     parser.add_argument("--max-payload", type=int, default=65_536)
@@ -28,9 +30,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     failures = 0
     historical_schema = None
+    if args.schema_sha256 is not None and args.schema is None:
+        print(json.dumps({"kind": "schema-error", "message": "--schema-sha256 requires --schema"}))
+        return 2
     if args.schema is not None:
         try:
-            historical_schema = load_generated_schema(args.schema.read_bytes())
+            pin = None
+            if args.schema_sha256 is not None:
+                if re.fullmatch(r"[0-9a-fA-F]{64}", args.schema_sha256) is None:
+                    raise SchemaError("--schema-sha256 must contain exactly 64 hexadecimal characters")
+                pin = bytes.fromhex(args.schema_sha256)
+            historical_schema = load_generated_schema(
+                args.schema.read_bytes(), trusted_artifact_sha256=pin
+            )
         except (SchemaError, OSError) as error:
             print(json.dumps({"kind": "schema-error", "message": str(error)}))
             return 2
@@ -98,6 +110,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 report["uncertaintyNanoseconds"] = facts.uncertainty_nanoseconds
                                 report["rootTypeGoverned"] = False
                         if historical_schema is not None:
+                            report["schemaArtifactSha256PinMatched"] = (
+                                historical_schema.artifact_sha256_pin_matched
+                            )
                             try:
                                 decoded = decode_declared_arguments(envelope, historical_schema)
                             except SchemaError as error:

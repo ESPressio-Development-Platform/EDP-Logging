@@ -404,5 +404,81 @@ class FramingTests(unittest.TestCase):
         )
 
 
+    def test_externally_pinned_historical_schema_exact_bytes(self) -> None:
+        import contextlib
+        import hashlib
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from edp_logging.cli import main
+        from edp_logging.schema import SchemaError, load_generated_schema
+
+        # Claimed diagnostic fingerprint is not reconstructible from the
+        # flattened messages; a separately trusted SHA-256 pin authenticates
+        # exact received bytes to that independently distributed pin only.
+        document = {
+            "schemaVersion": 1, "kind": "edp-diagnostic-schema",
+            "diagnosticSchemaFingerprint": "AB" * 16,
+            "diagnosticSchemaDigestSha256": "AB" * 16 + "CD" * 16,
+            "identifierWidths": {"domain": 1, "subDomain": 1, "string": 2},
+            "messages": [{
+                "domain": 1, "subDomain": 0, "string": 3,
+                "status": "active", "diagnosticDeclared": True,
+                "parameters": [{"index": 0, "status": "active", "type": "u16"}],
+            }],
+        }
+        source = json.dumps(document, sort_keys=True).encode("utf-8")
+        pin = hashlib.sha256(source).digest()
+        self.assertFalse(load_generated_schema(source).artifact_sha256_pin_matched)
+        self.assertTrue(load_generated_schema(
+            source, trusted_artifact_sha256=pin
+        ).artifact_sha256_pin_matched)
+        for invalid_pin in (b"", b"x" * 31, b"x" * 33, "0" * 64, 1):
+            with self.subTest(invalid_pin=invalid_pin), self.assertRaises(SchemaError):
+                load_generated_schema(source, trusted_artifact_sha256=invalid_pin)
+        with self.assertRaisesRegex(SchemaError, "do not match"):
+            load_generated_schema(source + b" ", trusted_artifact_sha256=pin)
+
+        # Full CLI integration: matching independent content pin is reported,
+        # and mismatched pin rejects before the captured frame is decoded.
+        typed_envelope = (
+            bytes([0x83, 0x01, 0x48]) + bytes(range(1, 9))
+            + bytes([0xA3, 0x00, 0x83, 0x01, 0x00, 0x03, 0x0C, 0x50])
+            + bytes.fromhex("AB" * 16)
+            + bytes([0x0D, 0x81, 0x18, 0x2A])
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            schema_file = Path(directory, "diagnostic-schema.json")
+            capture_file = Path(directory, "capture.edlg")
+            schema_file.write_bytes(source)
+            capture_file.write_bytes(encode_frame(FrameCodec.Cbor, typed_envelope))
+
+            def call(*extra: str) -> tuple[int, dict]:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    code = main([str(capture_file), "--schema", str(schema_file), *extra])
+                return code, json.loads(output.getvalue().splitlines()[0])
+
+            code, event = call("--schema-sha256", pin.hex())
+            self.assertEqual(code, 0)
+            self.assertTrue(event["schemaArtifactSha256PinMatched"])
+            self.assertTrue(event["parameterSchemaInterpreted"])
+            code, event = call()
+            self.assertEqual(code, 0)
+            self.assertFalse(event["schemaArtifactSha256PinMatched"])
+            code, event = call("--schema-sha256", "0" * 64)
+            self.assertEqual(code, 2)
+            self.assertEqual(event["kind"], "schema-error")
+            code, event = call("--schema-sha256", "bogus")
+            self.assertEqual(code, 2)
+            self.assertEqual(event["kind"], "schema-error")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = main([str(capture_file), "--schema-sha256", pin.hex()])
+            self.assertEqual(code, 2)
+            self.assertEqual(json.loads(output.getvalue())["kind"], "schema-error")
+
+
 if __name__ == "__main__":
     unittest.main()

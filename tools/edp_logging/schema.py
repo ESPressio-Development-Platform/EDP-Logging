@@ -7,6 +7,8 @@ a separately pinned build manifest or trusted catalogue supplies provenance.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
 import math
@@ -54,6 +56,7 @@ class DiagnosticSchema:
     fingerprint: bytes
     digest: bytes
     messages: dict[tuple[int, int, int], Message]
+    artifact_sha256_pin_matched: bool = False
 
 
 @dataclass(frozen=True)
@@ -84,10 +87,21 @@ def _bounded_unsigned(value: object, upper: int, name: str) -> int:
 
 
 def load_generated_schema(data: bytes, *, max_source_bytes: int = 2_097_152,
-                          max_messages: int = 65_536) -> DiagnosticSchema:
-    """Read a finite generated artefact; preserve original digest provenance externally."""
+                          max_messages: int = 65_536,
+                          trusted_artifact_sha256: bytes | None = None) -> DiagnosticSchema:
+    """Read finite schema bytes, optionally checking an independently trusted SHA-256 pin.
+
+    The supplied pin must originate from an independently trusted generated-set
+    manifest or deployment channel. Matching bytes do not authenticate that
+    channel or reconstruct Localisation's omitted canonical parent transcript.
+    """
     if max_source_bytes < 0 or len(data) > max_source_bytes or max_messages < 0:
         raise SchemaError("schema source exceeds limits")
+    if trusted_artifact_sha256 is not None:
+        if type(trusted_artifact_sha256) is not bytes or len(trusted_artifact_sha256) != 32:
+            raise SchemaError("trusted schema SHA-256 pin must be exactly 32 bytes")
+        if not hmac.compare_digest(hashlib.sha256(data).digest(), trusted_artifact_sha256):
+            raise SchemaError("diagnostic schema source bytes do not match trusted SHA-256 pin")
     try:
         document = json.loads(
             data.decode("utf-8", "strict"),
@@ -170,7 +184,12 @@ def load_generated_schema(data: bytes, *, max_source_bytes: int = 2_097_152,
         messages[identity] = Message(
             identity, entry["status"], entry["diagnosticDeclared"], tuple(parameters)
         )
-    return DiagnosticSchema(bytes.fromhex(fingerprint_hex), bytes.fromhex(digest_hex), messages)
+    return DiagnosticSchema(
+        bytes.fromhex(fingerprint_hex),
+        bytes.fromhex(digest_hex),
+        messages,
+        trusted_artifact_sha256 is not None,
+    )
 
 
 def _argument_matches(kind: str, value: Any) -> bool:

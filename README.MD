@@ -22,13 +22,13 @@ The complete D1–D13 approved design and ordered seven-tranche implementation p
 
 ## Tests
 
-`bash tests/run-host-tests.sh` is provided for a later authorised host execution environment. It covers ticket width/default and full 16-bit exhaustion. **Test source is committed but it has not been executed.** Neither RPI400 nor AI-AGENT-02 is available for use.
+`bash tests/run-host-tests.sh` covers ticket width/default, 16-bit exhaustion, framing/segment integrity and compile-out behaviour. **The current foundation suites passed on RPI400 using GCC and Clang (2026-10-16)**, as did the Python host decoder suite. These are not complete logging-runtime or physical-device results. AI-AGENT-02 was not accessed.
 
 See [Architecture](docs/ARCHITECTURE.MD) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
 
 ## Python host framing (partial, independent of target firmware)
 
-The `tools/edp_logging` package (version **0.1.0**) provides strict incremental `EDLG` frame validation, finite forensic resynchronisation, `EDLS` segmented-header validation and a structural CLI. See [Host Decoder](docs/HOST-DECODER.MD). It does **not** yet interpret typed LogRecord arguments or original translations. No tests have been executed.
+The `tools/edp_logging` package (version **0.1.0**) provides strict incremental `EDLG` framing, finite forensic resynchronisation, `EDLS` header validation, candidate outer-field and schema-governed **CBOR** diagnostic argument inspection, and a structural CLI. The optional `--schema-sha256` pins exact `diagnostic-schema.json` bytes to a separately trusted manifest SHA-256; without a pin, declared schema digests are not independently verified. See [Host Decoder](docs/HOST-DECODER.MD). JSON semantic argument decoding, translations, operational log producer/sinks and hardware validation remain pending. The 20 Python host tests passed on RPI400 on 2026-10-16.
 
 ## Important correctness boundary
 
@@ -36,23 +36,23 @@ The scanner validates framing and the optional structural Typed Envelope only. F
 
 ## Source-only EDLG v1 framing
 
-`logging/EdlgFrame.hpp` provides `WriteEdlgFrame` over caller-owned spans: binary 20-byte overhead, CRC32C, little-endian length, completion marker and preflight capacity checking. It formats no LogRecord semantics. `EdlgFrameTests.cpp` supplies a byte-for-byte golden fixture also usable with Python host tooling. No build or execution test has run.
+`logging/EdlgFrame.hpp` provides `WriteEdlgFrame` over caller-owned spans: binary 20-byte overhead, CRC32C, little-endian length, completion marker and preflight capacity checking. It formats no LogRecord semantics. `EdlgFrameTests.cpp` supplies a byte-for-byte golden fixture also usable with Python host tooling. Existing C++20 GCC/Clang foundation suites passed on RPI400; device validation remains outstanding.
 
 ## Portable EDLS segment header
 
-`src/logging/EdlsSegment.hpp` and `tools/edp_logging/archive.py` now encode/decode the same explicit 40-byte EDLS segment header, including generation, device/incarnation and CRC32C. C++/Python golden vectors and negative tests are authored. This is a format contract, not a durable archive implementation or a validated interoperable build.
+`src/logging/EdlsSegment.hpp` and `tools/edp_logging/archive.py` now encode/decode the same explicit 40-byte EDLS segment header, including generation, device/incarnation and CRC32C. C++/Python golden vectors and negative tests passed in their respective RPI400 host suites. This is a format contract, not a durable archive implementation or validated firmware interoperability.
 
 ## Archive slot inspection (read-only)
 
-Python `inspect_archive_slots` validates a finite explicitly named archive topology, identifies known generations conservatively and reports only contiguous verified frame prefixes. It refuses confident generation advancement with missing/corrupt/ambiguous evidence; damaged tail is never an append target. Does not replace future production EDP-Persistence archive rotation/recovery, and no executable proof has been obtained.
+Python `inspect_archive_slots` validates a finite explicitly named archive topology, identifies known generations conservatively and reports only contiguous verified frame prefixes. It refuses confident generation advancement with missing/corrupt/ambiguous evidence; damaged tail is never an append target. Does not replace future production EDP-Persistence archive rotation/recovery; host Python tests passed, but physical archive validation remains outstanding.
 
 ## Compile-time disabled-site evaluation
 
-The source now includes an explicitly limited `EDP_LOG_WHEN_ENABLED(Minimum, Severity, statements...)` macro wrapping a lazy `InvokeLogSite` template. Disabled sites do not evaluate time/provider/policy/argument expressions because those are located within the discarded callable. Enabled sites execute the thunk once. It does NOT yet submit a LogRecord, type-check message schemas or provide sink delivery; it is a D4 compile-out prerequisite. An authored host test probes disabled/filtered side effects and enabled once-only evaluation; no executable validation yet.
+The source now includes an explicitly limited `EDP_LOG_WHEN_ENABLED(Minimum, Severity, statements...)` macro wrapping a lazy `InvokeLogSite` template. Disabled sites do not evaluate time/provider/policy/argument expressions because those are located within the discarded callable. Enabled sites execute the thunk once. It does NOT yet submit a LogRecord, type-check message schemas or provide sink delivery; it is a D4 compile-out prerequisite. A host test probes disabled/filtered side effects and enabled once-only evaluation; it passed on RPI400 under GCC and Clang in the foundation suite.
 
 ## Allocation-free native EDLG reader
 
-`ReadEdlgFrame` now validates the canonical EDLG envelope directly from caller-owned bytes and returns a borrowed payload span only after complete CRC/trailer/version/length validation. It refuses malformed frames instead of scanning past them, preserves the output view on failure, and reports exact consumed bytes for safe contiguous-prefix inspection. This is not the EDP-Persistence archive coordinator, a CBOR LogRecord decoder or hardware validation. Negative source tests are added but not yet executed.
+`ReadEdlgFrame` now validates the canonical EDLG envelope directly from caller-owned bytes and returns a borrowed payload span only after complete CRC/trailer/version/length validation. It refuses malformed frames instead of scanning past them, preserves the output view on failure, and reports exact consumed bytes for safe contiguous-prefix inspection. This is not the EDP-Persistence archive coordinator, a CBOR LogRecord decoder or hardware validation. Negative source tests passed in the RPI400 host suites; no physical target test was executed.
 
 ## Read-only chronological analysis primitives
 

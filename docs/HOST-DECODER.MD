@@ -30,7 +30,7 @@ EDLS header 40 bytes: `EDLS` (4), version=1 (1), flags=0 (1), physical slot LE16
 
 ## Tests
 
-`PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v` (after the user permits an execution environment) exercises CRC golden check, valid/truncated/corrupt records, oversized length, bad flags, forensic salvage, scanner bounds and EDLS checks. **Tests have been authored only, not executed.** No appliance access, C++ target build or physical tests occurred.
+`PYTHONPATH=tools python3 -m unittest discover -s tools/tests -v` exercises CRC golden checks, framing, strict historic schema interpretation, exact-byte SHA-256 pinning, malformed pin rejection, CLI pin reporting, archive recovery, bounded analysis and EDLS validation. **20 Python host tests passed on RPI400 on 2026-10-16**, detached run `20261016T065108-f102fd04`, exit 0. Separate foundation C++20 GCC/Clang runs `20261016T064416-0f4afd63` and `20261016T064424-db3864fd` passed. No physical/target builds or power-loss tests are claimed.
 
 ## Structural Typed Envelope inspection (no catalogue assumptions)
 
@@ -46,9 +46,21 @@ The new `record_structure.py` can validate a **canonical** CBOR root `[1, bytes8
 
 The CLI `--schema` selects historical schema validation and records exact message identity, argument count and canonical types in its JSON output without inventing translation wording. Missing/mismatched schema or invalid parameter values report a distinct `schemaError` while retaining independently verified frame/offset provenance. Original payload bytes remain in the caller's source file.
 
+### Independently pinned exact schema bytes (implemented)
+
+`load_generated_schema(data, trusted_artifact_sha256=pin)` now optionally verifies the **exact serialized diagnostic-schema.json bytes** against a **32-byte SHA-256 digest obtained through an independently trusted deployment manifest or pinned source**. It fails closed with `SchemaError` on an invalid/mismatching pin before interpreting any schema declarations; the unpinned API remains accepted for explicitly untrusted/forensic analysis and sets `artifact_sha256_pin_matched=False`. A correctly matched pin sets this fact True; matching cannot prove that the provider of the pin was trustworthy.
+
+The CLI exposes the corresponding `--schema-sha256` argument (exactly 64 hex characters), which requires `--schema`, and emits `schemaArtifactSha256PinMatched` on structurally valid envelopes. Example (use the trusted manifest's `outputs[]` entry with `path=diagnostic-schema.json` and its `sha256` value; **do not read the value from the untrusted schema itself**):
+
+```sh
+PYTHONPATH=tools python3 -m edp_logging capture.edlg --schema generated/diagnostic-schema.json --schema-sha256 <64-hex-digest-from-trusted-manifest>
+```
+
+This is a **separately pinned artefact-byte integrity check**, not reconstruction of `DiagnosticSchemaFingerprint` from the flattened JSON; that canonical digest still depends upon Domain/SubDomain status and empty branches omitted from the generated schema. It does not authenticate unsigned manifests, external channels or a claimed LogRecord TypeIdentifier. No Localisation toolchain fingerprint algorithm was duplicated or modified.
+
 ## Historical schema input hardening
 
-Schema document parsing rejects unknown top-level properties, duplicate members, booleans masquerading as schema version 1, nonfinite JSON constants, malformed or unhashable declaration properties and retired-message use for currently active diagnostic argument decoding. The loader still requires a trustworthy origin for the externally claimed SHA-256 identity; it is **not** a cryptographic verifier of the flattened JSON contents. Negative unit tests were authored but not executed on an available appliance.
+Schema document parsing rejects unknown top-level properties, duplicate members, booleans masquerading as schema version 1, nonfinite JSON constants, malformed or unhashable declaration properties and retired-message use for currently active diagnostic argument decoding. The loader still requires a trustworthy origin for the externally claimed SHA-256 identity; it is **not** a cryptographic verifier of the flattened JSON contents. Negative unit tests passed on RPI400 in the Python host suite dated 2026-10-16.
 
 ## LogRecord candidate facts (D13 FieldIds 0–14)
 
@@ -60,15 +72,15 @@ This is structural/semantic-range groundwork only and the new unit tests have **
 
 ## Forensic continuity correction
 
-Once any corruption or resynchronisation has occurred, all subsequent individually valid frames in **that same scanned source stream** retain `recovered_candidate=True`, even when no additional damaged bytes appear between them. The inter-frame resync-search byte budget resets after each validated candidate, but CRC success alone never re-establishes the pre-damage archive chain. Added an authored test covering an intact prefix, corruption and two successive later valid frames. This test remains **NOT EXECUTED** on the unavailable appliances.
+Once any corruption or resynchronisation has occurred, all subsequent individually valid frames in **that same scanned source stream** retain `recovered_candidate=True`, even when no additional damaged bytes appear between them. The inter-frame resync-search byte budget resets after each validated candidate, but CRC success alone never re-establishes the pre-damage archive chain. Added an authored test covering an intact prefix, corruption and two successive later valid frames. This test passed as part of the 2026-10-16 RPI400 Python suite.
 
 ## Portable EDLS segment header parity
 
-Both C++ `WriteEdlsHeader/ReadEdlsHeader` and Python `encode_segment_header/parse_segment_header` use a version-one 40-byte portable layout, little-endian fixed-width fields, nonzero generation/incarnation/device, zero flags and CRC32C over exactly bytes 0..35. A shared golden vector is documented in source tests: slot 2, generation 7, device 01..10 hex, incarnation 9, checksum LE `AE 4E 0C 51`. This is not a Flash append protocol and does not establish crash durability. C++/Python tests are authored only, not run on an authorised appliance.
+Both C++ `WriteEdlsHeader/ReadEdlsHeader` and Python `encode_segment_header/parse_segment_header` use a version-one 40-byte portable layout, little-endian fixed-width fields, nonzero generation/incarnation/device, zero flags and CRC32C over exactly bytes 0..35. A shared golden vector is documented in source tests: slot 2, generation 7, device 01..10 hex, incarnation 9, checksum LE `AE 4E 0C 51`. This is not a Flash append protocol and does not establish crash durability. C++20 GCC/Clang and Python foundation suites passed on RPI400 on 2026-10-16; no physical Flash/runtime test is implied.
 
 ## Read-only bounded multi-slot inspection
 
-`archive_recovery.py` accepts a statically supplied finite list of physical slot paths (minimum two; explicit upper bound) and inspects each header and *contiguous* EDLG prefix without loading an entire archive. It reports slot state (empty, intact, damaged tail, malformed header, wrong physical slot, I/O failure), last verified byte offset and frame count. It identifies only the largest **known** generation; any unreadable/bad header, duplicate generation or mixed DeviceIdentifier makes the generation ordering ambiguous and prevents recommending an incremented generation. No generation wraps; 64-bit exhaustion is explicit. The Python reader **never mutates files** or appends behind a damaged tail. This reports read-only evidence, not a safe writer election or Flash durability. Mock file tests were authored, NOT executed on an authorised appliance.
+`archive_recovery.py` accepts a statically supplied finite list of physical slot paths (minimum two; explicit upper bound) and inspects each header and *contiguous* EDLG prefix without loading an entire archive. It reports slot state (empty, intact, damaged tail, malformed header, wrong physical slot, I/O failure), last verified byte offset and frame count. It identifies only the largest **known** generation; any unreadable/bad header, duplicate generation or mixed DeviceIdentifier makes the generation ordering ambiguous and prevents recommending an incremented generation. No generation wraps; 64-bit exhaustion is explicit. The Python reader **never mutates files** or appends behind a damaged tail. This reports read-only evidence, not a safe writer election or Flash durability. Mock file tests passed in the 2026-10-16 RPI400 Python host suite; no hardware interruption was executed.
 
 ## Attempt ticket evidence and uncertainty-aware ordering
 
