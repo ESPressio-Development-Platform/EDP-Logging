@@ -126,6 +126,12 @@ namespace ESPressio::Logging {
                         : AdmissionWaitResult::Admitted;
 
                 case ESPressio::Memory::ObjectPoolAcquisitionResult::CapacityUnavailable:
+                    // Each targeted wake entitles the caller to ONE capacity
+                    // recheck. In particular, the final permitted wake must
+                    // not be discarded before probing the Memory owner.
+                    if (wakes >= TMaximumWakeRetries) {
+                        return AdmissionWaitResult::WakeRetryLimitReached;
+                    }
                     break;
 
                 case ESPressio::Memory::ObjectPoolAcquisitionResult::NotInitialized:
@@ -149,9 +155,8 @@ namespace ESPressio::Logging {
                         return AdmissionWaitResult::ShutdownRequested;
                     }
                     ++wakes;
-                    if (wakes >= TMaximumWakeRetries) {
-                        return AdmissionWaitResult::WakeRetryLimitReached;
-                    }
+                    // The next iteration performs the final bounded NoWait
+                    // probe; only another capacity miss exhausts this budget.
                     break;
 
                 case ESPressio::Threading::BoundedWaitResult::TimedOut:
