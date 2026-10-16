@@ -41,4 +41,29 @@ PY
     "$ROOT/tests/DiagnosticArgumentGeneratedContractTests.cpp" \
     -o "$TEMP/contract"
 "$TEMP/contract"
+
+# Negative generated-schema mismatch must be rejected by the Logging owner
+# static_assert itself, rather than failing for a missing dependency.
+if "${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+    -I"$ROOT/src" \
+    -I"$TEMP/generated" \
+    -I"$WORKSPACE/EDP-Serialisation/src" \
+    -I"$WORKSPACE/EDP-Localisation/src" \
+    -I"$WORKSPACE/EDP-System/src" \
+    -I"$WORKSPACE/EDP-BoundedTypes/src" \
+    -I"$WORKSPACE/EDP-BoundedTopology/src" \
+    -I"$WORKSPACE/EDP-Memory/src" \
+    -I"$WORKSPACE/EDP-Platform/src" \
+    -I"$WORKSPACE/EDP-Platform-Portable/src" \
+    -fsyntax-only "$ROOT/tests/CompileFailDiagnosticGeneratedSchema.cpp" \
+    >"$TEMP/negative.log" 2>&1; then
+    echo "ERROR: mismatched generated scalar width unexpectedly compiled" >&2
+    exit 1
+fi
+grep -q "Diagnostic argument types/widths/count" "$TEMP/negative.log" || {
+    echo "ERROR: negative failed for the wrong reason" >&2
+    cat "$TEMP/negative.log" >&2
+    exit 1
+}
+
 echo "Real EDP-Localisation generated-contract G3 integration PASS"
