@@ -158,8 +158,29 @@ namespace Test {
                 pool, wait, lease, Clock::MonotonicTimestamp::FromNanoseconds(100U), 5
             ) == Logging::AdmissionWaitResult::WakeRetryLimitReached
         );
-        assert(pool.Calls == 3U && wait.Calls == 3U);
+        assert(pool.Calls == 4U && wait.Calls == 3U);
         assert(!lease.Occupied);
+    }
+
+
+    void TestLastPermittedWakeMustRecheckAvailableCapacity() {
+        using namespace ESPressio;
+        Source.Value = 1U;
+        Pool pool;
+        pool.Next = Memory::ObjectPoolAcquisitionResult::CapacityUnavailable;
+        pool.AfterFirst = Memory::ObjectPoolAcquisitionResult::Succeeded;
+        Lease lease;
+        WaitPoint wait;
+        // With a single permitted wake, the caller must still probe the
+        // Memory pool after that wake, before declaring its budget exhausted.
+        assert(
+            Logging::AcquirePoolUntil<1U>(
+                pool, wait, lease, Clock::MonotonicTimestamp::FromNanoseconds(100U), 5
+            ) == Logging::AdmissionWaitResult::Admitted
+        );
+        assert(lease.Occupied);
+        assert(pool.Calls == 2U && wait.Calls == 1U);
+        assert(pool.ObservedNoWait);
     }
 
 } // Test
@@ -171,4 +192,5 @@ int main() {
     Test::TestExpiryAndFailure();
     Test::TestLateGrantIsNeverHidden();
     Test::TestFiniteSpuriousWakeBudget();
+    Test::TestLastPermittedWakeMustRecheckAvailableCapacity();
 }
