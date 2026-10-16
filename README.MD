@@ -101,3 +101,7 @@ The optional `--historical-language` CLI flag retrieves the **exact stored histo
 ## G3 generated strong Device and Incarnation diagnostic arguments
 
 `logging/DiagnosticArgumentEncoding.hpp` now recognizes **generated Localisation** `DeviceIdentifier` and `RuntimeIncarnationId` parameter kinds for their *exact* System strong types and routes both through the certified EDP-Serialisation reversible canonical owner adapter. CBOR uses binary-16 plus uint32; JSON uses Base64 plus decimal. Strong identity assignment/validity and full LogRecord root still governed elsewhere. Full contract: [System identity diagnostics](docs/DIAGNOSTIC-SYSTEM-IDENTITY-ARGUMENTS.MD), tests `tests/run-diagnostic-system-identity-tests.sh`. All versions remain `0.1.0`.
+
+## Optional G3 generated ClockEra values
+
+An opt-in `logging/DiagnosticClockEraArguments.hpp` profile imports the EDP-Serialisation owner-certified `ClockEra` ↔ `uint64_t` adapter, and uses the **real EDP-Localisation generated `clock-era`** diagnostic kind in strict compile-time positional matching. This is a conditional EDP-Clock abstract dependency only; no Mesh concrete, ClockEra issuance or synchronized-evidence qualification is implied. [Contract](docs/DIAGNOSTIC-CLOCK-ERA-ARGUMENTS.MD), [GCC/Clang owner suite](tests/run-diagnostic-clock-era-tests.sh), [Wiki](wiki/Reference-logging-ClockEraDiagnostic.md).

@@ -43,3 +43,7 @@ The optional `DiagnosticArgumentEncoding.hpp` now recognizes generated `Utf8`/`B
 ## G3 generated device and incarnation strong values
 
 The existing conditional generated argument adapter now recognizes `System::Identity::DeviceIdentifier` and `System::Identity::RuntimeIncarnationId` under exact Localisation declared kinds. No new Logging owner dependencies: Serialisation owns the existing binary/uint32 conversion, System owns strong identity types and provenance. Cannot call these valid LogRecord identities solely from successful encoding, and G4 governed TypeIdentifier remains unissued. See `docs/DIAGNOSTIC-SYSTEM-IDENTITY-ARGUMENTS.MD`.
+
+## Optional generated ClockEra diagnostic parameter
+
+The `logging/DiagnosticClockEraArguments.hpp` opt-in header enables an exact `ClockEra` strong value in generated `clock-era` parameter positions, through the EDP-Serialisation owner canonical `uint64_t` adapter. The default header remains Clock-independent. This adds no new Clock source or coordinator; the supplied ClockEra must already have been independently qualified by the upstream coherent temporal capture contract. See `docs/DIAGNOSTIC-CLOCK-ERA-ARGUMENTS.MD`.

@@ -19,3 +19,5 @@
 - [Historical diagnostic host bridge (partial G5)](Tooling-edp-logging-historical-diagnostic)
 
 - [Generated Device and Incarnation diagnostic kinds](Reference-logging-SystemIdentityDiagnosticArguments)
+
+- [Optional ClockEra diagnostic argument](Reference-logging-ClockEraDiagnostic)

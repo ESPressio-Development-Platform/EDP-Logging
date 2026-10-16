@@ -80,3 +80,7 @@ This optional activation has no new foundational reverse edge or cycle. EDP-Memo
 ### G3 generated System strong identities (conditional existing DAG)
 
 The existing opt-in Logging -> EDP-Serialisation -> EDP-System & EDP-BoundedTypes graph now admits two more owner-certified types: `System::Identity::DeviceIdentifier` and `System::Identity::RuntimeIncarnationId`. No new Clock, Mesh, EDP-Serial-ESP-IDF or platform concrete dependency introduced; the C++ default Logging umbrella is unchanged.
+
+### Optional ClockEra diagnostic profile (activated only by exact header)
+
+`<logging/DiagnosticClockEraArguments.hpp>` activates optional **Logging → EDP-Serialisation** and **Logging → EDP-Clock** direct abstract owner edges, together with `EDP-Serialisation → EDP-Clock` only for its own optional `ClockEraAdapters.hpp`. All edges point toward Clock/System/Platform foundations; **no reverse Clock→Logging/Serialisation, no Mesh import and no platform SDK import**. The default Logging diagnostic header retains its previous dependency profile and only carries an inactive owner-type certification trait. The consuming application declares EDP-Clock when opting into this header.

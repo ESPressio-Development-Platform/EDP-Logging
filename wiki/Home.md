@@ -9,3 +9,5 @@ No functional Logging producer/sinks exist yet. The existing C++20 foundation su
 The [optional historical diagnostic schema host bridge](Tooling-edp-logging-historical-diagnostic) links pinned Localisation archived ContractFamilies to the offline decoder without a new embedded library dependency.
 
 [System Identity generated diagnostic arguments](Reference-logging-SystemIdentityDiagnosticArguments) extend the optional owner-certified G3 path without adding new direct dependencies.
+
+[Optional generated ClockEra parameter](Reference-logging-ClockEraDiagnostic) preserves exact temporal-identity Types without claiming G2 coherence.
