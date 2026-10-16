@@ -9,7 +9,7 @@
 - [Finite admission shutdown/drain (partial G1)](Reference-logging-AdmissionLifecycleCoordinator)
 - [Tracked RAII lease and strict drain (partial G1)](Reference-logging-TrackedAdmissionCoordinator)
 - [Clock temporal evidence (partial G2)](Reference-logging-LogTemporalEvidence)
-- [Generated scalar diagnostics (partial G3)](Reference-logging-DiagnosticArgumentEncoding)
+- [Generated bounded diagnostics (partial G3)](Reference-logging-DiagnosticArgumentEncoding)
 - [Architecture](../docs/ARCHITECTURE.MD)
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
 - [EDLG portable writer](Reference-logging-EdlgFrame)

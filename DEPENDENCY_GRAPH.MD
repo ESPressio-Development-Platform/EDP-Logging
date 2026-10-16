@@ -55,6 +55,8 @@ The optional `BoundedAdmission` source is a partial reusable algorithm with fake
 
 ### Additional opt-in G3 generated diagnostic argument adapter
 
+**2026-10-16 widened kinds, no graph change:** the same optional EDP-Serialisation + generated EDP-Localisation owner profile now accepts bounded String/Bytes from EDP-BoundedTypes and System Type/Field identifiers already supplied by the **existing** Serialisation/System dependency tree. No new required library, SDK/Clock/Mesh/provider edge, no change to Logging default umbrella.
+
 `logging/DiagnosticArgumentEncoding.hpp` activates a direct abstract dependency on `EDP-Serialisation` at its **`feature/logging-v1` positional CBOR/JSON API**, and on the generated **EDP-Localisation** diagnostic message schema descriptor Type provided by an application. The header itself imports the EDP-Serialisation umbrella; the pre-existing Serialisation mandatory transitive dependencies are EDP-System, EDP-BoundedTypes, EDP-BoundedTopology, EDP-Memory, EDP-Platform-Portable and EDP-Localisation with EDP-Platform/System underneath. This is a purely **opt-in** G3 profile, never imported by default. No reverse dependency Serialisation→Logging and no new platform-concrete library chosen by Logging. Generated diagnostic schema objects must be provided as compile-time descriptor Types and are *not* runtime registries.
 
 ## Planned but not yet activated by Logging
