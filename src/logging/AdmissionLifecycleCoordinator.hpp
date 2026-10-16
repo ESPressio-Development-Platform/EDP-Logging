@@ -104,6 +104,14 @@ namespace ESPressio::Logging {
             return _activeAdmissions.load(std::memory_order_acquire);
         }
 
+        /// Valid producer slots exclude the dedicated shutdown-drainer slot.
+        /// This must be checked before a higher-level queue-capacity wait.
+        [[nodiscard]] static constexpr bool ValidProducerSlot(
+            std::size_t slot
+        ) noexcept {
+            return slot < TProducerCount;
+        }
+
         /// Track one complete producer transaction, including queue wait, Memory
         /// admission and rollback. The returned non-copyable scope must stay
         /// alive through every exit path; Bootstrap joins producer tasks before

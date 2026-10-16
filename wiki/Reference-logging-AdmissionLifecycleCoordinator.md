@@ -27,3 +27,7 @@ The application must **stop spawning callers, join all producer/consumer tasks, 
 ## Queue-before-Memory lifecycle additions
 
 TrackAdmission() returns an internal noncopyable scope which registers an active admission before queue waiting begins and retires it after all rollback and Memory work. Nested counts with AcquireUntil's existing scope are intentional; all teardown must still follow task join and native lease return. PublishCapacityAvailable() forwards to the existing AdmissionWakeCoordinator producer wake fanout after an empty queue-slot retirement; it creates no additional signal. Quiescent does not certify sink callbacks or pool teardown. See [composed admission](Reference-logging-BoundedRecordAdmission).
+
+## Producer slot validity helper
+
+ValidProducerSlot(slot) is public static constexpr, no state mutation: true iff slot is below TProducerCount; false for shutdown-drainer slot TProducerCount and out-of-range slots. The bounded record composer uses it before the queue stage so a producer never borrows the shutdown-drainer Threading wait point.

@@ -27,3 +27,7 @@ The optional API/contract is indexed from [Dependency Graph](../DEPENDENCY_GRAPH
 ## Composed queue transaction shutdown extension
 
 The public TrackAdmission() method returns a noncopyable RAII admission scope, covering the complete queue wait, subsequent native Memory NoWait admission and rollback. The inner AcquireUntil scope also counts its own Memory subcall. A queue-stage producer is therefore represented in ActiveAdmissions so ShutdownUntil cannot report Quiescent while it is waiting to reserve a queue slot. PublishCapacityAvailable() forwards to the preexisting AdmissionWakeCoordinator bounded producer wake fanout whenever an empty pre-Memory reservation releases a queue slot. No additional Signal or waiter registry is created. Draining active calls is NOT a substitute for application task join, source record drain, sink callback completion or confirming all Memory leases returned. See [composed bounded record admission](BOUNDED-RECORD-ADMISSION.MD) and TestShutdownTracksQueueWaitingProducer.
+
+## Producer-slot validation for composed outer admission
+
+ValidProducerSlot(slot) noexcept is a public static constexpr predicate over [0, TProducerCount), excluding the reserved shutdown-drainer slot TProducerCount. Higher-domain consumers MUST reject invalid producer slots before a Queue wait; the older AcquireUntil already rejects them internally, but that is too late for a queue-before-Memory composer. No capacity, signal, timing or dependency change accompanies this additive method.

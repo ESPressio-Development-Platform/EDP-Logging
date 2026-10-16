@@ -26,7 +26,8 @@ namespace ESPressio::Logging {
         LateMemoryGrantReturned = 7U,
         ReleaseUnconfirmed = 8U,
         ReleaseNotificationFailed = 9U,
-        OutputOccupied = 10U
+        OutputOccupied = 10U,
+        InvalidProducerSlot = 11U
     };
 
     struct RecordAdmissionOutcome final {
@@ -36,6 +37,11 @@ namespace ESPressio::Logging {
         CoordinatedReleaseResult Release{CoordinatedReleaseResult::AlreadyEmpty};
         bool MemoryAttempted{false};
         bool ReleaseAttempted{false};
+        /// Health of wake fanout performed by a successful or late Memory grant.
+        /// Admission success and wake publication are independent facts.
+        AdmissionWakePublicationResult WakePublication{
+            AdmissionWakePublicationResult::NotAttempted
+        };
     };
 
     namespace Detail {
@@ -104,13 +110,18 @@ namespace ESPressio::Logging {
             std::is_same_v<decltype(stopRequested()), bool>);
 
         RecordAdmissionOutcome outcome{};
-        // The lifecycle's existing drain counter must cover queue waiting too;
-        // otherwise shutdown can report quiescence before a producer stops.
-        auto completeAdmissionScope = admission.TrackAdmission();
         if (output.IsActive() || !scratchLease.IsEmpty()) {
             outcome.Status = RecordAdmissionStatus::OutputOccupied;
             return outcome;
         }
+        // The producer must NEVER borrow the lifecycle's reserved drain slot
+        // during a queue wait; check before reserving any queue capacity.
+        if (!admission.ValidProducerSlot(producerSlot)) {
+            outcome.Status = RecordAdmissionStatus::InvalidProducerSlot;
+            return outcome;
+        }
+        // Register all real producer work, including queue waits and rollback.
+        auto completeAdmissionScope = admission.TrackAdmission();
 
         std::size_t queueWakes = 0U;
         while (true) {
@@ -167,7 +178,11 @@ namespace ESPressio::Logging {
             } else if (aborted != RecordQueueResult::Succeeded) {
                 // The reservation owner remains live on a failed abort.
                 // Report the uncertain state rather than claiming a clean exit.
-                outcome.Status = RecordAdmissionStatus::QueueFailure;
+                // If native Memory release also failed, retain that stronger
+                // ownership-uncertainty status while preserving Queue details.
+                if (outcome.Status != RecordAdmissionStatus::ReleaseUnconfirmed) {
+                    outcome.Status = RecordAdmissionStatus::QueueFailure;
+                }
                 outcome.Queue = aborted;
             }
         };
@@ -189,6 +204,7 @@ namespace ESPressio::Logging {
         );
         outcome.MemoryAttempted = true;
         outcome.Memory = grant.Admission;
+        outcome.WakePublication = grant.Notification;
 
         auto releaseScratch = [&]() noexcept {
             if (scratchLease.IsEmpty()) return;
