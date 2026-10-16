@@ -4,7 +4,7 @@ This is a **partial**, non-production application-composed bridge and **not** a 
 
 ## Namespace and reusable declarations
 
-- `ESPressio::Logging::AdmissionWaitResult`: explicit strong `std::uint8_t` enum: `Admitted=0`, `GrantedAfterDeadline=1`, `DeadlineElapsed=2`, `WakeRetryLimitReached=3`, `WaitProviderFailure=4`, `MemoryProviderFailure=5`, `MemoryNotInitialized=6`, `TopologyUnavailable=7`, `OutputLeaseOccupied=8`.
+- `ESPressio::Logging::AdmissionWaitResult`: explicit strong `std::uint8_t` enum: `Admitted=0`, `GrantedAfterDeadline=1`, `DeadlineElapsed=2`, `WakeRetryLimitReached=3`, `WaitProviderFailure=4`, `MemoryProviderFailure=5`, `MemoryNotInitialized=6`, `TopologyUnavailable=7`, `OutputLeaseOccupied=8`, `InvalidProducerSlot=9` (returned only by the optional composed wake coordinator when the caller supplies an out-of-range statically configured producer slot).
 - `template<std::size_t TMaximumWakeRetries, TObjectPool, TWaitPoint, TLease, ...TArguments> AcquirePoolUntil(...)`: public noexcept function returning the result. The positive compile-time wake/retry bound is chosen by the application. It delegates the actual object claim to Memory `Acquire(...,NoWait())` and original canonical deadline wait to Threading `WaitUntil(deadline)`, using EDP-Clock `MonotonicNow()` for pre/post-claim checks.
 
 No runtime state is retained by this helper; all provider state and ObjectPool backing remain owned by Bootstrap's selected Memory/Threading/Platform/Clock implementations. No new C++ heap, blocking native Mutex, internal task, signal or clock is introduced. The wait point belongs exclusively to the caller for the whole invocation.

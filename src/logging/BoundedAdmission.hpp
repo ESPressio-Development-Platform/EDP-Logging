@@ -24,7 +24,8 @@ namespace ESPressio::Logging {
         MemoryProviderFailure = 5U,
         MemoryNotInitialized = 6U,
         TopologyUnavailable = 7U,
-        OutputLeaseOccupied = 8U
+        OutputLeaseOccupied = 8U,
+        InvalidProducerSlot = 9U
     };
 
 
