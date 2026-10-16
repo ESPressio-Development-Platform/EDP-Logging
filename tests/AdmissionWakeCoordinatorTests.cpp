@@ -268,6 +268,7 @@ namespace {
 
 } // anonymous
 
+#ifndef EDP_LOGGING_G1_LIFECYCLE_TEST_INCLUDE
 int main() {
     const CanonicalClock clock;
     assert(ESPressio::Clock::BindMonotonicClock(clock));
@@ -279,3 +280,4 @@ int main() {
     TestFailedWakeCannotConcealReleasedCapacity();
     TestContendedMemoryMutexIsDeadlineBoundedEvenWithoutNotification();
 }
+#endif // EDP_LOGGING_G1_LIFECYCLE_TEST_INCLUDE

@@ -25,7 +25,9 @@ namespace ESPressio::Logging {
         MemoryNotInitialized = 6U,
         TopologyUnavailable = 7U,
         OutputLeaseOccupied = 8U,
-        InvalidProducerSlot = 9U
+        InvalidProducerSlot = 9U,
+        ShutdownRequested = 10U,
+        GrantedDuringShutdown = 11U
     };
 
 
@@ -61,13 +63,15 @@ namespace ESPressio::Logging {
         class TObjectPool,
         class TWaitPoint,
         class TLease,
+        class TStopPredicate,
         class... TArguments
     >
-    [[nodiscard]] AdmissionWaitResult AcquirePoolUntil(
+    [[nodiscard]] AdmissionWaitResult AcquirePoolUntilGuarded(
         TObjectPool& pool,
         TWaitPoint& waitPoint,
         TLease& lease,
         ESPressio::Clock::MonotonicTimestamp deadline,
+        TStopPredicate& stopRequested,
         TArguments&&... arguments
     ) noexcept {
         static_assert(
@@ -88,9 +92,18 @@ namespace ESPressio::Logging {
             "Logging admission requires a noexcept Threading wait provider"
         );
 
+        static_assert(
+            noexcept(stopRequested()) &&
+            std::is_same_v<decltype(stopRequested()), bool>,
+            "Logging cancellation predicate must return bool noexcept"
+        );
+
         std::size_t wakes = 0U;
 
         while (true) {
+            if (stopRequested()) {
+                return AdmissionWaitResult::ShutdownRequested;
+            }
             if (ESPressio::Clock::MonotonicNow() >= deadline) {
                 return AdmissionWaitResult::DeadlineElapsed;
             }
@@ -105,6 +118,9 @@ namespace ESPressio::Logging {
                 case ESPressio::Memory::ObjectPoolAcquisitionResult::Succeeded:
                     // Never erase the ownership fact when a grant crosses
                     // the requested deadline during the native NoWait call.
+                    if (stopRequested()) {
+                        return AdmissionWaitResult::GrantedDuringShutdown;
+                    }
                     return ESPressio::Clock::MonotonicNow() >= deadline
                         ? AdmissionWaitResult::GrantedAfterDeadline
                         : AdmissionWaitResult::Admitted;
@@ -129,6 +145,9 @@ namespace ESPressio::Logging {
 
             switch (waited) {
                 case ESPressio::Threading::BoundedWaitResult::Woken:
+                    if (stopRequested()) {
+                        return AdmissionWaitResult::ShutdownRequested;
+                    }
                     ++wakes;
                     if (wakes >= TMaximumWakeRetries) {
                         return AdmissionWaitResult::WakeRetryLimitReached;
@@ -142,6 +161,30 @@ namespace ESPressio::Logging {
                     return AdmissionWaitResult::WaitProviderFailure;
             }
         }
+    }
+
+
+    /// Backwards-compatible no-cancellation variant.
+    /// Existing source callers retain the exact previous function signature.
+    template<
+        std::size_t TMaximumWakeRetries,
+        class TObjectPool,
+        class TWaitPoint,
+        class TLease,
+        class... TArguments
+    >
+    [[nodiscard]] AdmissionWaitResult AcquirePoolUntil(
+        TObjectPool& pool,
+        TWaitPoint& waitPoint,
+        TLease& lease,
+        ESPressio::Clock::MonotonicTimestamp deadline,
+        TArguments&&... arguments
+    ) noexcept {
+        const auto neverStop = []() noexcept -> bool { return false; };
+        return AcquirePoolUntilGuarded<TMaximumWakeRetries>(
+            pool, waitPoint, lease, deadline, neverStop,
+            std::forward<TArguments>(arguments)...
+        );
     }
 
 } // namespace ESPressio::Logging
