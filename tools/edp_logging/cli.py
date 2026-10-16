@@ -12,6 +12,7 @@ from .archive import SEGMENT_HEADER_SIZE, SegmentHeaderError, parse_segment_head
 from .framing import Frame, scan_stream
 from .record_structure import EnvelopeError, PreservedFloat, inspect_typed_envelope
 from .schema import SchemaError, decode_declared_arguments, load_generated_schema
+from .historical_schema import load_archived_diagnostic_schema
 from .record_facts import RecordFactError, inspect_log_record_facts
 
 
@@ -22,6 +23,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--inspect-record", action="store_true", help="inspect typed envelope without guessing parameter semantics")
     parser.add_argument("--schema", type=Path, help="generated historical diagnostic-schema.json for validated CBOR argument typing")
     parser.add_argument("--schema-sha256", help="64-hex SHA-256 of exact schema bytes from an independently trusted pinned manifest")
+    parser.add_argument("--historical-archive", type=Path, help="EDP-Localisation offline family archive root")
+    parser.add_argument("--contract-family-fingerprint", help="explicit 32-uppercase-hex historic ContractFamily fingerprint; NOT the diagnostic fingerprint")
+    parser.add_argument("--contract-family-digest", help="optional full 64-uppercase-hex historic ContractFamily digest")
+    parser.add_argument("--trusted-archive-manifest-sha256", help="independently trusted full 64-hex SHA256 of selected historical family manifest")
+    parser.add_argument("--historical-language", help="resolve template from explicitly selected historical ContractFamily; no argument interpolation")
+    parser.add_argument("--max-historical-template-bytes", type=int, default=65536, help="maximum decoded historical template UTF-8 bytes")
     parser.add_argument("--validate-record", action="store_true", help="validate known outer LogRecord V1 fields without claiming an issued root TypeIdentifier")
     parser.add_argument("--forensic", action="store_true", help="bounded resync; mark recovered candidate frames")
     parser.add_argument("--max-payload", type=int, default=65_536)
@@ -30,6 +37,54 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     failures = 0
     historical_schema = None
+    historical_evidence = None
+    uses_archive = args.historical_archive is not None
+    if (
+        (args.contract_family_fingerprint is not None
+         or args.contract_family_digest is not None
+         or args.trusted_archive_manifest_sha256 is not None)
+        and not uses_archive
+    ) or (uses_archive and args.contract_family_fingerprint is None):
+        print(json.dumps({
+            "kind": "schema-error",
+            "message": "historical archive requires --historical-archive and --contract-family-fingerprint",
+        }))
+        return 2
+    if args.historical_language is not None and not uses_archive:
+        print(json.dumps({
+            "kind": "schema-error",
+            "message": "--historical-language requires --historical-archive",
+        }))
+        return 2
+    if args.max_historical_template_bytes <= 0:
+        print(json.dumps({
+            "kind": "schema-error",
+            "message": "historical template byte limit must be positive",
+        }))
+        return 2
+    if uses_archive and (args.schema is not None or args.schema_sha256 is not None):
+        print(json.dumps({
+            "kind": "schema-error",
+            "message": "historical archive cannot be combined with --schema or --schema-sha256",
+        }))
+        return 2
+    if uses_archive:
+        try:
+            pin = None
+            if args.trusted_archive_manifest_sha256 is not None:
+                if re.fullmatch(r"[0-9a-fA-F]{64}", args.trusted_archive_manifest_sha256) is None:
+                    raise SchemaError("trusted archive manifest SHA-256 must contain 64 hex digits")
+                pin = bytes.fromhex(args.trusted_archive_manifest_sha256)
+            historical_evidence = load_archived_diagnostic_schema(
+                args.historical_archive,
+                args.contract_family_fingerprint,
+                contract_family_digest=args.contract_family_digest,
+                trusted_manifest_sha256=pin,
+            )
+            historical_schema = historical_evidence.schema
+        except (SchemaError, OSError) as error:
+            print(json.dumps({"kind": "schema-error", "message": str(error)}))
+            return 2
     if args.schema_sha256 is not None and args.schema is None:
         print(json.dumps({"kind": "schema-error", "message": "--schema-sha256 requires --schema"}))
         return 2
@@ -113,6 +168,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                             report["schemaArtifactSha256PinMatched"] = (
                                 historical_schema.artifact_sha256_pin_matched
                             )
+                            if historical_evidence is not None:
+                                report["historicalContractFamilyFingerprint"] = (
+                                    historical_evidence.contract_family_fingerprint.hex().upper()
+                                )
+                                report["historicalManifestTrustedPinMatched"] = (
+                                    historical_evidence.manifest_sha256_pin_matched
+                                )
                             try:
                                 decoded = decode_declared_arguments(envelope, historical_schema)
                             except SchemaError as error:
@@ -125,6 +187,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 ]
                                 report["argumentCount"] = len(decoded.values)
                                 report["parameterSchemaInterpreted"] = True
+                                if historical_evidence is not None and args.historical_language is not None:
+                                    try:
+                                        template = historical_evidence.resolve_template(
+                                            args.historical_language,
+                                            decoded.message.identity,
+                                            expected_diagnostic_fingerprint=historical_schema.fingerprint,
+                                            max_template_bytes=args.max_historical_template_bytes,
+                                        )
+                                    except SchemaError as error:
+                                        failures += 1
+                                        report["historicalTemplateError"] = str(error)
+                                    else:
+                                        report["historicalTemplate"] = template.template
+                                        report["historicalTemplateSupplyingLanguage"] = template.supplying_language
+                                        report["historicalTemplateFallbackUsed"] = template.fallback_used
+                                        report["historicalTemplateInterpolated"] = template.interpolated
                 print(json.dumps(report))
             else:
                 failures += 1

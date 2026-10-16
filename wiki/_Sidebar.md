@@ -15,3 +15,5 @@
 - [EDLG portable writer](Reference-logging-EdlgFrame)
 - [EDLS portable header](Reference-logging-EdlsSegment)
 - [Compile-time site gate](Reference-logging-Instrumentation)
+
+- [Historical diagnostic host bridge (partial G5)](Tooling-edp-logging-historical-diagnostic)

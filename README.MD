@@ -91,3 +91,9 @@ The source now includes an explicitly limited `EDP_LOG_WHEN_ENABLED(Minimum, Sev
 ## Read-only chronological analysis primitives
 
 `tools/edp_logging/analysis.py` now offers bounded per-device/incarnation attempt-sequence evidence and uncertainty-aware time-order comparisons. It does not mistake observed gaps for proven loss stages, or incomparable Clock Eras for timestamps on a shared UTC clock. See the host-decoder contract and outstanding tests.
+
+## Optional G5 archived diagnostic schema host bridge (offline only)
+
+`tools/edp_logging/historical_schema.py` adds **conditional host-only** Localisation historical family selection, without importing Localisation Python tooling into the embedded Logging library. It opens the exact caller-selected historical `ContractFamilyFingerprint` through EDP-Localisation's existing archive verifier, retrieves the pinned `diagnostic-schema.json`, and parses via EDP-Logging's existing strict schema loader. The record's Field12 diagnostic fingerprint is **different from the translation-sensitive ContractFamily fingerprint** and cannot uniquely identify historical translations. An external trusted archive-manifest SHA256 pin is optional and **separately reported**; internal hashes alone are NOT provenance. CLI flags and GCC-free Python regression: [G5 host bridge](docs/HISTORICAL-DIAGNOSTIC-SCHEMA-BRIDGE.MD), [Wiki](wiki/Tooling-edp-logging-historical-diagnostic.md) and `tests/run-historical-schema-tests.sh`. No G4 LogRecord root authority, MCU runtime decoder, hardware or durable archive claims.
+
+The optional `--historical-language` CLI flag retrieves the **exact stored historic template** and language fallback, but deliberately does **not** interpolate argument values or invent presentation formats.
