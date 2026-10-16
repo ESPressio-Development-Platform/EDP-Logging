@@ -120,3 +120,22 @@ EDP-Logging. No reverse Clock/Memory/Serialisation dependency on Logging.
 
 The G4 full canonical LogRecord typed root remains separate and blocked
 by EDP-System-governed permanent TypeIdentifier issuance.
+
+## Optional EDLG KeyValueStorage checkpoint (2026-10-16, independent)
+
+- EDP-Logging [only logging/EdlgCheckpoint.hpp]
+  - EDP-Persistence [DIRECT abstract KeyValueStorage]
+    - EDP-System [TRANSITIVE Composition]
+  - EDP-Logging own canonical EdlgFrameReader and EdlgFrame writer [INTERNAL]
+- Application ESP32 HIL Bootstrap [separately, NOT a mandatory Logging edge]
+  - EDP-Persistence-ESP-IDF [concrete NVS selected by Bootstrap]
+  - EDP-Serial [abstract bounded frame queue selected by Bootstrap]
+  - EDP-Serial-ESP-IDF [concrete unbuffered native UART FIFO writer]
+  - EDP-Platform-Portable [EDP-Memory ByteOperations concrete used by NVS]
+  - EDP-Threading [exclusive fixed FIFO writer arbitration]
+  - EDP-Clock, EDP-Memory, EDP-Serialisation, EDP-Localisation
+    [already activated for prior independent HIL source/encoding tests]
+
+This conditional graph introduces NO Logging-to-Serial, Logging-to-Mesh,
+Logging-to-ESP-IDF or non-abstraction reverse edge. KeyValueStorage snapshot
+is explicitly NOT a substitute for persistent EDLS rolling archive.

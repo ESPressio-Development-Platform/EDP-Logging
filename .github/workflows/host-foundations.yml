@@ -112,3 +112,37 @@ jobs:
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-record-production-tests.sh ${{ matrix.compiler }}
+
+  bounded-edlg-persistence-checkpoint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - name: Checkout Logging optional Persistence consumer
+        uses: actions/checkout@v4
+        with:
+          path: EDP-Logging
+      - name: Checkout owning EDP-Persistence abstraction
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Persistence
+          ref: main
+          path: EDP-Persistence
+      - name: Checkout EDP-System Composition
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-System
+          ref: serialisation_prerequisites
+          path: EDP-System
+      - name: Checkout EDP-Platform abstraction
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform
+          ref: main
+          path: EDP-Platform
+      - name: Run bounded malformed/truncated/provider-fault checkpoints
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-edlg-checkpoint-tests.sh

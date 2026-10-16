@@ -32,6 +32,30 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-Localisation
           ref: feature/logging-v1
           path: EDP-Localisation
+      - name: Checkout Serial abstract owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Serial
+          ref: feature/logging-v1
+          path: EDP-Serial
+      - name: Checkout Serial ESP-IDF native provider
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Serial-ESP-IDF
+          ref: feature/logging-v1
+          path: EDP-Serial-ESP-IDF
+      - name: Checkout Persistence abstract owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Persistence
+          ref: main
+          path: EDP-Persistence
+      - name: Checkout Persistence ESP-IDF NVS provider
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Persistence-ESP-IDF
+          ref: main
+          path: EDP-Persistence-ESP-IDF
       - name: Checkout Threading owner
         uses: actions/checkout@v4
         with:
@@ -88,7 +112,7 @@ jobs:
         run: python -m pip install platformio
       - name: Record exact checked-out dependency commit pins
         run: |
-          for repo in EDP-Logging EDP-Serialisation EDP-Localisation EDP-Memory EDP-Threading EDP-Clock EDP-System EDP-BoundedTopology EDP-BoundedTypes EDP-Platform EDP-Platform-FreeRTOS EDP-Platform-Portable; do
+          for repo in EDP-Logging EDP-Serialisation EDP-Localisation EDP-Serial EDP-Serial-ESP-IDF EDP-Persistence EDP-Persistence-ESP-IDF EDP-Memory EDP-Threading EDP-Clock EDP-System EDP-BoundedTopology EDP-BoundedTypes EDP-Platform EDP-Platform-FreeRTOS EDP-Platform-Portable; do
             printf '%s=' "$repo"
             git -C "$repo" rev-parse HEAD
           done

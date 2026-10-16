@@ -148,3 +148,78 @@ logging-production-hil-20261016/restore-write.log and restore-verify.log
 on the RPI400. Later normal firmware activity may modify its NVS,
 as expected; equality was verified before that boot. The original image
 must not be published because it may contain private application data.
+
+## 2026-10-16 20:16–20:18 CEST — actual native EDP-Persistence/NVS + EDP-Serial UART FIFO proof
+
+**Source:** EDP-Logging feature/logging-v1 following 0d787ef, including
+logging/EdlgCheckpoint.hpp optional EDP-Persistence KeyValueStorage adapter.
+PioArduino pinned d41d8383706dc146fd91a0e1d3c59a915a4d493e,
+ESP-IDF 5.5.5, Xtensa C++20.
+Physical target was RPI400 integrated dual-core ESP32-D0WD, 4 MiB flash,
+physical /dev/serial0 @115200. Actual firmware build/link SUCCESS:
+native-serial-nvs-build2.log, 392.60 s, static RAM 14,288 bytes (4.4%)
+and application flash 224,897 bytes (5.4%) per build toolchain.
+Combined temporary factory binary: 290,832 bytes. Prior first build
+failed only because new include flags had literal backslash-n joining,
+fixed before the successful build. No EDP-Mesh implementation linked.
+
+Before writing, read whole original **4,194,304 bytes** in eight
+independent 512 KiB actual flash reads. 512 KiB slices 5 and 6
+encountered serial digest mismatches and were retried; ALL eight
+eventually passed and reconstructed original SHA256 independently
+verified: FLASH_BACKUP|ALL_4MB_VERIFIED|PASS. Private original image and
+raw evidence remain exclusively under RPI400 secure directory
+/srv/espressio/recovery/logging-persistence-serial-20261016.
+NEVER upload the original firmware or NVS contents to GitHub.
+Raw esptool physically flashed 290,832 bytes and independently
+verified temporary firmware digest BEFORE release of ROM download
+mode; capture observer attached BEFORE GPIO reset.
+
+Actual real-on-device test mechanism: the app chooses concrete
+EDP-Persistence-ESP-IDF NvsKeyValueStorage, using EDP-Platform-Portable's
+already-existing EDP-Memory ByteOperations provider. The app commits a
+24-byte TEST-ONLY EDLG CBOR frame through generic Logging
+WriteEdlgCheckpoint into namespace edp_log_hil/key frame. After success,
+it calls esp_restart. Only on the next real physical boot can
+ReadEdlgCheckpoint recover, validate exact size/CRC/codecs/bytes and
+then delete/commit the test key. Host captured BOTH pre-restart
+and post-restart markers. This establishes native restart retention,
+NOT the physical cut-and-restore of external power.
+
+Then real EDP-Memory/Threading/Clock producer and FIFO tests run and
+Bootstrap selects existing EDP-Serial::BoundedEdlgFrameQueue and
+EDP-Serial-ESP-IDF::UartFifoByteStreamWriter on the real UART0
+hardware with zero application TX buffer and exclusive writer use.
+A complete 24-byte raw binary EDLG frame is sent to the physical
+RPI400 serial RX, with no printf framing substitution. The
+independent existing Python EDLG scanner validates the CRC32C,
+the Cbor codec and exactly the CBOR [1,2,3] tuple; the UART FIFO
+reports completion and the native UART transmit-drained boundary
+is explicitly checked. Host-observed raw frame bytes:
+45444c47010100000400000068bf707083010203474c4445 .
+All stages are HIL test data, not the canonical governed LogRecord.
+
+**Three independent full GPIO-reset NVS-commit/restart/recovery/Serial cycles
+PASSED**, each real UART host capture ended:
+
+    EDP_LOGGING_NATIVE_HIL_SUMMARY|markers=11/11|fail=0|binary_edlg_verified=True
+
+Evidence logs native-hil-run1.log, native-hil-run2.log, native-hil-run3.log
+under the private RPI400 recovery directory. This genuinely covers
+EDP-Persistence-ESP-IDF and EDP-Serial-ESP-IDF, not mocked endpoints.
+No external power-cut, EDLS historical multi-slot archive, wear
+retention, source-sink multiwriter arbitration beyond a single
+exclusive FIFO, signed archival identity or canonical G4 LogRecord
+is claimed.
+
+**Complete original flash restoration independently VERIFIED PASS.**
+After 3/3 physical runs, raw esptool remained in the SAME ROM download
+session while it wrote the entire original 4,194,304 bytes and then
+independently verified all 0x400000 bytes before any normal firmware
+reboot. Tool reported:
+    Verification successful (digest matched).
+Only AFTER this whole-chip digest match did esp32-integrated reset
+return the original application to normal boot. Full logs:
+restore-original-write.log, restore-original-verify.log.
+Native host GCC/Clang and UBSan results remain separately recorded
+in the authoritative Policy living handoff. All packages remain 0.1.0.

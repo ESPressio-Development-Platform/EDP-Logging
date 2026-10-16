@@ -61,3 +61,26 @@ the EDLG/CRC frame to real UART. capture-production.py independently verifies
 all nine expected markers and the actual frame CRC. Tested on physical
 ESP32-D0WD, 3 independent reset runs. Not a canonical governed LogRecord or
 durability certification. Detailed proof in VALIDATION.MD.
+
+## Current NVS and actual EDP-Serial native UART hardware validation
+
+Current firmware adds application-composed EDP-Persistence-ESP-IDF
+NvsKeyValueStorage, EDP-Platform-Portable EDP-Memory ByteOperations,
+and EDP-Serial-ESP-IDF native UART0 FIFO through EDP-Serial's existing
+bounded EDLG frame queue. It does not import either concrete provider
+from Logging's own headers and it needs no Mesh.
+
+A fresh whole-chip original backup and SHA-256 verification are mandatory
+before flashing. UART observer is attached while ESP32 remains in
+ROM-download mode; after reset, boot 1 stores a test-only framed CBOR
+value to the app's NVS namespace and restarts the MCU. Boot 2 must
+recover and checksum-check it and delete the key, then run the previous
+dual-core G1 source tests and send an actual raw binary UART EDLG frame.
+
+Run current capture-serial-persistence.py (old capture-production.py
+forwards to it). Exactly 11 expected markers, no failures and a
+host-decoded CRC-valid binary frame are required. Three hardware
+cycles PASS; see VALIDATION.MD. Restoring and independently verifying
+all 4 MiB original firmware BEFORE final reboot is mandatory.
+NVS restart readback cannot stand in for an external power cut;
+the canonical LogRecord root remains unissued.

@@ -17,6 +17,14 @@
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
 #include <serialisation/PositionalValueEncoding.hpp>
+#include <logging/EdlgCheckpoint.hpp>
+#include <ESPressio_Persistence_ESP_IDF.hpp>
+#include <memory/ByteOperationsProvider.hpp>
+#include <nvs_flash.h>
+#include <esp_system.h>
+#include <driver/uart.h>
+#include <serial/BoundedEdlgFrameQueue.hpp>
+#include <serial_esp_idf/UartFifoByteStreamWriter.hpp>
 
 namespace Test {
 namespace Clock = ESPressio::Clock;
@@ -82,6 +90,108 @@ struct LocalClockCapture final {
 };
 using QueueMutex = Threading::OrdinaryMutexProvider<MutexIdentity,Mutex>;
 using Queue = Logging::TransactionalRecordQueue<2U,Lease,QueueMutex,Lifecycle>;
+
+// Only Bootstrap selects actual native Persistence and Serial providers.
+struct NvsTestIdentity final {};
+using ByteOps = Platform::Portable::Memory::ByteOperationsProvider;
+using Nvs = ESPressio::Persistence::EspIdf::NvsKeyValueStorage<NvsTestIdentity,ByteOps>;
+struct SerialMutexIdentity final {};
+using SerialMutex = Threading::OrdinaryMutexProvider<SerialMutexIdentity,Mutex>;
+using SerialQueue = ESPressio::Serial::BoundedEdlgFrameQueue<2U,32U,SerialMutex>;
+bool Check(bool value,const char* label) noexcept;
+
+bool TestNvsCheckpointAcrossReboot() noexcept {
+    namespace Persistence=ESPressio::Persistence;
+    if(!Check(nvs_flash_init()==ESP_OK,"nvs-initialize-no-erase")) return false;
+    static ByteOps byteOps;
+    Nvs native(byteOps);
+    if(!Check(native.Open("edp_log_hil")==
+        Persistence::EspIdf::NvsOpenStatus::Succeeded,"nvs-provider-open"))
+        return false;
+    constexpr auto key=Persistence::KeyView::Validate("frame");
+    static_assert(key.IsValuePresent);
+    std::array<std::byte,64U> loaded{};
+    Logging::EdlgFrameView view{};
+    const auto read=Logging::ReadEdlgCheckpoint(native,key.Value,loaded,32U,view);
+    if(read.Status==Logging::EdlgCheckpointReadStatus::NotFound) {
+        const std::array<std::byte,4U> cbor{
+            std::byte{0x83U},std::byte{0x01U},std::byte{0x02U},std::byte{0x03U}
+        };
+        std::array<std::byte,64U> frame{};
+        std::size_t written{0U};
+        if(!Check(Logging::WriteEdlgFrame(
+            Logging::EdlgCodec::Cbor,cbor,frame,written,32U
+        )==Logging::EdlgFrameWriteResult::Succeeded,"nvs-frame"))
+            return false;
+        const auto stored=Logging::WriteEdlgCheckpoint(
+            native,key.Value,std::span<const std::byte>(frame.data(),written),32U
+        );
+        if(!Check(stored.Status==Logging::EdlgCheckpointWriteStatus::Committed &&
+                  stored.Store==Persistence::KeyValueStoreStatus::Succeeded,
+                  "real-nvs-persistence-commit")) return false;
+        native.Close();
+        std::printf("EDP_LOGGING_HIL|PASS|PERSISTENCE_COMMITTED_BEFORE_RESTART\n");
+        std::fflush(stdout);
+        vTaskDelay(pdMS_TO_TICKS(70));
+        esp_restart();
+        return false;
+    }
+    const auto verified=
+        read.Status==Logging::EdlgCheckpointReadStatus::Recovered &&
+        read.FrameBytes==24U &&
+        view.Codec==Logging::EdlgCodec::Cbor &&
+        view.Payload.size()==4U &&
+        view.Payload[0U]==std::byte{0x83U} &&
+        view.Payload[1U]==std::byte{0x01U} &&
+        view.Payload[2U]==std::byte{0x02U} &&
+        view.Payload[3U]==std::byte{0x03U};
+    if(!Check(verified,"nvs-reboot-checkpoint-verified")) return false;
+    if(!Check(native.RemoveKey(key.Value)==
+        Persistence::KeyValueRemoveStatus::Succeeded,"nvs-cleanup")) return false;
+    native.Close();
+    std::printf("EDP_LOGGING_HIL|PASS|PERSISTENCE_RESTART_RECOVERY\n");
+    return true;
+}
+
+// All competing native UART writers are quiescent while FIFO is in flight.
+bool TestComposedSerialHardwareEndpoint() noexcept {
+    using namespace ESPressio::Serial;
+    if(!Check(!uart_is_driver_installed(UART_NUM_0),"uart0-exclusive-owner")) return false;
+    if(!Check(uart_driver_install(UART_NUM_0,256,0,0,nullptr,0)==ESP_OK,
+              "serial-install-unbuffered-tx")) return false;
+    ESP_IDF::UartFifoByteStreamWriter writer(UART_NUM_0);
+    static SerialMutex mutex;
+    SerialQueue fifo(mutex);
+    constexpr std::array<std::byte,4U> payload{
+        std::byte{0x83U},std::byte{0x01U},
+        std::byte{0x02U},std::byte{0x03U}
+    };
+    const auto offered=fifo.TryEnqueue(Logging::EdlgCodec::Cbor,payload);
+    if(!Check(offered.FrameWasQueued &&
+              offered.Status==EdlgQueueOfferStatus::Queued,"serial-owner-enqueue"))
+        return false;
+    std::printf("EDP_LOGGING_HIL|SERIAL_BINARY_START|24\n");
+    std::fflush(stdout);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    bool done=false;
+    for(unsigned attempts=0U;attempts<200U;++attempts) {
+        const auto progress=fifo.PumpNext(writer);
+        if(progress.Status==EdlgQueuePumpStatus::Complete) {
+            done=progress.FrameCompleted&&progress.TotalFrameBytes==24U &&
+                 fifo.Depth()==0U;
+            break;
+        }
+        if(progress.Status!=EdlgQueuePumpStatus::WouldBlock)
+            return Check(false,"serial-native-progress-failure");
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+    if(!Check(done,"serial-native-frame-fully-accepted")) return false;
+    if(!Check(uart_wait_tx_done(UART_NUM_0,pdMS_TO_TICKS(500))==ESP_OK,
+              "serial-native-uart-tx-drained")) return false;
+    std::printf("EDP_LOGGING_HIL|PASS|SERIAL_OWNER_NATIVE_UART_EDLG\n");
+    std::fflush(stdout);
+    return true;
+}
 
 Clock::MonotonicTimestamp Deadline(std::uint64_t ms) noexcept {
     return Clock::MonotonicTimestamp::FromNanoseconds(
@@ -330,7 +440,9 @@ bool Run() {
 }
 extern "C" void app_main() {
     std::printf("EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS\n");
-    const bool success=Test::Run();
+    const bool nvs=Test::TestNvsCheckpointAcrossReboot();
+    const bool core=nvs && Test::Run();
+    const bool success=core && Test::TestComposedSerialHardwareEndpoint();
     std::printf("EDP_LOGGING_HIL|RESULT|%s\n",success?"PASS":"FAIL");
     std::fflush(stdout);
     for(;;) vTaskDelay(pdMS_TO_TICKS(1000U));

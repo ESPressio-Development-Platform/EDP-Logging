@@ -138,3 +138,16 @@ positional tuple, not a governed LogRecord. Permanent EDP-System TypeIdentifier,
 full field envelope, multi-sink delivery, durable archives and power-cut
 recovery remain outstanding. See docs/RECORD-PRODUCTION-OWNERSHIP.MD,
 tests/hil/g1-espidf/VALIDATION.MD and Wiki RecordProduction reference.
+
+## Optional bounded EDLG Persistence checkpoint and concrete Serial HIL
+
+[EDLG KeyValueStorage checkpoint](docs/EDLG-KEYVALUE-CHECKPOINT.MD) provides
+one optional, checksum-checked single-frame save/recover path over the existing
+**abstract EDP-Persistence KeyValueStorage** contract. It cannot claim an
+EDLS historical archive or durable storage stronger than the selected
+Bootstrap provider. GCC/Clang host fault tests live in
+tests/run-edlg-checkpoint-tests.sh; the physical ESP32 test app selects
+EDP-Persistence-ESP-IDF NVS and EDP-Serial-ESP-IDF's UART FIFO writer via
+Bootstrap only, proving NVS checkpoint readback after runtime restart and
+owner-Serial binary EDLG transmission to an independent host parser.
+EDP-Logging itself imports neither Serial nor either concrete provider.
