@@ -45,6 +45,10 @@ The optional `BoundedAdmission` source is a partial reusable algorithm with fake
 
 `#include <logging/AdmissionLifecycleCoordinator.hpp>` activates exactly the **same** Clock, Memory, Threading, Platform abstract EDP dependency set as the prior bounded-admission/wake coordinator and adds **only** standard C++20 lock-free atomics. The concrete `TWaitWakeProvider` must be chosen through Bootstrap and supply one independent extra EDP-Threading drain slot (capacity at least producer-count + 1). No new direct/transitive EDP edge, concrete implementation import, Memory finite acquisition or circular dependency exists. The coordinator remains excluded from `ESPressio_Logging.hpp`. No old EDP-* source was modified by this branch.
 
+### Additional optional G1 tracked RAII lease ownership
+
+`#include <logging/TrackedAdmissionCoordinator.hpp>` activates exactly the SAME abstract **EDP-Clock / EDP-Memory / EDP-Threading / EDP-Platform** dependency graph as the opt-in G1 lifecycle. It introduces only standard C++20 lock-free atomic counters and private owned EDP-Memory lease storage, while delegating all Memory capacity release and wake publication to already-composed G1/Threading abstractions. Neither Logging default umbrella nor any foundational dependency acquires a new reverse edge, and there is no EDP-Memory native finite Acquire call. Bootstrap chooses concrete providers; the tracked guard cannot make a raw lease outside its owner safe or cancel unknown external tasks.
+
 ### Additional optional G2 coherent-clock evidence qualifier
 
 `#include <logging/LogTemporalEvidence.hpp>` activates a direct dependency on **EDP-Clock abstraction only**, with EDP-Clock's own existing transitive EDP-System and EDP-Platform dependencies. It introduces no Logging→Mesh, no new platform concrete and no reverse edge. The application-selected coherent revision-atomic capture provider is **not** supplied by EDP-Logging and must be Bootstrap-composed and qualified by the Clock/coordinator owner. The default Logging umbrella remains dependency-free.

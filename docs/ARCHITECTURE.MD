@@ -31,3 +31,7 @@ No production Logging invocation/identity attachment, genuinely *coherent produc
 ## C++ EDLG bounded reader
 
 `src/logging/EdlgFrameReader.hpp` defines `ReadEdlgFrame(span<const byte>, EdlgFrameView&, maxPayload)`. No allocations: result contains a borrowed payload span and exact consumed bytes after deterministic header, codec, flags, finite length, completion marker and CRC32C checks; output unchanged on any failure. Caller must honor buffer lifetime and stop at first error (no implicit resynchronisation). `EdlgFrameTests.cpp` includes successful read and corrupt/truncated/oversized native-read vectors. Tests are source-only, not actually run yet.
+
+## Opt-in tracked lease G1 ownership (still partial)
+
+`logging/TrackedAdmissionCoordinator.hpp` retains the native Memory ObjectPoolLease inside a private RAII guard, calls composed ReleaseAndNotify on ordinary scope exit, and counts outstanding tracked leases as well as in-flight producer acquisitions. Its strict tracked drain cannot report quiescence while a lease remains or a failed native destructor release is unconfirmed. After a failure, it emits a best-effort wake after native Memory lease destruction without inventing successful release. **It does not account for raw leases outside this opt-in owner, join Tasks, certify FIFO fairness or change the unsafe direct finite native Memory acquisition.** See `docs/TRACKED-ADMISSION-LEASES.MD`.
