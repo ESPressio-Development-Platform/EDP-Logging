@@ -14,11 +14,11 @@ The present counter is storage and arithmetic only. A future Logging coordinator
 
 ## Deliberately absent
 
-No production invocation/macro, identity attachment, source timestamp snapshot, owned typed arguments, LogRecord schema, native API/EDP-Serialisation wrapper, FIFO, worker, sink or archive exists yet. Those will be integrated from owner-level EDP contracts after prerequisite facilities are complete. The code here does not import platform-specific implementations.
+No production Logging invocation/identity attachment, source timestamp snapshot, owned typed arguments, LogRecord schema, fully governed native API/EDP-Serialisation wrapper, FIFO, worker, sink or archive exists yet. The **separate optional** `logging/BoundedAdmission.hpp` offers a tested *partial* finite admission-loop seam over EDP-Memory **NoWait** and EDP-Threading **WaitUntil**, but not a composed producer, capacity-release/wake coordinator, or end-to-end G1 proof. See `docs/BOUNDED-ADMISSION.MD`. Those will be integrated from owner-level EDP contracts after prerequisite facilities are complete. The code here does not import platform-specific implementations.
 
 ## Test evidence
 
-`tests/AttemptSequenceTests.cpp` contains C++20 compile-time checks, full 16-bit sequence exhaustion and 32/64-bit boundary examples. `tests/run-host-tests.sh` describes how to compile/run these. **Executable RPI400 host foundation validation was conducted on 2026-10-16:** GCC and Clang suites passed (detached runs `20261016T064416-0f4afd63` and `20261016T064424-db3864fd`); Python tooling tests passed separately. No target firmware, physical device, power-loss durability or end-to-end Logging runtime validation has been performed. AI-AGENT-02 was not accessed.
+`tests/AttemptSequenceTests.cpp` contains C++20 compile-time checks, full 16-bit sequence exhaustion and 32/64-bit boundary examples. `tests/run-host-tests.sh` describes how to compile/run these. **Executable RPI400 host foundation validation was conducted on 2026-10-16:** GCC and Clang suites passed (detached runs `20261016T064416-0f4afd63` and `20261016T064424-db3864fd`); Python tooling tests passed separately. The optional `logging/BoundedAdmission.hpp` G1 source contract tests also passed separately under GCC and Clang with pinned Clock/Threading/Memory/Platform abstract dependencies (detached run `20261016T071414-d6ec50d8`). They test fake providers, not the full multi-producer integration. No target firmware, physical device, power-loss durability or end-to-end Logging runtime validation has been performed. AI-AGENT-02 was not accessed.
 
 ## C++ EDLG framing prerequisite
 

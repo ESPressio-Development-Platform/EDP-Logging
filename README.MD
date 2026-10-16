@@ -16,6 +16,12 @@ Bounded, structured embedded diagnostic logging for the ESPressio Development Pl
 
 **Concurrency boundary:** `AttemptSequenceCounter::Issue` is intentionally **not thread-safe on its own** and must be invoked while the owning Logging runtime's single sequencer lock is held. Do not assume 64-bit C++ atomics are lock-free on all ESP32 variants. The future integrated producer composes the proper EDP-Threading mutex/wait semantics.
 
+## Optional G1 bounded pool admission seam (partial)
+
+The opt-in header `#include <logging/BoundedAdmission.hpp>` adds `AcquirePoolUntil<TMaximumWakeRetries>`: a bounded, non-polling, EDP-Clock-deadline-aware bridge using **only EDP-Memory NoWait claims** and the existing **EDP-Threading WaitUntil** wake mechanism. It does **not** invoke Memory's currently unbounded finite ObjectPool path. A caller supplies one exclusive lifetime-stable Threading wait point, one empty Memory pool lease and one immutable canonical monotonic deadline. Wake/retry counts are compile-time bounded. A grant which finishes after the deadline returns `GrantedAfterDeadline` **with the lease still owned**; the caller must release it explicitly.
+
+This is a **prerequisite prototype only**, not a complete Logging producer, queue, fair multi-producer wake coordinator or complete G1 proof. Correct release and competing-claim wake notification is a separate owner obligation. Memory finite stack-waiter cleanup remains unresolved. See [bounded admission design/validation](docs/BOUNDED-ADMISSION.MD), [optional Wiki reference](wiki/Reference-logging-BoundedAdmission.md) and [Dependency Graph](DEPENDENCY_GRAPH.MD). The header is deliberately excluded from `ESPressio_Logging.hpp` so ordinary severity/sequence-only builds remain dependency-free. Apps opting in declare EDP-Clock, EDP-Memory, EDP-Threading and EDP-Platform abstractions directly; concrete providers stay under Bootstrap Composition.
+
 ## Future architecture
 
 The complete D1–D13 approved design and ordered seven-tranche implementation plan live in the authoritative [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Package version remains exactly `0.1.0`. No implementation branch is a production release until host/target validation is actually run and recorded.
@@ -24,7 +30,7 @@ The complete D1–D13 approved design and ordered seven-tranche implementation p
 
 `bash tests/run-host-tests.sh` covers ticket width/default, 16-bit exhaustion, framing/segment integrity and compile-out behaviour. **The current foundation suites passed on RPI400 using GCC and Clang (2026-10-16)**, as did the Python host decoder suite. These are not complete logging-runtime or physical-device results. AI-AGENT-02 was not accessed.
 
-See [Architecture](docs/ARCHITECTURE.MD) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
+The additional **optional** G1 host test can run with `EDP_LOGGING_DEPENDENCY_ROOT=/path/to/sibling-repositories CXX=g++ bash tests/run-bounded-admission-tests.sh` (repeat with `clang++`). GCC/Clang passed on RPI400 on 2026-10-16 (detached run `20261016T071414-d6ec50d8`). This suite currently proves the bounded algorithm's contract with fake providers; it does not prove multi-producer MemoryTopology integration. See [Architecture](docs/ARCHITECTURE.MD), [G1 bridge scope](docs/BOUNDED-ADMISSION.MD) and [Dependency Graph](DEPENDENCY_GRAPH.MD).
 
 ## Python host framing (partial, independent of target firmware)
 

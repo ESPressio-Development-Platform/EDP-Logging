@@ -4,6 +4,7 @@
 - [Severity](Reference-logging-Severity)
 - [Attempt Sequence](Reference-logging-AttemptSequence)
 - [Python host framing](Host-Decoder)
+- [Bounded admission (partial G1)](Reference-logging-BoundedAdmission)
 - [Architecture](../docs/ARCHITECTURE.MD)
 - [Dependency Graph](../DEPENDENCY_GRAPH.MD)
 - [EDLG portable writer](Reference-logging-EdlgFrame)
