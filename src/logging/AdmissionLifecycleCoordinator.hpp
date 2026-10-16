@@ -83,23 +83,6 @@ namespace ESPressio::Logging {
             }
         };
 
-        struct CancellableSlotWaitPoint final {
-            TWaitWakeProvider* WaitWake;
-            std::size_t Slot;
-
-            ESPressio::Threading::BoundedWaitResult WaitUntil(
-                ESPressio::Clock::MonotonicTimestamp deadline
-            ) noexcept {
-                switch (WaitWake->WaitUntil(Slot, deadline)) {
-                    case ESPressio::Threading::BoundedWaitWakeResult::Woken:
-                        return ESPressio::Threading::BoundedWaitResult::Woken;
-                    case ESPressio::Threading::BoundedWaitWakeResult::TimedOut:
-                        return ESPressio::Threading::BoundedWaitResult::TimedOut;
-                    default:
-                        return ESPressio::Threading::BoundedWaitResult::ProviderFailure;
-                }
-            }
-        };
 
     public:
         explicit AdmissionLifecycleCoordinator(TWaitWakeProvider& owner) noexcept :
@@ -162,7 +145,7 @@ namespace ESPressio::Logging {
                 };
             }
 
-            CancellableSlotWaitPoint waitPoint{_waitWake, slot};
+            Detail::ThreadingWaitSlot<TWaitWakeProvider> waitPoint{_waitWake, slot};
             const auto stop = [this]() noexcept -> bool {
                 return ShutdownRequested();
             };
