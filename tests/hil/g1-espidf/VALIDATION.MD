@@ -352,3 +352,23 @@ markers. This test does **not** certify the canonical record's CBOR/JSON
 typed envelope, authentic Clock coherence, asynchronous workers, or real
 power interruption. Record source, full-flash backup/restore evidence,
 and actual on-device result before claiming the physical gate.
+
+
+## 2026-10-17 additional bounded production/coordinator physical checkpoint
+
+The real ESP32 WROOM source harness now builds against the updated
+`ProduceRecordUntil` occurrence/source ownership contract and also
+uses the optional `DrainCoordinatorQuantum<1>` with two independent
+static sinks over two actual `EDP-Memory` leased records. It asserts
+one bounded record per pass, first all-accepted, second one sink
+rejected without retry, immediate native reclamation after each
+quantum, and a separate final canonical empty-queue check.
+An independent marker
+`EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM` increases the
+capture contract from 14 to **15 distinct PASS markers**. This
+is real physical synchronous fanout, NOT an actual
+EDP-Threading Dedicated Thread or asynchronous forked encoder,
+nor evidence of a power-loss-retaining production archive.
+The original entire 4MiB flash must be backed up immediately
+before this firmware is written and independently restored/verified
+after the test.

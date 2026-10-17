@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -39,10 +40,16 @@ namespace ESPressio::Logging {
         bool TimeCaptured{false};
     };
 
-    // Bootstrap must supply a dedicated EDP-Threading ordinary-context mutex for the
-    // incarnation-wide attempt counter. Capture is inside this exclusive section,
-    // before any queue or Memory wait. Source records are constructed by EDP-Memory
-    // using (AttemptSequence, QualifiedLogTime, caller arguments...).
+    // Bootstrap supplies a dedicated EDP-Threading ordinary-context mutex for
+    // the incarnation-wide attempt counter. Coherent time and all caller values
+    // are captured ONCE at producer entry, before sequencer mutex contention,
+    // Queue or Memory waits. Only the ticket must be issued under the mutex.
+    // Source records are constructed by EDP-Memory using
+    // (AttemptSequence, captured QualifiedLogTime, owned snapshot values...).
+    // This generic entry supports finite scalar/enum values, not pointer-bearing
+    // aggregate wrappers or spans that may retain a dangling external buffer.
+    // Richer diagnostic arguments require the generated owned LogRecord assembler
+    // before admission and must never be forwarded as live borrowed storage.
     //
     // On a failed Commit, the move-only Reservation remains with the caller; failed
     // native releases are never silently treated as reclaimed. Caller must retain
@@ -80,7 +87,24 @@ namespace ESPressio::Logging {
     ) noexcept {
         static_assert(noexcept(stopRequested()) &&
             std::is_same_v<decltype(stopRequested()), bool>);
+        static_assert(
+            ((
+                (std::is_arithmetic_v<std::remove_cvref_t<TArguments>> ||
+                 std::is_enum_v<std::remove_cvref_t<TArguments>>) &&
+                std::is_trivially_copyable_v<std::remove_cvref_t<TArguments>>
+            ) && ...),
+            "Generic Logging producer requires finite owned non-pointer values; "
+            "use generated owner-backed LogRecord source assembly for other types"
+        );
         RecordProductionOutcome<TWidth> outcome{};
+
+        // The occurrence precedes ALL potentially blocking internal calls.
+        // Even subsequent refusal/exhaustion must not silently move that time.
+        const auto time = CaptureLogTime(temporal);
+        outcome.TimeCaptured = true;
+        const std::tuple<std::remove_cvref_t<TArguments>...> sourceSnapshot{
+            std::forward<TArguments>(arguments)...
+        };
         if (reservation.IsActive() || !scratch.IsEmpty()) {
             outcome.Status = RecordProductionStatus::OutputOccupied;
             return outcome;
@@ -104,10 +128,9 @@ namespace ESPressio::Logging {
             return outcome;
         }
 
+        // The attempt ticket is issued under the sequencer lock, but neither
+        // timestamp nor caller-value ownership is delayed by this acquisition.
         const auto issued = sequence.Issue(outcome.Attempt);
-        // Clock capture must precede the potentially blocking queue/Memory stage.
-        // Only one immutable read is allowed; the temporal provider is composed
-        // by Bootstrap. No Mesh type is needed or imported.
         if (issued != AttemptSequenceAllocationResult::Issued) {
             const auto released = sequencerMutex.Release();
             outcome.Status = released ==
@@ -116,20 +139,23 @@ namespace ESPressio::Logging {
                 : RecordProductionStatus::SequencerReleaseUnconfirmed;
             return outcome;
         }
-        const auto time = CaptureLogTime(temporal);
-        outcome.TimeCaptured = true;
         if (sequencerMutex.Release() !=
             ESPressio::Threading::OrdinaryMutexReleaseResult::Released) {
             outcome.Status = RecordProductionStatus::SequencerReleaseUnconfirmed;
             return outcome;
         }
 
-        outcome.Admission = AcquireRecordUntil<
-            TMaximumQueueWakes, TMaximumMemoryWakes
-        >(
-            queue, admission, wake, producerSlot, pool, scratch, reservation,
-            deadline, stopRequested, outcome.Attempt, time,
-            std::forward<TArguments>(arguments)...
+        outcome.Admission = std::apply(
+            [&](const auto&... owned) noexcept {
+                return AcquireRecordUntil<
+                    TMaximumQueueWakes, TMaximumMemoryWakes
+                >(
+                    queue, admission, wake, producerSlot, pool, scratch,
+                    reservation, deadline, stopRequested,
+                    outcome.Attempt, time, owned...
+                );
+            },
+            sourceSnapshot
         );
         if (outcome.Admission.Status != RecordAdmissionStatus::Admitted) {
             outcome.Status = RecordProductionStatus::AdmissionFailed;

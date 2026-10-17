@@ -4,6 +4,7 @@
 #define EDP_LOGGING_G1_LIFECYCLE_TEST_INCLUDE
 #include "AdmissionWakeCoordinatorTests.cpp"
 #include <logging/RecordProduction.hpp>
+#include <logging/CoordinatorQuantum.hpp>
 namespace {
 namespace L=ESPressio::Logging;
 namespace C=ESPressio::Clock;
@@ -66,7 +67,10 @@ void Test() {
   seq,denied,capture,queue,life,wake,0U,pool,emptyScratch,emptyOwner,
   DeadlineAfter(std::chrono::milliseconds(100)),running,1);
  assert(refused.Status==L::RecordProductionStatus::SequencerProviderFailure);
- assert(!refused.Attempt.IsValid()&&capture.Calls==0&&seq.LastIssued()==0U);
+ // The enabled occurrence must already be captured even if the sequencer
+ // lock subsequently refuses the attempt.
+ assert(!refused.Attempt.IsValid()&&refused.TimeCaptured&&
+  capture.Calls==1&&seq.LastIssued()==0U);
  assert(emptyScratch.IsEmpty()&&!emptyOwner.IsActive());
  struct BrokenRelease {
   T::OrdinaryMutexAcquireResult Acquire(ESPressio::Platform::Synchronization::WaitTimeout) noexcept {
@@ -82,7 +86,7 @@ void Test() {
   DeadlineAfter(std::chrono::milliseconds(100)),running,2);
  assert(uncertain.Status==L::RecordProductionStatus::SequencerReleaseUnconfirmed);
  assert(uncertain.Attempt.Value()==1U&&isolated.LastIssued()==1U);
- assert(capture.Calls==1&&Rec::Live.load()==0);
+ assert(capture.Calls==2&&Rec::Live.load()==0);
  capture.Calls=0;
  Lease scratch;Queue::Reservation reservation;
  const auto first=produce(41,0U,reservation,scratch);
@@ -118,12 +122,63 @@ void Test() {
  Lease t4;Queue::Reservation r4;
  const auto invalid=produce(44,2U,r4,t4);
  assert(invalid.Status==L::RecordProductionStatus::InvalidProducerSlot);
- assert(seq.LastIssued()==3U&&capture.Calls==3);
+ assert(seq.LastIssued()==3U&&capture.Calls==4);
  assert(life.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
   L::AdmissionShutdownStatus::Quiescent);
  const auto shutdown=produce(45,0U,r4,t4);
  assert(shutdown.Status==L::RecordProductionStatus::StopRequested);
+ assert(shutdown.TimeCaptured&&capture.Calls==5);
  assert(seq.LastIssued()==3U&&Rec::Live.load()==0);
+ assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
+}
+
+// Regression: a contended sequencer is a real wait. The producer MUST
+// snapshot both occurrence and caller state before calling Acquire.
+void TestOccurrenceAndArgumentSnapshot() {
+ Resource resource; TestSupport::TestMutexProvider native;
+ MemoryComposition::Select<M::SharedReserveAllocationRequirement,
+ ESPressio::System::CompositionFramework::SelectUnique> allocator;
+ Runtime2 runtime(native,allocator,resource);
+ M::MemoryTopologyInitializationFailure failure{};
+ assert(runtime.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+ Wake wake; Life life(wake); Mutex mutex; Queue queue(mutex,life);
+ Temporal clock; L::AttemptSequenceCounter<> sequence;
+ auto& pool=runtime.ObjectPoolFor<Rec>();
+ int sourceValue=81;
+ struct MutatingSequencer {
+  int& Source; const Temporal& Clock; bool Observed=false;
+  T::OrdinaryMutexAcquireResult Acquire(
+   ESPressio::Platform::Synchronization::WaitTimeout
+  ) noexcept {
+   // An occurrence sampled after this call would be semantically wrong.
+   assert(Clock.Calls==1);
+   Observed=true;
+   Source=999;
+   return T::OrdinaryMutexAcquireResult::Acquired;
+  }
+  T::OrdinaryMutexReleaseResult Release() noexcept {
+   return T::OrdinaryMutexReleaseResult::Released;
+  }
+ } sequencer{sourceValue,clock};
+ auto running=[]() noexcept -> bool {return false;};
+ Lease scratch; Queue::Reservation reservation;
+ const auto out=L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits32,4U,4U>(
+  sequence,sequencer,clock,queue,life,wake,0U,pool,scratch,reservation,
+  DeadlineAfter(std::chrono::milliseconds(1000)),running,sourceValue);
+ assert(out.Status==L::RecordProductionStatus::Published);
+ assert(out.TimeCaptured && clock.Calls==1 && sequencer.Observed);
+ assert(sourceValue==999);
+ Queue::ConsumerClaim claim;
+ const auto sink=[](const Rec& record) noexcept -> L::RecordSinkSubmission {
+  assert(record.Value==81);
+  assert(record.Ticket==1U && record.Time!=0U);
+  return L::RecordSinkSubmission::Accepted;
+ };
+ const auto drain=L::DrainOneRecord(queue,claim,sink);
+ assert(drain.Status==L::RecordDrainStatus::AcceptedAndReclaimed);
+ assert(Rec::Live.load()==0);
+ assert(life.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
+  L::AdmissionShutdownStatus::Quiescent);
  assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
 
@@ -204,5 +259,70 @@ void TestFanout() {
   L::AdmissionShutdownStatus::Quiescent);
  assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
+
+void TestBoundedCoordinatorQuantum() {
+ Resource resource; TestSupport::TestMutexProvider native;
+ MemoryComposition::Select<M::SharedReserveAllocationRequirement,
+ ESPressio::System::CompositionFramework::SelectUnique> allocator;
+ Runtime2 runtime(native,allocator,resource);
+ M::MemoryTopologyInitializationFailure failure{};
+ assert(runtime.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+ Wake wake; Life life(wake); Mutex mutex; Queue queue(mutex,life);
+ Sequencer sequencer; L::AttemptSequenceCounter<> seq; Temporal time;
+ auto& pool=runtime.ObjectPoolFor<Rec>();
+ const auto running=[]() noexcept -> bool{return false;};
+ const auto produce=[&](int value) {
+  Lease scratch; Queue::Reservation reservation;
+  const auto r=L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits32,4U,4U>(
+   seq,sequencer,time,queue,life,wake,0U,pool,scratch,reservation,
+   DeadlineAfter(std::chrono::milliseconds(200)),running,value);
+  assert(r.Status==L::RecordProductionStatus::Published);
+ };
+ int first=0,second=0;
+ auto one=[&](const Rec& record) noexcept -> L::RecordSinkSubmission {
+  assert(record.Value==first+1);
+  ++first;
+  return record.Value==2 ? L::RecordSinkSubmission::Rejected
+                         : L::RecordSinkSubmission::Accepted;
+ };
+ auto two=[&](const Rec& record) noexcept -> L::RecordSinkSubmission {
+  assert(record.Value==second+1);
+  ++second;
+  return L::RecordSinkSubmission::Accepted;
+ };
+ Queue::ConsumerClaim claim;
+ auto idle=L::DrainCoordinatorQuantum<1U>(queue,claim,one,two);
+ assert(idle.Status==L::CoordinatorQuantumStatus::QueueEmpty);
+ assert(idle.Processed==0U);
+ produce(1);
+ produce(2);
+ const auto firstPass=L::DrainCoordinatorQuantum<1U>(queue,claim,one,two);
+ assert(firstPass.Status==L::CoordinatorQuantumStatus::BudgetConsumed);
+ assert(firstPass.Processed==1U && firstPass.AcceptedByAll==1U);
+ assert(firstPass.PerSinkAccepted[0]==1U&&firstPass.PerSinkAccepted[1]==1U);
+ assert(Rec::Live.load()==1);
+ produce(3);
+ const auto secondPass=L::DrainCoordinatorQuantum<2U>(queue,claim,one,two);
+ assert(secondPass.Status==L::CoordinatorQuantumStatus::BudgetConsumed);
+ assert(secondPass.Processed==2U && secondPass.AcceptedByAll==1U);
+ assert(secondPass.FailedSubmissionRecords==1U);
+ assert(secondPass.PerSinkAccepted[0]==1U && secondPass.PerSinkUnaccepted[0]==1U);
+ assert(secondPass.PerSinkAccepted[1]==2U && secondPass.PerSinkUnaccepted[1]==0U);
+ assert(first==3 && second==3 && Rec::Live.load()==0);
+ const auto drained=L::DrainCoordinatorQuantum<8U>(queue,claim,one,two);
+ assert(drained.Status==L::CoordinatorQuantumStatus::QueueEmpty &&
+  drained.Processed==0U);
+ produce(4);
+ assert(queue.Pop(claim)==L::RecordQueueResult::Succeeded);
+ const auto prior=L::DrainCoordinatorQuantum<1U>(queue,claim,one,two);
+ assert(prior.Status==L::CoordinatorQuantumStatus::PriorClaimUnresolved);
+ assert(prior.Processed==0U && first==3 && second==3);
+ assert(claim.IsActive() &&
+  claim.Complete()==L::RecordQueueResult::Succeeded);
+ assert(Rec::Live.load()==0);
+ assert(life.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
+  L::AdmissionShutdownStatus::Quiescent);
+ assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
-int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestFanout();}
+}
+int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();}

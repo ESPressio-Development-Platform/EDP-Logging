@@ -70,6 +70,16 @@ remain unissued zero-only facts. See the focused
 [source assembly contract](docs/LOG-RECORD-SOURCE-ASSEMBLY.MD)
 and [Wiki reference](wiki/Reference-logging-LogRecordSourceAssembly.md).
 
+## Bounded G1/G10 coordinator drain quantum (partial)
+
+`logging/CoordinatorQuantum.hpp` adds a compile-time bounded drain
+budget and typed multi-sink/reclaim accounting on the existing RAII
+`TransactionalRecordQueue`. Caller-owned unresolved claims are
+preserved rather than discarded. This is a synchronous building
+block; no actual Dedicated Thread lifecycle or async format fork
+is yet integrated. See
+[record production ownership](docs/RECORD-PRODUCTION-OWNERSHIP.MD).
+
 ## Future architecture
 
 The complete D1–D13 approved design and ordered seven-tranche implementation plan live in the authoritative [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Package version remains exactly `0.1.0`. No implementation branch is a production release until host/target validation is actually run and recorded.

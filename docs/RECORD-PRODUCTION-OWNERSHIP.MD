@@ -57,3 +57,55 @@ GCC/Clang host tests reuse actual EDP-Memory and EDP-Threading, including
 all-accepted, partial, failed and occupied/empty source cases. The physical
 ESP32 application separately tests three sink statuses with a single real
 EDP-Memory lease reclamation.
+
+
+## 2026-10-17 occurrence-time and source-value correctness hardening
+
+`ProduceRecordUntil` now takes exactly one coherent Clock snapshot
+at **entry before all potential sequencer-mutex/queue/Memory waits**.
+Even if sequencing fails, the enabled source occurrence has
+`TimeCaptured=true`; no false shifted timestamp at a later successful
+lock acquisition. The per-incarnation attempt ticket still issues
+under the caller-provided EDP-Threading sequencer mutex; incomplete
+publication is never recorded as durable delivery. The generic producer
+captures all caller scalar/enum values in finite stack-owned `std::tuple`
+storage before its first blocking path. It does not accept raw
+pointers, spans, aggregate pointer-bearing wrappers or dynamically
+allocated objects that could retain live source state. The separate
+generated `LogRecordSourceAssembly.hpp` is required for bounded
+strings/bytes and governed strong semantic values.
+
+Regressions in `RecordProductionTests.cpp` cover refused sequencer
+capture, stop-path capture, and a sequencer provider deliberately
+mutating the original caller argument during its `Acquire`.
+The subsequently drained record must retain the value sampled
+**before** that wait. No new allocator, Clock or platform provider.
+This remains a G1 source-boundary improvement, not a real
+production coordinator or authenticated coherent Clock provider.
+
+
+## 2026-10-17 bounded coordinator drain quantum (partial D5)
+
+New opt-in `logging/CoordinatorQuantum.hpp` composes the already-proven
+`DrainOneRecordToSinks` primitive into a bounded, static
+`DrainCoordinatorQuantum<MaximumRecords>(queue, claim, sinks...)`.
+It cannot process more than the compile-time work budget and invokes
+each of 2..8 statically selected synchronous sinks at most once per
+source record, outside queue locks. It reports records drained,
+all-accepted results, failed-submission records, per-sink accepted/
+unaccepted counts and native release-notification failure separately.
+On an unconfirmed native reclaim it **immediately stops**, retaining
+the caller-owned active claim rather than dropping it or retrying
+forever. A preexisting active claim returns `PriorClaimUnresolved`
+without invoking any sink or modifying queue ownership.
+
+An exhausted budget is **not** equivalent to an empty queue;
+worker must inspect canonical Queue state before sleeping on an
+EDP-Threading advisory wake. The coordinator remains an ordinary
+synchronous bounded operation; the real Bootstrap-selected Dedicated
+Thread, task wake/stop/join, asynchronous encoding and output buffer
+fan-out lifetimes are still outstanding. No claim of bounded sink
+I/O duration is made. Regression in `RecordProductionTests.cpp`
+proves multiple records across quanta, static two-sink fanout,
+rejections without retry, empty polling, exact-budget stop and
+previous-claim safety. This adds no native platform SDK dependency.

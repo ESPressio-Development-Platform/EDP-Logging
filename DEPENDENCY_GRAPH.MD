@@ -203,3 +203,14 @@ are introduced. The root remains structural, **not** a canonical
 Localisation `feature/logging-v1` generated descriptor owner checkpoint
 with `SourceDomain`/`SourceSubDomain`/`SourceString` and
 `OwningContract`, not an older generated fixture. Package version 0.1.0.
+
+
+## 2026-10-17 bounded Logging coordinator quantum
+
+The opt-in `logging/CoordinatorQuantum.hpp` imports only
+`RecordProduction.hpp` and directly reuses
+`DrainOneRecordToSinks` over the already selected
+EDP-Memory/Threading/BoundedTopology queue composition.
+No new edges, platform concrete import, or additional scheduler.
+The Dedicated Thread and latched wake provider are still
+application Bootstrap obligations, not provided here.

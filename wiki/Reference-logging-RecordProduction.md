@@ -36,3 +36,30 @@ including after another sink rejects; no automatic retry. Borrowed
 source contents become invalid after the final sink and reclamation.
 This is not an asynchronous retained-buffer fanout, nor proof of
 durability, physical wire receipt or full LogRecord root identity.
+
+
+## Entry snapshot safety (2026-10-17)
+
+`ProduceRecordUntil` now captures one qualified timestamp and an
+owned finite tuple of scalar/enum source values at instrumentation
+entry, **before** even the sequencer mutex can block. A failure after
+this source timestamp reports `TimeCaptured=true` even without an
+issued ticket; it does not imply any accepted or emitted record.
+Use the generated schema-owned LogRecord assembler for bounded text,
+bytes and complex strong parameter Types rather than borrowed spans or
+pointer-bearing aggregates in the generic constructor. This partial
+G1 producer still requires full application Bootstrap composition.
+
+
+## Bounded coordinator quantum (2026-10-17)
+
+`logging/CoordinatorQuantum.hpp` provides
+`DrainCoordinatorQuantum<N>(queue, callerOwnedClaim, sinks...)` for
+2..8 statically composed synchronous sinks and at most `N` records.
+Typed `CoordinatorQuantumStatus` discriminates empty, consumed
+budget, claim failure, uncertain reclaim and an unresolved prior claim.
+It preserves per-sink accepted/rejected counts and release-notification
+anomalies. The executor is intentionally **not** a worker, wake
+provider or detached Thread: Bootstrap must supply the actual
+EDP-Threading Dedicated Thread and stop/join lifecycle. The current
+scope is finite synchronous fanout, not persistence durability.
