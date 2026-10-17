@@ -171,3 +171,14 @@ No concrete filesystem, Mesh, Serial or supplementary allocator.
   EDP-Persistence-ESP-IDF::VfsFileStorage with SPIFFS mounted by ESP-IDF,
   EDP-Platform-Portable::Memory::ByteOperationsProvider. This is NOT
   a Logging source dependency on any native ESP-IDF or concrete VFS.
+
+
+## Optional governed LogRecord semantic identity
+
+- EDP-Logging [logging/LogRecord.hpp ONLY, deliberately opt-in]
+  - EDP-System [existing TypeIdentifier strong C++ Type and
+    compile-time IdentifiedType/TypeIdentifierOf concepts]
+- EDP-System/main/docs/TYPE-IDENTITY-REGISTRY.MD is the offline
+  authoritative allocation record, NOT a code runtime dependency.
+- This addition does not import any concrete platform provider,
+  EDP-Mesh, native file adapter or run-time identity allocation.

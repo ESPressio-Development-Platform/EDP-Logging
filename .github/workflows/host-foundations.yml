@@ -98,6 +98,11 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-BoundedTopology
           ref: main
           path: EDP-BoundedTopology
+      - name: Verify permanent System-governed LogRecord identity and golden bytes
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-log-record-identity-tests.sh
       - name: Compile and run bounded queue-before-Memory admission tests
         env:
           CXX: ${{ matrix.compiler }}

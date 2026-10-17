@@ -176,3 +176,17 @@ with one write-verified generation in a **previously empty** slot.
 It refuses occupied-slot overwrite, ambiguous history and generation
 exhaustion. It cannot be marketed as full circular/wear rotation or
 as an independently durable power-cut recovery guarantee.
+
+
+## Permanent universal LogRecord Type identity (G4 issuance)
+
+The platform owner formally allocated the EDP Core Authority
+`0x000001` and local Type `0x0000000001` on 2026-10-17.
+Opt-in [LogRecord identity root](src/logging/LogRecord.hpp) declares the
+permanent 8-byte `00 00 01 00 00 00 00 01` identity as
+`System::TypeIdentifier`, with governance in the
+[System registry](https://github.com/ESPressio-Development-Platform/EDP-System/blob/main/docs/TYPE-IDENTITY-REGISTRY.MD).
+This **does not** yet implement the governed 15-field schema, typed
+CBOR/JSON envelope or complete production log-record pipeline.
+The identity root is deliberately not instantiable until the full
+schema binding is implemented and qualified.

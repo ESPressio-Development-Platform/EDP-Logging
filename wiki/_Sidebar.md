@@ -35,3 +35,4 @@
 - [EDLS archive inspection](Reference-logging-EdlsArchiveInspection.md)
 - [EDLS checked append](Reference-logging-EdlsArchiveAppend.md)
 - [Guarded EDLS successor](Reference-logging-EdlsArchiveSuccessor.md)
+- [LogRecord identity](Reference-logging-LogRecord.md)
