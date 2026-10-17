@@ -218,3 +218,23 @@ wire vocabularies remain unissued: this is **not yet**
 a `Serialisation::SerialisableType`, canonical CBOR/JSON
 envelope, fully owned task/sink pipeline, or durable archive.
 See [LogRecord structural gate](docs/LOG-RECORD-IDENTITY.MD).
+
+## Native EDP-Threading dedicated Logging coordinator (G10 partial)
+
+Opt-in `logging/DedicatedCoordinator.hpp` binds one bounded
+source-drain callable to an application-declared
+`EDP-Threading::DedicatedThread`. It uses the **same native
+ThreadContext wake/stop lifecycle**, never a parallel queue or task
+provider; per-sink submission and independent Memory-reclaim reports
+remain explicit. A complete production Logging pipeline still
+requires the approved 15-field typed wire, real sink-specific
+bounded encoding buffers and truthful persistence/Serial
+semantics. See [dedicated coordinator](docs/DEDICATED-COORDINATOR.MD).
+
+
+**Dedicated Thread join context:** `Thread::JoinFor/JoinUntil` require
+an EDP-managed Threading caller. An external ESP-IDF Bootstrap
+must observe `StaticThreadingRuntime::IsExecutionQuiescent()`
+with its own finite deadline before terminal teardown. It must
+not introduce an unmanaged join waiter or claim a foreign native
+join succeeded. See the G10 dedicated coordinator contract.

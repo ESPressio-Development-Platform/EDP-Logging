@@ -63,3 +63,17 @@ anomalies. The executor is intentionally **not** a worker, wake
 provider or detached Thread: Bootstrap must supply the actual
 EDP-Threading Dedicated Thread and stop/join lifecycle. The current
 scope is finite synchronous fanout, not persistence durability.
+
+## Topology-owned dedicated worker (2026-10-17)
+
+The optional `logging/DedicatedCoordinator.hpp` is an
+EDP-Threading `ThreadContext&` callable suitable for binding using
+`BindDedicatedThread<Identity>`. It composes bounded source
+quanta, native ThreadContext finite wake, per-sink report accounting
+and a distinct cooperative exit. Bootstrap owns the actual
+`StaticThreadingRuntime`, stable Queue, Memory provider, sinks, native
+execution and target wake. No secondary scheduler or worker pool is
+created. The callback does NOT prove end-to-end production
+LogRecord serialization, task stack limits, power-loss durability,
+or async encoded-buffer lifetime. See
+[Dedicated Coordinator](../docs/DEDICATED-COORDINATOR.MD).

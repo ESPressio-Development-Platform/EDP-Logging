@@ -5,6 +5,7 @@
 #include "AdmissionWakeCoordinatorTests.cpp"
 #include <logging/RecordProduction.hpp>
 #include <logging/CoordinatorQuantum.hpp>
+#include <logging/DedicatedCoordinator.hpp>
 namespace {
 namespace L=ESPressio::Logging;
 namespace C=ESPressio::Clock;
@@ -324,5 +325,108 @@ void TestBoundedCoordinatorQuantum() {
   L::AdmissionShutdownStatus::Quiescent);
  assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
+
+// EDP-Threading public ThreadContext is supplied by a real topology at
+// runtime. Deterministic test operations simulate precisely its wake/stop
+// contract without manufacturing any alternate Scheduling API.
+struct CoordinatorContextState {
+ bool Stop{false};
+ bool FailWake{false};
+ int Waits{0};
+ int RecordsSeenBeforeIdle{0};
+};
+static constexpr T::Detail::ThreadContextOperations TestContextOps{
+ [](const void* opaque) noexcept -> bool {
+  return static_cast<const CoordinatorContextState*>(opaque)->Stop;
+ },
+ [](void*) noexcept -> T::ThreadWaitResult {
+  return T::ThreadWaitResult::ProviderFailure;
+ },
+ [](void* opaque,C::Duration duration) noexcept -> T::ThreadWaitResult {
+  auto& state=*static_cast<CoordinatorContextState*>(opaque);
+  assert(duration==C::Duration::FromNanoseconds(5'000'000));
+  ++state.Waits;
+  if(state.FailWake) return T::ThreadWaitResult::ProviderFailure;
+  // Bounded worker must never wait while native source records remain.
+  assert(state.RecordsSeenBeforeIdle==3);
+  state.Stop=true;
+  return T::ThreadWaitResult::TimedOut;
+ },
+ [](void*,C::MonotonicTimestamp) noexcept -> T::ThreadWaitResult {
+  return T::ThreadWaitResult::ProviderFailure;
+ }
+};
+
+void TestDedicatedCoordinatorCallable() {
+ Resource resource;TestSupport::TestMutexProvider native;
+ MemoryComposition::Select<M::SharedReserveAllocationRequirement,
+ ESPressio::System::CompositionFramework::SelectUnique> allocator;
+ Runtime2 runtime(native,allocator,resource);
+ M::MemoryTopologyInitializationFailure failure{};
+ assert(runtime.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+ Wake wake; Life life(wake); Mutex mutex; Queue queue(mutex,life);
+ Sequencer sequenceMutex;L::AttemptSequenceCounter<> sequence;Temporal time;
+ auto& pool=runtime.ObjectPoolFor<Rec>();
+ const auto running=[]() noexcept -> bool{return false;};
+ int consumed=0;int accepted=0;
+ auto sinkA=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  assert(rec.Value==consumed+1);++consumed;
+  return rec.Value==2 ? L::RecordSinkSubmission::Rejected
+                      : L::RecordSinkSubmission::Accepted;
+ };
+ auto sinkB=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
+  assert(rec.Value==accepted+1);++accepted;
+  return L::RecordSinkSubmission::Accepted;
+ };
+ L::DedicatedCoordinatorReport report;
+ using Callable=L::DedicatedCoordinator<1U,5'000'000LL,Queue,
+  decltype(sinkA),decltype(sinkB)>;
+ static_assert(std::is_move_constructible_v<Callable>);
+ struct DedicatedIdentity final {};
+ static_assert(std::is_same_v<
+  decltype(T::BindDedicatedThread<DedicatedIdentity>(std::declval<Callable>())),
+  T::DedicatedThreadBinding<DedicatedIdentity,Callable>
+ >);
+ Callable worker(queue,report,sinkA,sinkB);
+ for(int i=1;i<=2;++i){
+  Lease scratch;Queue::Reservation reservation;
+  const auto out=L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits32,4U,4U>(
+   sequence,sequenceMutex,time,queue,life,wake,0U,pool,scratch,reservation,
+   DeadlineAfter(std::chrono::milliseconds(400)),running,i);
+  assert(out.Status==L::RecordProductionStatus::Published);
+ }
+ CoordinatorContextState state{};
+ state.RecordsSeenBeforeIdle=3; // sink observation below validates actual count.
+ T::ThreadContext ctx(&state,TestContextOps);
+ worker(ctx);
+ assert(state.Waits==1 && state.Stop);
+ assert(consumed==2 && accepted==2 && Rec::Live.load()==0);
+ assert(report.Exit.load()==L::DedicatedCoordinatorExit::CooperativeStop);
+ assert(report.RecordsRetired.load()==2U);
+ assert(report.AllSinksAccepted.load()==1U);
+ assert(report.PartialSubmissions.load()==1U);
+ assert(report.IdleTimeouts.load()==1U);
+ assert(life.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
+  L::AdmissionShutdownStatus::Quiescent);
+ assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
+
+ // A failed topology wake must terminate rather than spin or fake quiescence.
+ Resource resource2;
+ Runtime2 runtime2(native,allocator,resource2);
+ assert(runtime2.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+ Wake wake2;Life life2(wake2);Mutex mutex2;Queue queue2(mutex2,life2);
+ L::DedicatedCoordinatorReport report2;
+ Callable wakeFailureWorker(queue2,report2,sinkA,sinkB);
+ CoordinatorContextState failureState{};
+ failureState.FailWake=true;
+ T::ThreadContext failureCtx(&failureState,TestContextOps);
+ wakeFailureWorker(failureCtx);
+ assert(failureState.Waits==1);
+ assert(report2.Exit.load()==L::DedicatedCoordinatorExit::WakeProviderFailure);
+ assert(report2.RecordsRetired.load()==0U);
+ assert(life2.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status==
+  L::AdmissionShutdownStatus::Quiescent);
+ assert(runtime2.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
-int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();}
+}
+int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();TestDedicatedCoordinatorCallable();}

@@ -214,3 +214,14 @@ EDP-Memory/Threading/BoundedTopology queue composition.
 No new edges, platform concrete import, or additional scheduler.
 The Dedicated Thread and latched wake provider are still
 application Bootstrap obligations, not provided here.
+
+## 2026-10-17 opt-in EDP-Threading Dedicated Coordinator
+
+`logging/DedicatedCoordinator.hpp` imports ONLY the approved public
+`ESPressio_Threading.hpp` plus `CoordinatorQuantum.hpp` and
+references the application-owned static resource topology. No
+EDP-Mesh, third-party scheduler, SDK-specific native task or dynamic
+provider. The physical ESP-IDF HIL separately selects
+EDP-Platform-ESP-IDF execution and SpinLock concrete owners at
+Bootstrap, demonstrating the intended architectural separation.
+See `docs/DEDICATED-COORDINATOR.MD`.

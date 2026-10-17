@@ -15,6 +15,9 @@
 #include <logging/BoundedRecordAdmission.hpp>
 #include <logging/RecordProduction.hpp>
 #include <logging/CoordinatorQuantum.hpp>
+#include <logging/DedicatedCoordinator.hpp>
+#include <execution/ExecutionContextProvider.hpp>
+#include <synchronization/SpinLockProvider.hpp>
 #include <logging/LogRecord.hpp>
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
@@ -605,6 +608,114 @@ bool Run() {
             q3.Processed==0U && sinkA==2U && sinkB==2U,
             "quantum-queue-empty")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM\n");
+    }
+    // G10: actual topology-owned EDP-Threading Dedicated Thread
+    // (not an application-created native FreeRTOS worker) runs the
+    // bounded Logging coordinator across real Memory/FIFO records.
+    {
+        struct CoordinatorThreadIdentity final {};
+        struct TestSinkA {
+            std::atomic<unsigned>* Count{};
+            Logging::RecordSinkSubmission operator()(const Record& record) noexcept {
+                Count->fetch_add(1U);
+                return record.Value()==951 ? Logging::RecordSinkSubmission::Accepted
+                                           : Logging::RecordSinkSubmission::Rejected;
+            }
+        };
+        struct TestSinkB {
+            std::atomic<unsigned>* Count{};
+            Logging::RecordSinkSubmission operator()(const Record&) noexcept {
+                Count->fetch_add(1U);
+                return Logging::RecordSinkSubmission::Accepted;
+            }
+        };
+        using Callable=Logging::DedicatedCoordinator<1U,5'000'000LL,
+            Queue,TestSinkA,TestSinkB>;
+        using Topology=Threading::ThreadingTopology<
+            Threading::DedicatedThread<
+                CoordinatorThreadIdentity,
+                Threading::StackCapacity<6144U>,
+                Threading::Priority<Threading::ThreadPriority::Normal>,
+                Threading::AnyAffinity
+            >
+        >;
+        using Binding=decltype(Threading::BindDedicatedThread<CoordinatorThreadIdentity>(
+            std::declval<Callable>()
+        ));
+        using NativeThreading=Threading::StaticThreadingRuntime<
+            Topology,std::tuple<Binding>,Signal,
+            Platform::ESPIDF::Execution::ExecutionContextProvider,
+            Platform::ESPIDF::Synchronization::SpinLockProvider,Mutex
+        >;
+        static std::atomic<unsigned> callsA{0U},callsB{0U};
+        static TestSinkA sinkA{&callsA};
+        static TestSinkB sinkB{&callsB};
+        static Logging::DedicatedCoordinatorReport report{};
+        static NativeThreading dedicated(std::make_tuple(
+            Threading::BindDedicatedThread<CoordinatorThreadIdentity>(
+                Callable(queue,report,sinkA,sinkB)
+            )
+        ));
+        if(!Check(dedicated.Initialize()==
+            Threading::ThreadingInitializationResult::Succeeded,
+            "dedicated-thread-initialize")) return false;
+        if(!Check(dedicated.Start()==
+            Threading::ThreadingStartResult::Succeeded,
+            "dedicated-thread-infrastructure")) return false;
+        auto worker=dedicated.ThreadHandle<CoordinatorThreadIdentity>();
+        if(!Check(worker.Start()==Threading::ThreadStartResult::Started,
+            "dedicated-thread-activation")) return false;
+        for(int value: {951,952}) {
+            Lease scratch;
+            Queue::Reservation owner;
+            const auto acquired=Logging::AcquireRecordUntil<8U,8U>(
+                queue,lifecycle,wakes,0U,pool,scratch,owner,
+                Deadline(2000U),neverStop,value);
+            if(!Check(acquired.Status==Logging::RecordAdmissionStatus::Admitted,
+                "dedicated-thread-record-admit")) return false;
+            if(!Check(owner.Commit()==Logging::RecordQueueResult::Succeeded,
+                "dedicated-thread-record-commit")) return false;
+            if(!Check(worker.Wake()==Threading::ThreadWakeResult::Woken,
+                "dedicated-thread-native-wake")) return false;
+        }
+        for(unsigned wait=0U;wait<200U &&
+            report.RecordsRetired.load()<2U;++wait) {
+            vTaskDelay(pdMS_TO_TICKS(10U));
+        }
+        if(!Check(report.RecordsRetired.load()==2U &&
+            callsA.load()==2U && callsB.load()==2U &&
+            report.AllSinksAccepted.load()==1U &&
+            report.PartialSubmissions.load()==1U &&
+            Record::Live.load()==0,
+            "dedicated-thread-two-source-fanout")) return false;
+        if(!Check(worker.RequestStop()==
+            Threading::ThreadStopRequestResult::Accepted,
+            "dedicated-thread-stop-request")) return false;
+        if(!Check(worker.Wake()==Threading::ThreadWakeResult::Woken,
+            "dedicated-thread-stop-wake")) return false;
+        // EDP-Threading::JoinFor is only legal from an EDP-managed
+        // execution context; this app_main Bootstrap is intentionally
+        // unmanaged and must NOT register as a synthetic managed waiter.
+        if(!Check(worker.JoinFor(Clock::Duration::FromNanoseconds(1'000'000LL))==
+            Threading::ThreadJoinResult::Interrupted,
+            "dedicated-thread-unmanaged-join-refused")) return false;
+        // Bootstrap uses the authoritative topology-wide quiescence
+        // predicate with one absolute physical-time budget.
+        const std::int64_t stopDeadlineUs=esp_timer_get_time()+2'000'000LL;
+        while(!dedicated.IsExecutionQuiescent() &&
+              esp_timer_get_time()<stopDeadlineUs) {
+            vTaskDelay(pdMS_TO_TICKS(5U));
+        }
+        if(!Check(dedicated.IsExecutionQuiescent() &&
+            report.Exit.load()==Logging::DedicatedCoordinatorExit::CooperativeStop,
+            "dedicated-thread-finite-quiescence")) return false;
+        if(!Check(dedicated.BeginShutdown()==
+            Threading::ThreadingShutdownResult::Accepted,
+            "dedicated-thread-begin-shutdown")) return false;
+        if(!Check(dedicated.FinalizeShutdown()==
+            Threading::ThreadingFinalizationResult::Completed,
+            "dedicated-thread-finalize-shutdown")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|EDP_THREADING_DEDICATED_COORDINATOR\n");
     }
     // 4. Real task is blocked for queue capacity when shutdown starts.
     // ShutdownUntil must wait for this producer to retire, not report false

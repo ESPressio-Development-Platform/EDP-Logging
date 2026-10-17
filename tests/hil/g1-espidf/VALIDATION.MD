@@ -385,3 +385,43 @@ itself could recover after shutdown. The regression has now been
 moved before shutdown/teardown; an actual rebuilt/reflashed on-device
 PASS is required before closing this checkpoint. The first physical
 run correctly returned nonzero with 12/15 markers.
+
+## 2026-10-17 EDP-Threading Dedicated Thread physical HIL (G10 extension)
+
+The source has a new static `ThreadingTopology<DedicatedThread<...>>`
+binding to `Logging::DedicatedCoordinator`, using the genuine ESP-IDF
+ExecutionContext, SpinLock and FreeRTOS Signal/Mutex providers under
+application Bootstrap. A real 2-record Memory-backed FIFO is
+processed by this EDP-owned thread; two independent sinks test a
+rejection, wake, finite JoinFor, cooperative stop and proper native
+Threading finalization. New marker
+`EDP_LOGGING_HIL|PASS|EDP_THREADING_DEDICATED_COORDINATOR` is the
+16th requirement. This is the first **real managed Thread** validation
+surface and is not equivalent to full G10 async representation fork
+or production sink buffer lifetimes.
+
+The original RPI400 integrated ESP32 image must again be freshly
+backed up, SHA-256 checked, and independently re-verified completely
+before normal boot after the test. Do not accept the new HIL gate based
+only on compilation or on the prior 15/15 marker physical runs.
+
+
+### 2026-10-17 native first-run JOIN contract finding
+
+First genuine 16-marker WROOM run
+`20261017T205059-b16f285a` FAIL (12/16, native
+`FAIL|dedicated-thread-finite-join`) happened **AFTER** the native
+worker activation, native source-processing and stop wake. The exact
+owner's `DedicatedThreadRuntime::JoinWithBudget` first requires
+`_router->CurrentContextIndex()`; external ESP-IDF
+`app_main` is *not* an EDP-managed context, so its
+`Thread::JoinFor` must return `Interrupted`.
+Do not circumvent this with an unmanaged waiter or a second
+scheduler. Corrected HIL requires the explicit `Interrupted`
+negative result, then uses authoritative
+`StaticThreadingRuntime::IsExecutionQuiescent()` under a finite
+2-second physical-clock deadline (the concrete ESP-IDF test
+Bootstrap, not a Logging library clock provider), followed by
+terminal `FinalizeShutdown`. This is an ordinary managed Thread
+with safe unmanaged Bootstrap observation, not a positive
+Thread::JoinFor proof from the wrong context.
