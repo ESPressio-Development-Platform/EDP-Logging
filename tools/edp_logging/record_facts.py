@@ -56,9 +56,13 @@ def inspect_log_record_facts(
 ) -> RecordFacts:
     """Check D13 FieldIds 0..14 while preserving not-yet-registered quality facts.
 
-    The root TypeIdentifier must eventually be issued by EDP-System. Without the
-    optional expected ID this validates only a structural candidate; callers must
-    never display it as conclusively an authenticated/registered LogRecord.
+    EDP-System formally issued the permanent LogRecord root
+    00 00 01 00 00 00 00 01 on 2026-10-17. This parser intentionally accepts
+    an explicit expected_root_type_identifier from an independently governed
+    source. Without that expected ID it validates only a structural forensic
+    candidate and must NOT label any arbitrary Type as LogRecord.
+    A matching 8-byte ID alone does not authenticate the producer, schema
+    manifest, or historical record payload.
     """
     fields = envelope.fields
     if not _REQUIRED <= fields.keys() or not fields.keys() <= _KNOWN:

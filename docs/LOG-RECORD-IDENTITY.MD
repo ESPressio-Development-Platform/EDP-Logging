@@ -21,18 +21,30 @@ root declaration and directly exposes its
 `inline static constexpr System::TypeIdentifier Identifier`.
 There is **no runtime identifier registry or allocator**. It is
 designed for use through `System::IdentifiedType<LogRecord>` and
-`TypeIdentifierOf<LogRecord>`. The present source is purposely
-**non-instantiable and identity-only**; it DOES NOT yet publish a
-canonical `System::FieldSet` or satisfy `System::SchemaType`.
-This prevents confusing a mere valid Type identity with a full,
-versioned 15-field schema or a complete CBOR/JSON logging pipeline.
-Those implementation and historical provenance gates remain OPEN.
+`TypeIdentifierOf<LogRecord>`. The source now publishes the **structural 15-field `System::FieldSet`**
+and satisfies `System::SchemaType<LogRecord>`. Exactly approved
+Field IDs 0..14 bind explicit C++ owned members, with compile-time
+sequence width selection (16/32/64 bits) and bounded argument-count
+and byte capacities. `ValidateLogRecord()` rejects invalid source
+or attempt identity, severity, reserved String identifiers, mismatched
+width, or contradictory synchronized-time/era evidence.
+
+**CRITICAL: a `System::SchemaType` is only Type identity and C++
+Field binding; it is NOT automatically `Serialisation::SerialisableType`.**
+Field 11 temporal provenance and Field 14 record-validity-fact bit
+meanings are **not registered**. Their current zero-initialized
+in-memory opaque placeholders make NO claim about approved wire bit
+meaning, width, or historical schema stability. Typed CBOR/JSON
+LogRecord envelope, authenticated schema history, runtime sink and
+task lifetimes remain OPEN. No native C++ object is ever a wire format.
 
 The LogRecord identity is unrelated to the EDP-Localisation
 StringIdentifier used for individual diagnostic messages, and Logging
 never acquires a mandatory dependency on EDP-Mesh.
-Test: `tests/run-log-record-identity-tests.sh` uses real EDP-System
-strong identity types and compile-time byte goldens with GCC/Clang.
+Test: `tests/run-log-record-identity-tests.sh` uses real
+EDP-System/Clock/Localisation source Types, exact Field 0..14 and
+24/40 identifier bytes, invalid provider evidence and finite owned
+argument tests with GCC/Clang. Captures are in-memory only.
 All package versions remain `0.1.0`.
 
 **Collision audit:** the same 8-byte literal previously appeared in

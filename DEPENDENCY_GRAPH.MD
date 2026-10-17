@@ -175,9 +175,13 @@ No concrete filesystem, Mesh, Serial or supplementary allocator.
 
 ## Optional governed LogRecord semantic identity
 
-- EDP-Logging [logging/LogRecord.hpp ONLY, deliberately opt-in]
-  - EDP-System [existing TypeIdentifier strong C++ Type and
-    compile-time IdentifiedType/TypeIdentifierOf concepts]
+- EDP-Logging [logging/LogRecord.hpp and
+  logging/OwnedDiagnosticArguments.hpp, deliberately opt-in]
+  - EDP-System [TypeIdentifier, FieldSet and source strong identity]
+  - EDP-Clock [strong monotonic/synchronized/era/uncertainty values]
+  - EDP-Localisation [generated owner strong StringIdentifier inputs,
+    widened ONLY in the in-memory source representation]
+  - EDP-Logging AttemptSequence/Severity [existing internal Types]
 - EDP-System/main/docs/TYPE-IDENTITY-REGISTRY.MD is the offline
   authoritative allocation record, NOT a code runtime dependency.
 - This addition does not import any concrete platform provider,

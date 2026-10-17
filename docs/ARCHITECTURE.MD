@@ -12,9 +12,27 @@ One application chooses 16, 32 or 64 bits at compile time for all instrumentatio
 
 The present counter is storage and arithmetic only. A future Logging coordinator composes the owning EDP-Threading mutex for atomic issue, without assuming native 64-bit lock-free operations. The higher-level admission logic will ensure every enabled call issues a ticket before waiting for pool capacity and will support canonical EDP-Clock deadline semantics.
 
-## Deliberately absent
+## Deliberately incomplete production and current source evolution
 
-No production Logging invocation/identity attachment, genuinely *coherent producer-owned* timestamp snapshot, owned persistent typed argument storage, complete LogRecord schema or typed envelope, FIFO, worker, sink or archive exists yet. The optional G3 `logging/DiagnosticArgumentEncoding.hpp` now DOES compose EDP-Serialisation's native positional CBOR/JSON encoder and enforce the generated Localisation schema signature for native scalar and owner-certified bounded UTF-8/Bytes/System TypeIdentifier/FieldIdentifier arguments at compile time; it still does not encode a governed LogRecord root or support all generated strong parameter kinds. See `docs/DIAGNOSTIC-ARGUMENT-ENCODING.MD`. The optional `logging/LogTemporalEvidence.hpp` exposes and validates a single-capture EDP-Clock/ClockEra transfer contract with monotonic-safe fallback, but the required atomically coherent Clock/coordinator **producer** remains unimplemented and G2 stays open. See `docs/COHERENT-TEMPORAL-EVIDENCE.MD`. The **separate optional** `logging/BoundedAdmission.hpp` offers a tested *partial* finite admission-loop seam over EDP-Memory **NoWait** and EDP-Threading **WaitUntil**, and the newer optional `logging/AdmissionWakeCoordinator.hpp` adds a composed fixed-slot EDP-Threading wake fanout, `ReleaseAndNotify` and actual EDP-Memory/Threading multi-threaded host coverage. The latter is still **not** a complete Logging producer, FIFO, autonomous RAII-capacity-release notifier, cancellation lifecycle, or end-to-end G1 proof. The extra `logging/AdmissionLifecycleCoordinator.hpp` adds finite stop-aware admission and a reserved Threading drain slot, but it tracks **admission invocations only**, not outstanding Memory leases or joined producer tasks. See `docs/ADMISSION-LIFECYCLE.MD` and `docs/ADMISSION-WAKE-COORDINATOR.MD` for actual coverage and remaining hazards. See `docs/BOUNDED-ADMISSION.MD`. Those will be integrated from owner-level EDP contracts after prerequisite facilities are complete. The code here does not import platform-specific implementations.
+A guarded structural C++ LogRecord now owns fifteen numbered System Field
+bindings (0–14), compile-time-selectable 16/32/64-bit attempt sequence,
+bounded owned arguments and a validation predicate. It retains the permanent
+EDP-System issued root identifier and satisfies System::SchemaType, but it
+does **not** yet satisfy Serialisation::SerialisableType or implement the
+approved typed CBOR/JSON wire envelope. Field 11 provenance and Field 14
+record-fact sub-vocabularies are still unissued, with zero-initialized
+opaque **in-memory** placeholders, not invented wire bits. The previously
+missing complete wire record remains OPEN; no raw object dump is legal.
+Genuine *coherent producer-owned* timestamp publication and complete
+producer/worker/sink lifetime remain OPEN. Bounded admission, FIFO,
+synchronous multi-sink fanout and a fail-closed file archive successor
+do exist as independently tested opt-in prerequisites, but **not** as
+a complete autonomous logging runtime.
+
+The following descriptions are historical prerequisite snapshots and
+must be read together with the current owner handoff, not treated as
+a denial of later partial implementations:
+ The optional G3 `logging/DiagnosticArgumentEncoding.hpp` now DOES compose EDP-Serialisation's native positional CBOR/JSON encoder and enforce the generated Localisation schema signature for native scalar and owner-certified bounded UTF-8/Bytes/System TypeIdentifier/FieldIdentifier arguments at compile time; it still does not encode a governed LogRecord root or support all generated strong parameter kinds. See `docs/DIAGNOSTIC-ARGUMENT-ENCODING.MD`. The optional `logging/LogTemporalEvidence.hpp` exposes and validates a single-capture EDP-Clock/ClockEra transfer contract with monotonic-safe fallback, but the required atomically coherent Clock/coordinator **producer** remains unimplemented and G2 stays open. See `docs/COHERENT-TEMPORAL-EVIDENCE.MD`. The **separate optional** `logging/BoundedAdmission.hpp` offers a tested *partial* finite admission-loop seam over EDP-Memory **NoWait** and EDP-Threading **WaitUntil**, and the newer optional `logging/AdmissionWakeCoordinator.hpp` adds a composed fixed-slot EDP-Threading wake fanout, `ReleaseAndNotify` and actual EDP-Memory/Threading multi-threaded host coverage. The latter is still **not** a complete Logging producer, FIFO, autonomous RAII-capacity-release notifier, cancellation lifecycle, or end-to-end G1 proof. The extra `logging/AdmissionLifecycleCoordinator.hpp` adds finite stop-aware admission and a reserved Threading drain slot, but it tracks **admission invocations only**, not outstanding Memory leases or joined producer tasks. See `docs/ADMISSION-LIFECYCLE.MD` and `docs/ADMISSION-WAKE-COORDINATOR.MD` for actual coverage and remaining hazards. See `docs/BOUNDED-ADMISSION.MD`. Those will be integrated from owner-level EDP contracts after prerequisite facilities are complete. The code here does not import platform-specific implementations.
 
 ## Test evidence
 

@@ -186,7 +186,11 @@ Opt-in [LogRecord identity root](src/logging/LogRecord.hpp) declares the
 permanent 8-byte `00 00 01 00 00 00 00 01` identity as
 `System::TypeIdentifier`, with governance in the
 [System registry](https://github.com/ESPressio-Development-Platform/EDP-System/blob/main/docs/TYPE-IDENTITY-REGISTRY.MD).
-This **does not** yet implement the governed 15-field schema, typed
-CBOR/JSON envelope or complete production log-record pipeline.
-The identity root is deliberately not instantiable until the full
-schema binding is implemented and qualified.
+The identity now also carries **structural C++ bindings** for all
+fifteen agreed Field IDs 0–14 and qualifies as `System::SchemaType`.
+Application-selected finite sequence widths and owned argument
+capacities are compile-time parameters. However Field 11 and 14
+wire vocabularies remain unissued: this is **not yet**
+a `Serialisation::SerialisableType`, canonical CBOR/JSON
+envelope, fully owned task/sink pipeline, or durable archive.
+See [LogRecord structural gate](docs/LOG-RECORD-IDENTITY.MD).

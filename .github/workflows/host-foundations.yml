@@ -98,6 +98,12 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-BoundedTopology
           ref: main
           path: EDP-BoundedTopology
+      - name: Checkout Localisation owner for generated strong StringIdentifier types
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Localisation
+          ref: feature/logging-v1
+          path: EDP-Localisation
       - name: Verify permanent System-governed LogRecord identity and golden bytes
         env:
           CXX: ${{ matrix.compiler }}

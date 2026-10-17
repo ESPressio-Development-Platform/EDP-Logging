@@ -9,6 +9,7 @@ OUTPUT="$(mktemp)"
 trap 'rm -f "$OUTPUT"' EXIT
 "$CC" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
   -I"$ROOT/src" -I"$DEPS/EDP-System/src" \
+  -I"$DEPS/EDP-Clock/src" -I"$DEPS/EDP-Localisation/src" \
   "$ROOT/tests/LogRecordIdentityTests.cpp" -o "$OUTPUT"
 "$OUTPUT"
-echo "EDP-Logging permanent System LogRecord identity PASS ($CC)"
+echo "EDP-Logging governed 15-field SchemaType and bounded-owned-arguments PASS ($CC)"

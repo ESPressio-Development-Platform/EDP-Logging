@@ -11,11 +11,16 @@ was authorised 2026-10-17 and published in the owner
 
 `System::IdentifiedType<Logging::LogRecord>` is true, and
 `System::TypeIdentifierOf<Logging::LogRecord>` reads identical
-eight-byte storage. The current class is deliberately NON-INSTANTIABLE
-and does not yet declare `Fields`: only the semantic identity is
-implemented; the approved canonical fields 0..14 and governed
-Localisation/Serialisation CBOR/JSON source/runtime follow separately.
-In particular `System::SchemaType<Logging::LogRecord>` is not yet true.
+eight-byte storage. The actual `LogRecord` now supplies 15
+compile-time `System::FieldBinding` members, one per approved
+FieldId 0..14; `System::SchemaType<Logging::LogRecord>` is true.
+`BasicLogRecord<AttemptSequenceWidth,MaxArguments,ArgumentBytes>`
+selects a 16/32/64-bit attempt width and bounded owned in-memory
+arguments without changing semantic Type identity. Field 11 temporal
+provenance and Field 14 facts are still **opaque placeholders** and have
+no issued wire bit layout. The record is NOT YET an owner-certified
+`Serialisation::SerialisableType`, typed CBOR/JSON envelope,
+complete historical schema, or production worker/sink lifecycle.
 
 Identity persistence is independent of library version (all remain
 0.1.0), message StringIdentifier, transport or Mesh participation.
