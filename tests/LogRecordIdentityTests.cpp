@@ -148,5 +148,30 @@ int main() {
     assert(L::ValidateLogRecord(record)==L::LogRecordValidation::InvalidMessage);
     record.Message.String=3U;
     assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
+
+    // Unknown source fact bits must never become certified persistent
+    // semantics merely because the containing FieldIdentifiers are issued.
+    record.Provenance.OpaqueSourceFacts=1U;
+    assert(L::ValidateLogRecord(record)==
+           L::LogRecordValidation::UnapprovedTemporalProvenance);
+    record.Provenance.OpaqueSourceFacts=0U;
+    record.Facts.OpaqueSourceFacts=1U;
+    assert(L::ValidateLogRecord(record)==
+           L::LogRecordValidation::UnapprovedRecordFacts);
+    record.Facts.OpaqueSourceFacts=0U;
+    assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
+
+    // Incoherent/missing synchronized observations MUST retain saturated,
+    // unknown uncertainty, never imply a precise synchronized coordinate.
+    record.SyncState=ESPressio::Clock::SynchronizationState::NeverSynchronized;
+    record.Era={};
+    record.Synchronized.reset();
+    assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
+    record.Uncertainty=ESPressio::Clock::SynchronizationUncertainty::Zero();
+    assert(L::ValidateLogRecord(record)==L::LogRecordValidation::InvalidSyncEvidence);
+    record.Uncertainty=ESPressio::Clock::SynchronizationUncertainty::Maximum();
+    assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
+    record.SyncState=ESPressio::Clock::SynchronizationState::LostSynchronization;
+    assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
     return 0;
 }

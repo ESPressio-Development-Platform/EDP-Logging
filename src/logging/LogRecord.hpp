@@ -200,7 +200,9 @@ namespace ESPressio::Logging {
         InvalidSequenceWidth = 4U,
         InvalidSyncEvidence = 5U,
         InvalidSeverity = 6U,
-        InvalidMessage = 7U
+        InvalidMessage = 7U,
+        UnapprovedTemporalProvenance = 8U,
+        UnapprovedRecordFacts = 9U
     };
 
 
@@ -260,9 +262,22 @@ namespace ESPressio::Logging {
             (hasCoordinate && (!hasEra || !eligible)) ||
             (!hasCoordinate && hasEra) ||
             (!hasCoordinate && record.SyncState ==
-                 Clock::SynchronizationState::Synchronized)
+                 Clock::SynchronizationState::Synchronized) ||
+            (!hasCoordinate && !record.Uncertainty.IsSaturated())
         ) {
+            // A missing synchronized coordinate cannot claim precise
+            // uncertainty; preserve canonical monotonic evidence alone.
             return LogRecordValidation::InvalidSyncEvidence;
+        }
+
+        // The 11/14 root FieldIdentifiers are approved, but their sub-fact
+        // bit vocabularies have not been issued. Fail closed on any nonzero
+        // temporary in-memory facts rather than silently legitimising them.
+        if (record.Provenance.OpaqueSourceFacts != 0U) {
+            return LogRecordValidation::UnapprovedTemporalProvenance;
+        }
+        if (record.Facts.OpaqueSourceFacts != 0U) {
+            return LogRecordValidation::UnapprovedRecordFacts;
         }
 
         return LogRecordValidation::Valid;

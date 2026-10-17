@@ -24,3 +24,16 @@ complete historical schema, or production worker/sink lifecycle.
 
 Identity persistence is independent of library version (all remain
 0.1.0), message StringIdentifier, transport or Mesh participation.
+
+## Fail-closed pre-wire validation (2026-10-17)
+
+`ValidateLogRecord` now rejects nonzero source-only Field 11 or Field 14
+opaque placeholders with `UnapprovedTemporalProvenance` or
+`UnapprovedRecordFacts`, rather than silently assigning them persistent
+wire meanings. In the absence of a synchronized coordinate, the
+`EDP-Clock::SynchronizationUncertainty` must remain saturated/unknown;
+zero uncertainty falsely implies precision and is rejected as
+`InvalidSyncEvidence`. Legal monotonic-only records remain supported.
+These checks do not allocate an on-wire vocabulary, provide a coherent
+upstream Clock capture, or make the root `SerialisableType`.
+The host `LogRecordIdentityTests` covers the new failure outcomes.

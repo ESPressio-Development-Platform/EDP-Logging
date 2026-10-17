@@ -14,6 +14,7 @@
 #include <memory/MemoryResourceProvider.hpp>
 #include <logging/BoundedRecordAdmission.hpp>
 #include <logging/RecordProduction.hpp>
+#include <logging/LogRecord.hpp>
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
 #include <serialisation/PositionalValueEncoding.hpp>
@@ -103,6 +104,40 @@ struct SerialMutexIdentity final {};
 using SerialMutex = Threading::OrdinaryMutexProvider<SerialMutexIdentity,Mutex>;
 using SerialQueue = ESPressio::Serial::BoundedEdlgFrameQueue<2U,32U,SerialMutex>;
 bool Check(bool value,const char* label) noexcept;
+
+// Exercises the real governed in-memory validation on the WROOM MCU.
+ // This does not claim owner-typed CBOR/JSON LogRecord serialisation.
+bool TestGovernedLogRecordValidation() noexcept {
+    Logging::LogRecord record{};
+    auto bytes=ESPressio::System::Identity::DeviceIdentifier::Storage{};
+    bytes[0U]=0xABU;
+    record.Device=ESPressio::System::Identity::DeviceIdentifier{bytes};
+    record.Incarnation=ESPressio::System::Identity::RuntimeIncarnationId{1U};
+    record.Attempt=Logging::AttemptSequence<Logging::AttemptSequenceWidth::Bits32>::
+        FromValidatedValue(1U);
+    record.Message.String=3U;
+    if (!Check(Logging::ValidateLogRecord(record)==
+        Logging::LogRecordValidation::Valid,"record-monotonic-only-valid")) return false;
+    record.Provenance.OpaqueSourceFacts=1U;
+    if (!Check(Logging::ValidateLogRecord(record)==
+        Logging::LogRecordValidation::UnapprovedTemporalProvenance,
+        "record-unissued-provenance-rejected")) return false;
+    record.Provenance.OpaqueSourceFacts=0U;
+    record.Facts.OpaqueSourceFacts=1U;
+    if (!Check(Logging::ValidateLogRecord(record)==
+        Logging::LogRecordValidation::UnapprovedRecordFacts,
+        "record-unissued-facts-rejected")) return false;
+    record.Facts.OpaqueSourceFacts=0U;
+    record.Uncertainty=Clock::SynchronizationUncertainty::Zero();
+    if (!Check(Logging::ValidateLogRecord(record)==
+        Logging::LogRecordValidation::InvalidSyncEvidence,
+        "record-missing-sync-no-false-precision")) return false;
+    record.Uncertainty=Clock::SynchronizationUncertainty::Maximum();
+    if (!Check(Logging::ValidateLogRecord(record)==
+        Logging::LogRecordValidation::Valid,"record-unknown-uncertainty-accepted")) return false;
+    std::printf("EDP_LOGGING_HIL|PASS|GOVERNED_LOG_RECORD_VALIDATION\n");
+    return true;
+}
 
 bool TestNvsCheckpointAcrossReboot() noexcept {
     namespace Persistence=ESPressio::Persistence;
@@ -580,7 +615,8 @@ extern "C" void app_main() {
     std::printf("EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS\n");
     const bool nvs=Test::TestNvsCheckpointAcrossReboot();
     const bool vfs=nvs && Test::TestConcreteEdlsVfsSuccessor();
-    const bool core=vfs && Test::Run();
+    const bool governed=vfs && Test::TestGovernedLogRecordValidation();
+    const bool core=governed && Test::Run();
     const bool success=core && Test::TestComposedSerialHardwareEndpoint();
     std::printf("EDP_LOGGING_HIL|RESULT|%s\n",success?"PASS":"FAIL");
     std::fflush(stdout);

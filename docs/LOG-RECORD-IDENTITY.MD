@@ -27,7 +27,14 @@ Field IDs 0..14 bind explicit C++ owned members, with compile-time
 sequence width selection (16/32/64 bits) and bounded argument-count
 and byte capacities. `ValidateLogRecord()` rejects invalid source
 or attempt identity, severity, reserved String identifiers, mismatched
-width, or contradictory synchronized-time/era evidence.
+width, or contradictory synchronized-time/era evidence. In particular,
+no synchronized coordinate requires **saturated/unknown upstream Clock
+uncertainty**, and both as-yet-unissued Field 11/14 in-memory
+`OpaqueSourceFacts` placeholders must remain zero. Otherwise validation
+returns dedicated `InvalidSyncEvidence`, `UnapprovedTemporalProvenance`
+or `UnapprovedRecordFacts` outcomes respectively. These checks only
+close a source validation gap; they do **not** allocate any on-wire bits,
+turn `SchemaType` into `SerialisableType`, or certify captured history.
 
 **CRITICAL: a `System::SchemaType` is only Type identity and C++
 Field binding; it is NOT automatically `Serialisation::SerialisableType`.**

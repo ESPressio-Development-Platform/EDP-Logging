@@ -340,3 +340,15 @@ signed/historically authenticated LogRecord source and its EDP-System
 permanent TypeIdentifier; full async multiworker fanout or product
 G1–G15 gate closure. No power loss is simulated by esptool ROM reset.
 Versions remain 0.1.0.
+
+## 2026-10-17 source-record pre-wire fail-closed regression
+
+The physical WROOM harness additionally checks the governed 15-field
+`LogRecord` source validator: canonical valid monotonic-only record,
+unknown Field 11/14 fact rejection and no falsely precise uncertainty
+when a synchronized coordinate is absent. The capture parser expects
+`GOVERNED_LOG_RECORD_VALIDATION` independently of other pre-existing HIL
+markers. This test does **not** certify the canonical record's CBOR/JSON
+typed envelope, authentic Clock coherence, asynchronous workers, or real
+power interruption. Record source, full-flash backup/restore evidence,
+and actual on-device result before claiming the physical gate.
