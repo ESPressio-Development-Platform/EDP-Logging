@@ -62,7 +62,8 @@ This **does not solve all G1**: raw Memory leases outside this opt-in owner are 
 LogRecord using the actual EDP-Localisation-generated message identity,
 128-bit diagnostic fingerprint, already-issued attempt, coherent
 EDP-Clock temporal evidence, System device/incarnation and bounded
-source-owned exact-width scalar positional arguments. Construction
+source-owned schema-certified arithmetic, UTF-8, Bytes, TypeIdentifier,
+FieldIdentifier and DeviceIdentifier positional arguments. Construction
 is transactional and performed before queue waiting. It does **not**
 serialise any complete 15-field Typed Envelope; Fields 11 and 14
 remain unissued zero-only facts. See the focused

@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="${EDP_LOGGING_DEPENDENCY_ROOT:-$(cd "$ROOT/.." && pwd)}"
 TEMP="$(mktemp -d)"
 trap 'rm -rf "$TEMP"' EXIT
-for repo in EDP-Serialisation EDP-Localisation EDP-System EDP-BoundedTypes EDP-BoundedTopology EDP-Memory EDP-Platform EDP-Platform-Portable; do
+for repo in EDP-Serialisation EDP-Localisation EDP-Clock EDP-System EDP-BoundedTypes EDP-BoundedTopology EDP-Memory EDP-Platform EDP-Platform-Portable; do
     test -d "$WORKSPACE/$repo/src" || { echo "Missing $repo" >&2; exit 2; }
 done
 
@@ -33,6 +33,7 @@ PY
     -I"$ROOT/src" -I"$TEMP/generated" \
     -I"$WORKSPACE/EDP-Serialisation/src" \
     -I"$WORKSPACE/EDP-Localisation/src" \
+    -I"$WORKSPACE/EDP-Clock/src" \
     -I"$WORKSPACE/EDP-System/src" \
     -I"$WORKSPACE/EDP-BoundedTypes/src" \
     -I"$WORKSPACE/EDP-BoundedTopology/src" \
@@ -46,6 +47,7 @@ if "${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
     -I"$ROOT/src" -I"$TEMP/generated" \
     -I"$WORKSPACE/EDP-Serialisation/src" \
     -I"$WORKSPACE/EDP-Localisation/src" \
+    -I"$WORKSPACE/EDP-Clock/src" \
     -I"$WORKSPACE/EDP-System/src" \
     -I"$WORKSPACE/EDP-BoundedTypes/src" \
     -I"$WORKSPACE/EDP-BoundedTopology/src" \

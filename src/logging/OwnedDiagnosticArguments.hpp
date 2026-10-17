@@ -29,7 +29,8 @@ namespace ESPressio::Logging {
         Utf8 = 11U,
         Bytes = 12U,
         TypeIdentifier = 13U,
-        DeviceIdentifier = 14U
+        DeviceIdentifier = 14U,
+        FieldIdentifier = 15U
     };
 
 
@@ -372,6 +373,20 @@ namespace ESPressio::Logging {
 
             return Store(OwnedArgumentKind::TypeIdentifier, copy);
         }
+
+        /// Captures a governed System FieldIdentifier as one private owned byte.
+        /// Field 0 is a valid Type-local identifier. This is never a wire tag.
+        /// @param identifier Strong one-byte Field identity.
+        /// @returns Added or finite-capacity failure.
+        [[nodiscard]] constexpr OwnedArgumentResult AddFieldIdentifier(
+            System::FieldIdentifier identifier
+        ) noexcept {
+            const std::array<std::byte, 1U> bytes{
+                static_cast<std::byte>(identifier.Value())
+            };
+            return Store(OwnedArgumentKind::FieldIdentifier, bytes);
+        }
+
 
         /// Copies a valid strong 16-byte System DeviceIdentifier.
         /// @param identifier Issued source device identity.

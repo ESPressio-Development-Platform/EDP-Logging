@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <type_traits>
 
 #include "DiagnosticArgumentEncoding.hpp"
@@ -10,6 +11,71 @@
 #include "LogTemporalEvidence.hpp"
 
 namespace ESPressio::Logging {
+
+    namespace Detail {
+
+        /// Supported owner-backed capture vocabulary, independent of CBOR tags.
+        /// @tparam TValue Exact source argument Type.
+        template<class TValue>
+        consteval bool IsOwnedSourceCaptureType() {
+            using Value = std::remove_cv_t<TValue>;
+            return
+                std::is_same_v<Value, bool> ||
+                std::is_same_v<Value, std::int8_t> ||
+                std::is_same_v<Value, std::uint8_t> ||
+                std::is_same_v<Value, std::int16_t> ||
+                std::is_same_v<Value, std::uint16_t> ||
+                std::is_same_v<Value, std::int32_t> ||
+                std::is_same_v<Value, std::uint32_t> ||
+                std::is_same_v<Value, std::int64_t> ||
+                std::is_same_v<Value, std::uint64_t> ||
+                std::is_same_v<Value, float> ||
+                std::is_same_v<Value, double> ||
+                IsBoundedDiagnosticString<Value>::value ||
+                IsBoundedDiagnosticBytes<Value>::value ||
+                std::is_same_v<Value, System::TypeIdentifier> ||
+                std::is_same_v<Value, System::FieldIdentifier> ||
+                std::is_same_v<Value, System::Identity::DeviceIdentifier>;
+        }
+
+        /// Copies one exact generated-kind value via its existing owned arena.
+        /// Never converts a semantic strong value to a generic integer kind.
+        /// @tparam TOwned Existing bounded Logging-owned argument arena.
+        /// @tparam TValue Supported owner-backed Type.
+        /// @param owned Caller scratch destination.
+        /// @param value Source borrowed only during this operation.
+        /// @returns Typed bounded copy result.
+        template<class TOwned, class TValue>
+        [[nodiscard]] OwnedArgumentResult CaptureOwnedSourceArgument(
+            TOwned& owned,
+            const TValue& value
+        ) noexcept {
+            using Value = std::remove_cv_t<TValue>;
+            static_assert(IsOwnedSourceCaptureType<Value>());
+            if constexpr (IsBoundedDiagnosticString<Value>::value) {
+                return owned.AddUtf8(value.View());
+            } else if constexpr (IsBoundedDiagnosticBytes<Value>::value) {
+                return owned.AddBytes(
+                    std::as_bytes(std::span<const std::uint8_t>(
+                        value.Data(),
+                        value.Size()
+                    ))
+                );
+            } else if constexpr (std::is_same_v<Value, System::TypeIdentifier>) {
+                return owned.AddTypeIdentifier(value);
+            } else if constexpr (std::is_same_v<Value, System::FieldIdentifier>) {
+                return owned.AddFieldIdentifier(value);
+            } else if constexpr (
+                std::is_same_v<Value, System::Identity::DeviceIdentifier>
+            ) {
+                return owned.AddDeviceIdentifier(value);
+            } else {
+                return owned.AddScalar(value);
+            }
+        }
+
+    } // ESPressio::Logging::Detail
+
 
     /// Result of preparing an owned structural record before capacity admission.
     /// No outcome promises serialized bytes, queue publication or durable storage.
@@ -37,10 +103,10 @@ namespace ESPressio::Logging {
     /// An invalid or exhausted input leaves output untouched. No new timer,
     /// allocator, codec or platform provider is introduced.
     ///
-    /// This initial source-assembly profile supports only exact-width
-    /// arithmetic parameters. Bounded text/byte and strong-value arguments
-    /// require the separate owner-certified owned-capture adapter, and are
-    /// deliberately compile-time-rejected here rather than cast or guessed.
+    /// Supports exact-width arithmetic, bounded Utf8/Bytes, TypeIdentifier,
+    /// FieldIdentifier and DeviceIdentifier via existing owner-backed capture
+    /// facilities. Other strong types remain compile-time rejected until
+    /// a semantically exact owned capture adapter is added.
     /// Fields 11 and 14 remain UNISSUED source-only zero placeholders;
     /// successfully preparing this struct NEVER authorises wire emission.
     ///
@@ -49,7 +115,7 @@ namespace ESPressio::Logging {
     /// @tparam TWidth Bootstrap-selected attempt width.
     /// @tparam TMaximumArguments Maximum owned positional argument count.
     /// @tparam TArgumentBytes Maximum owned argument bytes.
-    /// @tparam TValues Exact fixed-width scalar source argument Types.
+    /// @tparam TValues Owner-certified, exact generated source argument Types.
     /// @param output Unoccupied source slot, mutated only on complete success.
     /// @param severity One emitted severity, never Off.
     /// @param device Authoritative source DeviceIdentifier.
@@ -81,18 +147,8 @@ namespace ESPressio::Logging {
             "LogRecord arguments must exactly match the generated Localisation diagnostic schema"
         );
         static_assert(
-            ((std::is_same_v<std::remove_cv_t<TValues>, bool> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::int8_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::uint8_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::int16_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::uint16_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::int32_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::uint32_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::int64_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, std::uint64_t> ||
-              std::is_same_v<std::remove_cv_t<TValues>, float> ||
-              std::is_same_v<std::remove_cv_t<TValues>, double>) && ...),
-            "LogRecord source assembly accepts only owner-captured exact-width scalar values"
+            (Detail::IsOwnedSourceCaptureType<TValues>() && ...),
+            "LogRecord source assembly needs exact owner-backed positional capture"
         );
         static_assert(
             TMessageSchema::OwningContract::DiagnosticSchemaFingerprint.size() == 16U,
@@ -153,7 +209,7 @@ namespace ESPressio::Logging {
             TMessageSchema::OwningContract::DiagnosticSchemaFingerprint;
 
         const std::array<OwnedArgumentResult, sizeof...(TValues)> captures{
-            candidate.Arguments.AddScalar(values)...
+            Detail::CaptureOwnedSourceArgument(candidate.Arguments, values)...
         };
         for (const auto result : captures) {
             if (result == OwnedArgumentResult::CountExceeded) {

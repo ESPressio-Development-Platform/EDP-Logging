@@ -28,21 +28,27 @@ allocator, formatter or wire serializer is introduced.
 
 ## Atomic owned capture and failure outcomes
 
-The initial supported argument profile deliberately accepts only
-exact-width bool, signed/unsigned 8/16/32/64-bit integers, float and
-double with *exact C++20 compile-time agreement* to the generated
+The source capture profile accepts exact-width bool,
+signed/unsigned 8/16/32/64-bit integers, float, double, and bounded
+UTF-8/Bytes plus System TypeIdentifier, FieldIdentifier and
+DeviceIdentifier using the EXISTING owner semantics, with
+*exact C++20 compile-time agreement* to the generated
 `DiagnosticParameterKind` array and matching arity. A schema
 declared as absent, mismatched positional kind, excessive argument
-count, or unsupported strong/bounded parameter type is rejected at
-compile time, not implicitly narrowed or reinterpreted. Arbitrary
-generated parameter types (including bounded UTF-8/Bytes) are
-**not yet supported by this particular source assembler**, even
-where a separate G3 positional encoder already supports them.
+count, or unsupported strong parameter type is rejected at
+compile time, not implicitly narrowed or reinterpreted. Additional
+strong types such as RuntimeIncarnationId and ClockEra require their
+own verified source-owned capture adapters before use, even when a
+separate G3 positional encoder supports their wire representation.
+FieldIdentifier captures retain their strong kind; numeric zero is a
+valid FieldIdentifier and never converted to a generic UInt8 argument.
 
 The caller-owned destination must be unoccupied. Construction uses
 a complete candidate in independent bounded stack storage. Each
-argument is copied once using `OwnedDiagnosticArguments::AddScalar`
-(the existing Logging owned-capture facility), and `ValidateLogRecord`
+argument is copied once using the existing `OwnedDiagnosticArguments`
+exact-kind `AddScalar`, `AddUtf8`, `AddBytes`, `AddTypeIdentifier`
+or `AddDeviceIdentifier` facilities and the new FieldIdentifier
+single-byte source-kind path, avoiding temporary unbounded buffers, and `ValidateLogRecord`
 runs before the destination is assigned. Invalid input
 (`InvalidTemporalEvidence`, `InvalidSourceRecord`), an occupied
 destination, or finite argument byte exhaustion leaves destination
@@ -78,7 +84,12 @@ System, Localisation, Serialisation and Logging owner headers,
 and exercises valid owned record, generated numeric message,
 compile-time fingerprint equality, monotonic-only evidence,
 occupied output, malformed temporal evidence, invalid source
-identity and insufficient argument bytes. Both GCC and Clang
+identity and insufficient argument bytes. A separate
+`run-diagnostic-bounded-generated-tests.sh` regeneration additionally
+proves bounded UTF-8/Bytes, TypeIdentifier and FieldIdentifier private
+source-kind ownership, no borrow after the caller modifies its
+original buffers, rejected invalid strong identity and finite
+transactional overflow. Both GCC and Clang
 are required. The script also preserves its existing negative
 compile-fail test for a mismatched generated positional schema.
 A successful host test does not qualify full physical G4 wire

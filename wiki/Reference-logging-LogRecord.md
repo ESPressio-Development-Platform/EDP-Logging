@@ -56,3 +56,9 @@ The source-assembly constructor now derives the fingerprint from
 rejects non-coherent unavailable ClockEra or falsely precise missing
 synchronized uncertainty, and never asks for a separately selected
 catalogue fingerprint.
+
+
+The bounded source capture now supports owner-backed UTF-8, Bytes,
+System TypeIdentifier, DeviceIdentifier and the added exact one-byte
+FieldIdentifier private source kind. It does not confuse semantic
+FieldIdentifier with a generic U8 argument or public wire tag.

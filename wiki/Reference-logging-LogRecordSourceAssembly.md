@@ -20,9 +20,10 @@ the destination; no external argument storage is retained.
 coherent; a qualified sample object does not confer authentication.
 Unissued Field 11/14 bit layouts are zero-only source placeholders.
 This is structural source assembly, NOT a Serialisation::SerialisableType
-or a complete canonical 15-field Typed Envelope. Strong/bounded
-arguments beyond exact arithmetic types are currently unsupported
-here, even where the independent positional G3 encoder has them.
+or a complete canonical 15-field Typed Envelope. Bounded text/bytes and System TypeIdentifier, FieldIdentifier and
+DeviceIdentifier use exact native-kind owned source capture. Other
+strong types such as ClockEra and RuntimeIncarnationId remain
+unsupported here until their source storage is owner-certified.
 
 Documentation: [LogRecord Source Assembly](../docs/LOG-RECORD-SOURCE-ASSEMBLY.MD).
 Validation: `tests/run-diagnostic-generated-contract-tests.sh`,

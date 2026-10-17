@@ -7,6 +7,7 @@
 
 #include <GeneratedLocalisationContract.hpp>
 #include <logging/DiagnosticArgumentEncoding.hpp>
+#include <logging/LogRecordSourceAssembly.hpp>
 
 using Schema = Fixture::Diagnostic::DiagnosticMessageSchema<1U,0U,3U>;
 using Text = ESPressio::Bounded::String<16U>;
@@ -73,4 +74,71 @@ int main() {
     };
     assert(result.starts_with("[\"Hi\","));
     assert(result.ends_with("]"));
+
+    // Real generated source schema: all four heterogeneous types remain
+    // fully owned and correctly kind-tagged in the PRIVATE source arena.
+    namespace L = ESPressio::Logging;
+    namespace S = ESPressio::System;
+    namespace C = ESPressio::Clock;
+    S::Identity::DeviceIdentifier::Storage deviceBytes{};
+    deviceBytes[0U] = 0x77U;
+    const S::Identity::DeviceIdentifier device{deviceBytes};
+    const S::Identity::RuntimeIncarnationId incarnation{4U};
+    const L::QualifiedLogTime time{
+        C::MonotonicTimestamp::FromNanoseconds(91U),
+        C::SynchronizedTimestamp{},
+        C::SynchronizationUncertainty::Maximum(),
+        C::ClockEra{},
+        C::SynchronizationState::NeverSynchronized,
+        L::LogTemporalEvidenceStatus::Unavailable
+    };
+    const auto ticket = L::AttemptSequence<>::
+        FromValidatedValue(9U);
+    L::BasicLogRecord<L::AttemptSequenceWidth::Bits32, 4U, 32U> record{};
+    assert((L::AssembleLogRecordSource<Schema>(
+        record, L::Severity::Info, device, incarnation, ticket,
+        time, text, bytes, type, field
+    ) == L::LogRecordAssemblyStatus::Prepared));
+    assert(record.Message.Domain == 1U && record.Message.String == 3U);
+    assert(record.DiagnosticSchemaFingerprint ==
+        Schema::OwningContract::DiagnosticSchemaFingerprint);
+    assert(record.Arguments.Count() == 4U && record.Arguments.BytesUsed() == 13U);
+    L::OwnedArgumentDescriptor descriptor{};
+    assert(record.Arguments.GetDescriptor(0U, descriptor) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(descriptor.Kind == L::OwnedArgumentKind::Utf8);
+    assert(record.Arguments.GetDescriptor(1U, descriptor) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(descriptor.Kind == L::OwnedArgumentKind::Bytes);
+    assert(record.Arguments.GetDescriptor(2U, descriptor) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(descriptor.Kind == L::OwnedArgumentKind::TypeIdentifier);
+    assert(record.Arguments.GetDescriptor(3U, descriptor) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(descriptor.Kind == L::OwnedArgumentKind::FieldIdentifier);
+    assert(L::ValidateLogRecord(record) == L::LogRecordValidation::Valid);
+    assert(text.Assign(std::string_view("Modified")) ==
+        ESPressio::Bounded::StringAssignmentResult::Succeeded);
+    assert(bytes.Assign(std::array<std::uint8_t,1U>{0xFFU}) ==
+        ESPressio::Bounded::BytesAssignmentResult::Succeeded);
+    std::span<const std::byte> copied{};
+    assert(record.Arguments.GetArgumentBytes(0U, copied) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(copied.size() == 2U && copied[0U] == std::byte{'H'});
+    assert(record.Arguments.GetArgumentBytes(1U, copied) ==
+        L::OwnedArgumentAccessResult::Available);
+    assert(copied.size() == 2U && copied[0U] == std::byte{0xA0U});
+
+    L::BasicLogRecord<L::AttemptSequenceWidth::Bits32, 4U, 12U> insufficient{};
+    assert((L::AssembleLogRecordSource<Schema>(
+        insufficient, L::Severity::Info, device, incarnation, ticket,
+        time, text, bytes, type, field
+    ) == L::LogRecordAssemblyStatus::ArgumentBytesExceeded));
+    assert(!insufficient.Attempt.IsValid() && insufficient.Arguments.Count() == 0U);
+    L::BasicLogRecord<L::AttemptSequenceWidth::Bits32, 4U, 32U> badStrong{};
+    assert((L::AssembleLogRecordSource<Schema>(
+        badStrong, L::Severity::Info, device, incarnation, ticket,
+        time, text, bytes, TypeId{}, field
+    ) == L::LogRecordAssemblyStatus::InvalidOwnedArgument));
+    assert(!badStrong.Attempt.IsValid() && badStrong.Arguments.Count() == 0U);
 }
