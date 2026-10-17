@@ -29,13 +29,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--trusted-archive-manifest-sha256", help="independently trusted full 64-hex SHA256 of selected historical family manifest")
     parser.add_argument("--historical-language", help="resolve template from explicitly selected historical ContractFamily; no argument interpolation")
     parser.add_argument("--max-historical-template-bytes", type=int, default=65536, help="maximum decoded historical template UTF-8 bytes")
-    parser.add_argument("--validate-record", action="store_true", help="validate known outer LogRecord V1 fields without claiming an issued root TypeIdentifier")
+    parser.add_argument("--validate-record", action="store_true", help="validate the known outer LogRecord V1 field structure")
+    parser.add_argument("--expected-root-type-hex",
+        help="16 hex digits of LogRecord's independently verified EDP-System TypeIdentifier; requires --validate-record")
     parser.add_argument("--forensic", action="store_true", help="bounded resync; mark recovered candidate frames")
     parser.add_argument("--max-payload", type=int, default=65_536)
     parser.add_argument("--resync-limit", type=int, default=1_048_576)
     args = parser.parse_args(argv)
 
     failures = 0
+    expected_root = None
+    if args.expected_root_type_hex is not None:
+        if not args.validate_record or re.fullmatch(
+            r"[0-9a-fA-F]{16}", args.expected_root_type_hex
+        ) is None:
+            print(json.dumps({
+                "kind": "schema-error",
+                "message": "--expected-root-type-hex requires --validate-record and exactly 16 hexadecimal digits",
+            }))
+            return 2
+        expected_root = bytes.fromhex(args.expected_root_type_hex)
     historical_schema = None
     historical_evidence = None
     uses_archive = args.historical_archive is not None
@@ -148,7 +161,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report["parameterSchemaInterpreted"] = False
                         if args.validate_record:
                             try:
-                                facts = inspect_log_record_facts(envelope)
+                                facts = inspect_log_record_facts(
+                                    envelope, expected_root_type_identifier=expected_root
+                                )
                             except RecordFactError as error:
                                 failures += 1
                                 report["recordFactError"] = str(error)
@@ -163,6 +178,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 report["synchronizedNanoseconds"] = facts.synchronized_nanoseconds
                                 report["clockEra"] = facts.clock_era
                                 report["uncertaintyNanoseconds"] = facts.uncertainty_nanoseconds
+                                # A caller supplied digest/type pin is a strict equality
+                                # check, not proof of who issued or signed that identity.
+                                report["rootTypeMatchedSuppliedIdentity"] = expected_root is not None
                                 report["rootTypeGoverned"] = False
                         if historical_schema is not None:
                             report["schemaArtifactSha256PinMatched"] = (

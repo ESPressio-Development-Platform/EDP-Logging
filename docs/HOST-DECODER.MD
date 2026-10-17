@@ -93,3 +93,20 @@ Both C++ `WriteEdlsHeader/ReadEdlsHeader` and Python `encode_segment_header/pars
 The host decoder can now receive an **explicit** `--historical-archive` root and `--contract-family-fingerprint` (optionally a 256-bit digest) to use EDP-Localisation's archived EDPL/generated-schema verifier instead of `--schema`. This is a separate historic presentation selection: Field12's *diagnostic schema* fingerprint cannot determine which *translation-sensitive ContractFamily* produced the text. Optional `--trusted-archive-manifest-sha256` is an **independently supplied** byte pin; without it the report correctly marks provenance flags false even though archived files internally match their checksums. No root LogRecord TypeIdentifier is asserted. See `docs/HISTORICAL-DIAGNOSTIC-SCHEMA-BRIDGE.MD`.
 
 The `--historical-language` option supplies the requested Localisation language for bounded **historical template retrieval only**, reporting actual fallback language and `historicalTemplateInterpolated=false`. The diagnostic arguments remain separately schema-typed and are not guessed into translated formatted strings.
+
+
+## 2026-10-17 optional owner-root pin verification
+
+`--validate-record --expected-root-type-hex HEX16` now tells the
+Python CLI to require an exact eight-byte root TypeIdentifier before
+labelling a parsed outer structure as a LogRecord candidate.
+The value MUST be supplied from independently governed EDP-System
+TypeAuthority evidence; selecting a value on the CLI does **not**
+authenticate its origin. The output reports
+`rootTypeMatchedSuppliedIdentity=true` only after a successful strict
+comparison, but retains `rootTypeGoverned=false` to avoid upgrading
+caller-selected bytes into historical authenticity. The existing
+`--validate-record` (without root pin) remains a conservative
+forensic candidate inspection for legacy forensic use.
+Malformed/partial option or mismatched types fail closed.
+No changed EDLG/EDLS, Typed Envelope or Field11/14 semantics.

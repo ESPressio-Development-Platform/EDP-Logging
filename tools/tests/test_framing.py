@@ -11,6 +11,27 @@ from edp_logging.framing import (
 
 class FramingTests(unittest.TestCase):
 
+    def test_cli_expected_root_pin_requires_strict_shape(self) -> None:
+        import contextlib
+        import tempfile
+        from pathlib import Path
+        from edp_logging.cli import main
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "empty.edlg"
+            path.write_bytes(b"")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main([
+                    str(path), "--expected-root-type-hex", "0000010000000001"
+                ]), 2)
+                self.assertEqual(main([
+                    str(path), "--validate-record", "--expected-root-type-hex", "bad"
+                ]), 2)
+                self.assertEqual(main([
+                    str(path), "--validate-record", "--expected-root-type-hex", "0000010000000001"
+                ]), 0)
+            self.assertEqual(output.getvalue().count('"schema-error"'), 2)
+
     def test_crc32c_known_vector(self) -> None:
         self.assertEqual(crc32c(b"123456789"), 0xE3069283)
 
@@ -253,6 +274,15 @@ class FramingTests(unittest.TestCase):
         sample = TypedEnvelope(bytes(range(1, 9)), base, FrameCodec.Cbor)
         facts = inspect_log_record_facts(sample)
         self.assertEqual((facts.sequence_width, facts.attempt_sequence), (16, 65535))
+        self.assertEqual(
+            inspect_log_record_facts(
+                sample, expected_root_type_identifier=sample.type_identifier
+            ).type_identifier, sample.type_identifier
+        )
+        with self.assertRaisesRegex(RecordFactError, "root TypeIdentifier mismatch"):
+            inspect_log_record_facts(
+                sample, expected_root_type_identifier=b"\x00" * 8
+            )
         self.assertEqual(facts.synchronized_nanoseconds, 0)
         for invalid in (
             {**base, 4: 65536},
