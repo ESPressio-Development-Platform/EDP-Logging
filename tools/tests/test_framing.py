@@ -46,9 +46,10 @@ class FramingTests(unittest.TestCase):
             raise AssertionError("unexpected test fixture type")
 
         root_id = bytes.fromhex("0000010000000001")
-        def frame_for(ticket: int) -> bytes:
+        def frame_for(ticket: int, device_start: int = 1) -> bytes:
             fields = {
-                0: [1, 0, 3], 1: 2, 2: bytes(range(1, 17)),
+                0: [1, 0, 3], 1: 2,
+                2: bytes([device_start]) + bytes(range(2, 17)),
                 3: 5, 4: ticket, 5: 16, 6: 1_000 + ticket,
                 8: 0, 9: 0, 10: 0xFFFFFFFF, 11: 0,
                 12: bytes(range(16)), 13: [], 14: 0,
@@ -81,6 +82,25 @@ class FramingTests(unittest.TestCase):
             self.assertFalse(evidence["lossCauseInferred"])
             self.assertTrue(evidence["rootTypeMatchedSuppliedIdentity"])
 
+            # Pairwise comparison uses the preexisting owner uncertainty
+            # comparator; no inferred total order on overlapping clocks.
+            status, rows = call("--compare-record-times")
+            self.assertEqual(status, 0)
+            comparisons = [r for r in rows if r["kind"] == "temporal-comparison"]
+            self.assertEqual(len(comparisons), 3)
+            self.assertEqual([r["relationship"] for r in comparisons],
+                             ["Earlier", "Earlier", "Overlaps"])
+            self.assertEqual([r["certainTotalOrder"] for r in comparisons],
+                             [True, True, False])
+            self.assertTrue(all(not r["civilUtcInferred"] for r in comparisons))
+            self.assertTrue(all(comparisons[i]["leftOffset"] <
+                                comparisons[i]["rightOffset"] for i in range(3)))
+            status, rows = call("--compare-record-times",
+                                "--max-comparison-pairs", "2")
+            self.assertEqual(status, 1)
+            self.assertEqual(rows[-1]["kind"], "temporal-evidence-error")
+            self.assertFalse(any(r["kind"] == "temporal-comparison" for r in rows))
+
             status, rows = call("--max-analysis-records", "2")
             self.assertEqual(status, 1)
             self.assertEqual(rows[-1]["kind"], "attempt-evidence-error")
@@ -90,6 +110,16 @@ class FramingTests(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertEqual(rows[0]["kind"], "schema-error")
 
+            # Unrelated device clocks with no admitted ClockEra must
+            # stay incomparable, even if their numeric monotonic times differ.
+            path.write_bytes(frame_for(1, 1) + frame_for(3, 200))
+            status, rows = call("--compare-record-times")
+            self.assertEqual(status, 0)
+            comparisons = [r for r in rows if r["kind"] == "temporal-comparison"]
+            self.assertEqual(len(comparisons), 1)
+            self.assertEqual(comparisons[0]["relationship"], "Incomparable")
+            self.assertFalse(comparisons[0]["certainTotalOrder"])
+            self.assertFalse(comparisons[0]["civilUtcInferred"])
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(main([str(path), "--analyse-attempts"]), 2)
 

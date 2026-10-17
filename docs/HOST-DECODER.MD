@@ -173,3 +173,34 @@ The same sticky forensic damaged-interval semantics and explicit
 frame-offset reporting apply to nonseekable chunked pipes. A valid
 CRC is evidence of accidental corruption detection, not
 authenticated origin or durable persistence.
+
+## 2026-10-17 bounded uncertainty-aware pairwise time evidence (partial G9)
+
+`--validate-record --expected-root-type-hex HEX16 --compare-record-times`
+reuses **the existing** `edp_logging.analysis.compare_record_time`
+authoritative comparison semantics and the same bounded, candidate-only
+record collection used by `--analyse-attempts`. The CLI performs
+comparisons only after full outer LogRecord structural validation and
+caller-supplied root identity equality.
+
+Output JSON Lines `kind=temporal-comparison` specifies original
+capture `leftOffset`/`rightOffset`, `relationship` = Earlier,
+Later, Overlaps or Incomparable, and `certainTotalOrder` true only
+when the comparison proves Earlier/Later. It explicitly states
+`civilUtcInferred=false` and `unobservedGapLossInferred=false`.
+A common *nonzero* EDP-Clock era, usable synchronized clock state and
+non-saturated uncertainty are necessary to compare **different**
+DeviceIdentifier+RuntimeIncarnation pairs. Distinct unsynchronised
+devices with numerically similar local monotonic timestamps remain
+**Incomparable**; uncertainty-overlapping synchronized intervals are
+**Overlaps**, not sorted into fictional absolute order. This feature
+never assumes synchronized Clock coordinates are UTC.
+
+`--max-comparison-pairs` (default 4096, positive) and
+`--max-analysis-records` (default 65536) bound the finite
+O(n²) output/work and its source memory. If either limit is
+exceeded the CLI emits only one
+`kind=temporal-evidence-error` (nonzero status) **instead of
+an incomplete subset of comparisons**. The raw per-frame findings
+remain available. A verified root TypeIdentifier value is still a
+user-supplied equality pin, not historical publisher authentication.

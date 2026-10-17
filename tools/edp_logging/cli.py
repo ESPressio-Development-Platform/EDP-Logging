@@ -16,7 +16,7 @@ from .record_structure import EnvelopeError, PreservedFloat, inspect_typed_envel
 from .schema import SchemaError, decode_declared_arguments, load_generated_schema
 from .historical_schema import load_archived_diagnostic_schema
 from .record_facts import RecordFactError, inspect_log_record_facts
-from .analysis import EvidenceError, analyse_attempts
+from .analysis import EvidenceError, analyse_attempts, compare_record_time
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -38,6 +38,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="16 hex digits of LogRecord's independently verified EDP-System TypeIdentifier; requires --validate-record")
     parser.add_argument("--analyse-attempts", action="store_true",
                         help="emit bounded per-device/incarnation ticket-evidence summaries; requires strict pinned-root record validation")
+    parser.add_argument("--compare-record-times", action="store_true",
+                        help="emit explicit uncertainty-aware pairwise ordering evidence; requires validated pinned root")
+    parser.add_argument("--max-comparison-pairs", type=int, default=4096,
+                        help="finite ceiling on pairwise record comparisons; refuse the entire summary if exceeded")
     parser.add_argument("--max-analysis-records", type=int, default=65536,
                         help="maximum validated LogRecords retained for attempt evidence")
     parser.add_argument("--max-analysis-groups", type=int, default=1024,
@@ -48,17 +52,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     failures = 0
-    if args.analyse_attempts and (
+    if (args.analyse_attempts or args.compare_record_times) and (
         not args.validate_record or args.expected_root_type_hex is None
     ):
         print(json.dumps({"kind": "schema-error",
-                          "message": "--analyse-attempts requires --validate-record and --expected-root-type-hex"}))
+                          "message": "attempt/time evidence requires --validate-record and --expected-root-type-hex"}))
         return 2
-    if args.max_analysis_records < 1 or args.max_analysis_groups < 1:
+    if (args.max_analysis_records < 1 or args.max_analysis_groups < 1
+            or args.max_comparison_pairs < 1):
         print(json.dumps({"kind": "schema-error",
                           "message": "analysis resource bounds must both be positive"}))
         return 2
     analysis_records = []
+    analysis_offsets = []
     analysis_overflow = False
     expected_root = None
     if args.expected_root_type_hex is not None:
@@ -211,11 +217,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 # check, not proof of who issued or signed that identity.
                                 report["rootTypeMatchedSuppliedIdentity"] = expected_root is not None
                                 report["rootTypeGoverned"] = False
-                                if args.analyse_attempts:
+                                if args.analyse_attempts or args.compare_record_times:
                                     if len(analysis_records) >= args.max_analysis_records:
                                         analysis_overflow = True
                                     else:
                                         analysis_records.append(facts)
+                                        analysis_offsets.append(event.offset)
                         if historical_schema is not None:
                             report["schemaArtifactSha256PinMatched"] = (
                                 historical_schema.artifact_sha256_pin_matched
@@ -297,5 +304,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "partialCapturePossible": group.partial_capture_possible,
                         "rootTypeMatchedSuppliedIdentity": True,
                         "lossCauseInferred": False,
+                    }))
+    if args.compare_record_times:
+        pairs = len(analysis_records) * (len(analysis_records) - 1) // 2
+        if analysis_overflow or pairs > args.max_comparison_pairs:
+            failures += 1
+            print(json.dumps({
+                "kind": "temporal-evidence-error",
+                "message": (
+                    "bounded record observation capacity exceeded"
+                    if analysis_overflow
+                    else "pairwise comparison count exceeds configured finite ceiling"
+                ),
+            }))
+        else:
+            for left in range(len(analysis_records)):
+                for right in range(left + 1, len(analysis_records)):
+                    relation = compare_record_time(
+                        analysis_records[left], analysis_records[right]
+                    )
+                    print(json.dumps({
+                        "kind": "temporal-comparison",
+                        "leftOffset": analysis_offsets[left],
+                        "rightOffset": analysis_offsets[right],
+                        "relationship": relation.value,
+                        "certainTotalOrder": relation.value in ("Earlier", "Later"),
+                        "civilUtcInferred": False,
+                        "unobservedGapLossInferred": False,
+                        "rootTypeMatchedSuppliedIdentity": True,
                     }))
     return 1 if failures else 0
