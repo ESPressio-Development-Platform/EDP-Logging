@@ -56,6 +56,19 @@ This **does not solve all G1**: raw Memory leases outside this opt-in owner are 
 
 `logging/DiagnosticArgumentEncoding.hpp` checks an application's **EDP-Localisation-generated** `DiagnosticMessageSchema<D,S,I>` declaration (active, count, exact ordered parameter widths) at C++20 compile time and then delegates to EDP-Serialisation's new `SerialisePositionalCbor/Json` owner APIs. No duplicate scalar encoder, heap, runtime variant, source coercion or default umbrella dependency. In addition to the original exact-width numeric/bool kinds, this opt-in helper now accepts owner-certified `Bounded::String<N>` (`Utf8`), `Bounded::Bytes<N>` (`Bytes`), `System::TypeIdentifier` and `System::FieldIdentifier`, with **strict generated parameter-kind/arity ordering** and a separate EDP-Serialisation certification check. Previous `ScalarDiagnosticSchemaMatches` remains source-compatible; `DiagnosticSchemaMatches` is the preferred extended query. Strong DeviceIdentifier, RuntimeIncarnationId, ClockEra, family-width StringIdentifier and custom semantic adapters remain unimplemented until the proper owner supplies reversible representations; **no invented TypeIdentifier or full LogRecord typed envelope**. GCC+Clang generated owner tests, negative swapped-kind compile failures and Xtensa compile-only coverage: `tests/run-diagnostic-bounded-generated-tests.sh`, `tests/DiagnosticBoundedXtensaSmoke.cpp`. [Bounded G3 contract](docs/DIAGNOSTIC-BOUNDED-ARGUMENTS.MD). Actual RPI400 interoperability with the EDP-Localisation **generated contract header** also passed using the owner-generated fixture; the script is `tests/run-diagnostic-generated-contract-tests.sh`, with `EDP_LOGGING_DEPENDENCY_ROOT` pointing at the pinned sibling checkouts (GCC and Clang). Precise source, governed-contract limits and GCC+Clang test commands: [G3 notes](docs/DIAGNOSTIC-ARGUMENT-ENCODING.MD), [Wiki](wiki/Reference-logging-DiagnosticArgumentEncoding.md).
 
+## Optional generated-schema-bound LogRecord source assembly (partial G3/G4)
+
+`logging/LogRecordSourceAssembly.hpp` now constructs one canonical **structural**
+LogRecord using the actual EDP-Localisation-generated message identity,
+128-bit diagnostic fingerprint, already-issued attempt, coherent
+EDP-Clock temporal evidence, System device/incarnation and bounded
+source-owned exact-width scalar positional arguments. Construction
+is transactional and performed before queue waiting. It does **not**
+serialise any complete 15-field Typed Envelope; Fields 11 and 14
+remain unissued zero-only facts. See the focused
+[source assembly contract](docs/LOG-RECORD-SOURCE-ASSEMBLY.MD)
+and [Wiki reference](wiki/Reference-logging-LogRecordSourceAssembly.md).
+
 ## Future architecture
 
 The complete D1–D13 approved design and ordered seven-tranche implementation plan live in the authoritative [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Package version remains exactly `0.1.0`. No implementation branch is a production release until host/target validation is actually run and recorded.

@@ -11,3 +11,5 @@ The [optional historical diagnostic schema host bridge](Tooling-edp-logging-hist
 [System Identity generated diagnostic arguments](Reference-logging-SystemIdentityDiagnosticArguments) extend the optional owner-certified G3 path without adding new direct dependencies.
 
 [Optional generated ClockEra parameter](Reference-logging-ClockEraDiagnostic) preserves exact temporal-identity Types without claiming G2 coherence.
+
+- [Generated-schema-bound LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md) — optional owner-generated identity and finite owned source preparation, not a wire envelope.

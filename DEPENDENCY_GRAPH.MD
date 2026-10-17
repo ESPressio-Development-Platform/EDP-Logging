@@ -186,3 +186,20 @@ No concrete filesystem, Mesh, Serial or supplementary allocator.
   authoritative allocation record, NOT a code runtime dependency.
 - This addition does not import any concrete platform provider,
   EDP-Mesh, native file adapter or run-time identity allocation.
+
+## Optional generated-source LogRecord assembly (2026-10-17)
+
+Only applications importing `logging/LogRecordSourceAssembly.hpp` activate the
+combined existing abstract edges to EDP-System (strong identities, schema),
+EDP-Clock (one already-qualified monotonic/synchronized sample),
+EDP-Localisation **generated** `DiagnosticMessageSchema` and
+`OwningContract::DiagnosticSchemaFingerprint`, and EDP-Serialisation
+(through the already-existing opt-in `DiagnosticArgumentEncoding.hpp`
+for compile-time schema kind certification). Bootstrap provides the concrete
+Clock source and memory/task resources independently. No reverse dependencies,
+EDP-Mesh, native SDK, redundant encoder or runtime catalogue registry
+are introduced. The root remains structural, **not** a canonical
+15-field `SerialisableType`. Applications must use at least the
+Localisation `feature/logging-v1` generated descriptor owner checkpoint
+with `SourceDomain`/`SourceSubDomain`/`SourceString` and
+`OwningContract`, not an older generated fixture. Package version 0.1.0.

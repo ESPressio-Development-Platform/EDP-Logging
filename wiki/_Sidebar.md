@@ -36,3 +36,5 @@
 - [EDLS checked append](Reference-logging-EdlsArchiveAppend.md)
 - [Guarded EDLS successor](Reference-logging-EdlsArchiveSuccessor.md)
 - [LogRecord identity](Reference-logging-LogRecord.md)
+
+- [LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md)

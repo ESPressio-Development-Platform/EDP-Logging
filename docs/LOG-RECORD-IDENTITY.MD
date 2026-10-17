@@ -61,3 +61,9 @@ not reissued as new permanent Type identities. The broader inventory
 of third-party and application-generated identities remains a
 governance audit concern; this issuance is authoritative within EDP
 Core, not a claim of searching unknown external systems.
+
+
+
+The separate [LogRecord Source Assembly](./LOG-RECORD-SOURCE-ASSEMBLY.MD)
+describes the generated diagnostic source-capture contract, which is
+**not yet an approved complete typed wire record**.
