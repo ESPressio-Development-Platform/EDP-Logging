@@ -93,6 +93,52 @@ class FramingTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(main([str(path), "--analyse-attempts"]), 2)
 
+    def test_cli_live_binary_stdin_non_seekable_and_forensic(self) -> None:
+        import contextlib
+        import json
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from edp_logging.cli import main
+
+        class NoSeekSource(io.RawIOBase):
+            def __init__(self, payload: bytes) -> None:
+                self.chunks = io.BytesIO(payload)
+                self.calls = 0
+            def readable(self) -> bool:
+                return True
+            def seekable(self) -> bool:
+                return False
+            def read(self, length: int = -1) -> bytes:
+                self.calls += 1
+                return self.chunks.read(min(3, length)) if length >= 0 else self.chunks.read()
+            def seek(self, *args: object) -> None:
+                raise AssertionError("binary serial stdin must never seek")
+
+        capture = (
+            encode_frame(FrameCodec.Cbor, b"ab")
+            + b"corrupt!"
+            + encode_frame(FrameCodec.Json, b"xy")
+        )
+        stream = NoSeekSource(capture)
+        output = io.StringIO()
+        with patch.object(sys, "stdin", SimpleNamespace(buffer=stream)):
+            with contextlib.redirect_stdout(output):
+                rc = main(["-", "--forensic", "--resync-limit", "64"])
+        self.assertEqual(rc, 1)  # forensic input contains a damaged gap
+        rows = [json.loads(line) for line in output.getvalue().splitlines()]
+        frames = [row for row in rows if row["kind"] == "frame"]
+        self.assertEqual(len(frames), 2)
+        self.assertEqual(frames[0]["offset"], 0)
+        self.assertFalse(frames[0]["forensicCandidate"])
+        self.assertEqual(frames[1]["offset"], len(encode_frame(FrameCodec.Cbor, b"ab"))+8)
+        self.assertTrue(frames[1]["forensicCandidate"])
+        self.assertGreater(stream.calls, 3)
+        self.assertFalse(stream.closed)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with patch.object(sys, "stdin", SimpleNamespace(buffer=NoSeekSource(b""))):
+                self.assertEqual(main(["-"]), 0)
+
     def test_cli_expected_root_pin_requires_strict_shape(self) -> None:
         import contextlib
         import tempfile

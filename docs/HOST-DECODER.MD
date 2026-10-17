@@ -150,3 +150,26 @@ CBOR TypedEnvelope inside actual EDLG v1 frames, with tickets
 interval [2,2], exact device/incarnation, strict overflow refusal and
 negative root/option cases. Neither Field 11 nor Field 14 subflags
 are allocated by these test-only synthetic placeholder bytes.
+
+## Binary stdin and live byte-stream input (2026-10-17)
+
+The existing reader also accepts **`-`** in place of the path:
+`python3 -u -m edp_logging - --forensic`, with the same existing
+strict EDLG/EDLS framing, bounded `--max-payload` and bounded
+`--resync-limit` behavior as ordinary files. The scanner never
+requires `seek()` or loading all input before processing complete
+frames. This allows externally captured serial bytes to be piped
+through standard input; `-u` prevents host stdout buffering.
+The owning capture process MUST keep the serial endpoint in
+exclusive binary mode (do not interleave console text/other
+writer bytes). For example, external capture utilities may pipe
+binary frames into this process using an authorized, already
+configured serial device; this decoder itself does not acquire
+or configure an endpoint and **does not guarantee** frame
+liveness while a producer is silent. Scanner terminates at stdin
+EOF; it never closes stdin itself.
+
+The same sticky forensic damaged-interval semantics and explicit
+frame-offset reporting apply to nonseekable chunked pipes. A valid
+CRC is evidence of accidental corruption detection, not
+authenticated origin or durable persistence.

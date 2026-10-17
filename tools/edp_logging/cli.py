@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import sys
 import re
 from pathlib import Path
 from typing import Sequence
@@ -19,7 +21,8 @@ from .analysis import EvidenceError, analyse_attempts
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan EDLG v1 frames without interpreting typed LogRecord arguments")
-    parser.add_argument("path", type=Path, help="existing captured binary framing or archive slot")
+    parser.add_argument("path", type=Path,
+                        help="existing captured binary framing/archive slot; '-' reads live binary stdin until EOF")
     parser.add_argument("--archive", action="store_true", help="validate EDLS segment header before framing")
     parser.add_argument("--inspect-record", action="store_true", help="inspect typed envelope without guessing parameter semantics")
     parser.add_argument("--schema", type=Path, help="generated historical diagnostic-schema.json for validated CBOR argument typing")
@@ -134,7 +137,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps({"kind": "schema-error", "message": str(error)}))
             return 2
 
-    with args.path.open("rb") as source:
+    # A pipe/FIFO serial capture must not need seek, pre-read the input,
+    # or close the host's own standard input on CLI return.
+    source_owner = (
+        contextlib.nullcontext(sys.stdin.buffer)
+        if args.path == Path("-")
+        else args.path.open("rb")
+    )
+    with source_owner as source:
         base = 0
         if args.archive:
             try:
