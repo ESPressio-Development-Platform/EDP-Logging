@@ -372,3 +372,16 @@ nor evidence of a power-loss-retaining production archive.
 The original entire 4MiB flash must be backed up immediately
 before this firmware is written and independently restored/verified
 after the test.
+
+
+### 2026-10-17 physical RED-first correction
+
+The first real 15-marker firmware executed existing tests but reported
+`FAIL|quantum-hardware-admission` because the new quantum block was
+incorrectly inserted **after** the harness's irreversible
+`ShutdownUntil` and `runtime.TearDown`. This was a test fixture
+lifecycle ordering error, not evidence that native queue admission
+itself could recover after shutdown. The regression has now been
+moved before shutdown/teardown; an actual rebuilt/reflashed on-device
+PASS is required before closing this checkpoint. The first physical
+run correctly returned nonzero with 12/15 markers.

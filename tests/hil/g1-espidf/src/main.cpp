@@ -564,6 +564,48 @@ bool Run() {
                   "drain-slot-isolation")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|DRAIN_SLOT_ISOLATION\n");
     }
+    // Actual ESP32 Memory-pool queue through two statically composed sinks.
+    // A quantum budget is not a queue-empty or durable-delivery assertion.
+    {
+        for (int value : {921,922}) {
+            Lease scratch;
+            Queue::Reservation reservation;
+            const auto admission=Logging::AcquireRecordUntil<8U,8U>(
+                queue,lifecycle,wakes,0U,pool,scratch,reservation,
+                Deadline(2000U),neverStop,value);
+            if (!Check(admission.Status==Logging::RecordAdmissionStatus::Admitted,
+                        "quantum-hardware-admission")) return false;
+            if (!Check(reservation.Commit()==Logging::RecordQueueResult::Succeeded,
+                        "quantum-hardware-publication")) return false;
+        }
+        unsigned sinkA=0U,sinkB=0U;
+        const auto a=[&sinkA](const Record& record) noexcept ->
+            Logging::RecordSinkSubmission {
+            ++sinkA;
+            return record.Value()==921 ? Logging::RecordSinkSubmission::Accepted :
+                                         Logging::RecordSinkSubmission::Rejected;
+        };
+        const auto b=[&sinkB](const Record&) noexcept ->
+            Logging::RecordSinkSubmission {
+            ++sinkB;
+            return Logging::RecordSinkSubmission::Accepted;
+        };
+        Queue::ConsumerClaim claim;
+        const auto q1=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
+        if (!Check(q1.Status==Logging::CoordinatorQuantumStatus::BudgetConsumed &&
+            q1.Processed==1U && q1.AcceptedByAll==1U &&
+            Record::Live.load()==1,"quantum-first-budget")) return false;
+        const auto q2=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
+        if (!Check(q2.Status==Logging::CoordinatorQuantumStatus::BudgetConsumed &&
+            q2.Processed==1U && q2.FailedSubmissionRecords==1U &&
+            q2.PerSinkUnaccepted[0U]==1U && Record::Live.load()==0,
+            "quantum-partial-and-reclaim")) return false;
+        const auto q3=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
+        if (!Check(q3.Status==Logging::CoordinatorQuantumStatus::QueueEmpty &&
+            q3.Processed==0U && sinkA==2U && sinkB==2U,
+            "quantum-queue-empty")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM\n");
+    }
     // 4. Real task is blocked for queue capacity when shutdown starts.
     // ShutdownUntil must wait for this producer to retire, not report false
     // quiescence while it still owns an EDP-Threading wake slot.
@@ -608,48 +650,6 @@ bool Run() {
         if(!Check(runtime.TearDown()==Memory::MemoryTopologyTeardownResult::Succeeded,
                   "memory-teardown")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|SHUTDOWN_AND_TEARDOWN\n");
-    }
-    // Actual ESP32 Memory-pool queue through two statically composed sinks.
-    // A quantum budget is not a queue-empty or durable-delivery assertion.
-    {
-        for (int value : {921,922}) {
-            Lease scratch;
-            Queue::Reservation reservation;
-            const auto admission=Logging::AcquireRecordUntil<8U,8U>(
-                queue,lifecycle,wakes,0U,pool,scratch,reservation,
-                Deadline(2000U),neverStop,value);
-            if (!Check(admission.Status==Logging::RecordAdmissionStatus::Admitted,
-                        "quantum-hardware-admission")) return false;
-            if (!Check(reservation.Commit()==Logging::RecordQueueResult::Succeeded,
-                        "quantum-hardware-publication")) return false;
-        }
-        unsigned sinkA=0U,sinkB=0U;
-        const auto a=[&sinkA](const Record& record) noexcept ->
-            Logging::RecordSinkSubmission {
-            ++sinkA;
-            return record.Value()==921 ? Logging::RecordSinkSubmission::Accepted :
-                                         Logging::RecordSinkSubmission::Rejected;
-        };
-        const auto b=[&sinkB](const Record&) noexcept ->
-            Logging::RecordSinkSubmission {
-            ++sinkB;
-            return Logging::RecordSinkSubmission::Accepted;
-        };
-        Queue::ConsumerClaim claim;
-        const auto q1=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
-        if (!Check(q1.Status==Logging::CoordinatorQuantumStatus::BudgetConsumed &&
-            q1.Processed==1U && q1.AcceptedByAll==1U &&
-            Record::Live.load()==1,"quantum-first-budget")) return false;
-        const auto q2=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
-        if (!Check(q2.Status==Logging::CoordinatorQuantumStatus::BudgetConsumed &&
-            q2.Processed==1U && q2.FailedSubmissionRecords==1U &&
-            q2.PerSinkUnaccepted[0U]==1U && Record::Live.load()==0,
-            "quantum-partial-and-reclaim")) return false;
-        const auto q3=Logging::DrainCoordinatorQuantum<1U>(queue,claim,a,b);
-        if (!Check(q3.Status==Logging::CoordinatorQuantumStatus::QueueEmpty &&
-            q3.Processed==0U && sinkA==2U && sinkB==2U,
-            "quantum-queue-empty")) return false;
-        std::printf("EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM\n");
     }
     return true;
 }
