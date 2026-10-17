@@ -16,6 +16,7 @@
 #include <logging/RecordProduction.hpp>
 #include <logging/CoordinatorQuantum.hpp>
 #include <logging/DedicatedCoordinator.hpp>
+#include <logging/OwnedRepresentationFanout.hpp>
 #include <execution/ExecutionContextProvider.hpp>
 #include <synchronization/SpinLockProvider.hpp>
 #include <logging/LogRecord.hpp>
@@ -716,6 +717,129 @@ bool Run() {
             Threading::ThreadingFinalizationResult::Completed,
             "dedicated-thread-finalize-shutdown")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|EDP_THREADING_DEDICATED_COORDINATOR\n");
+    }
+    // Actual WROOM EDP-Memory OWNED encoded payload survives Serial FIFO
+    // copy-on-enqueue; acceptance is not UART delivery or flash durability.
+    {
+        using Encoded=Logging::OwnedEncodedPayload<32U>;
+        using EncodedTopology=Memory::MemoryTopology<
+            Resource,Memory::SharedReserve<0U,Resource>,
+            Memory::ObjectPoolSpec<Encoded,Memory::DedicatedInstances<1U>>
+        >;
+        using EncodedRuntime=Memory::MemoryRuntime<
+            EncodedTopology,Composition,Mutex,Signal
+        >;
+        Resource encodedResource;
+        Mutex nativeMutex;
+        Allocator encodedAllocator;
+        EncodedRuntime encodedRuntime(nativeMutex,encodedAllocator,encodedResource);
+        Memory::MemoryTopologyInitializationFailure failure{};
+        if(!Check(encodedRuntime.Initialize(failure)==
+            Memory::MemoryTopologyInitializationResult::Succeeded,
+            "encoded-owner-pool-initialize")) return false;
+        auto& encodedPool=encodedRuntime.ObjectPoolFor<Encoded>();
+        using EncodedLease=std::remove_reference_t<decltype(encodedPool)>::LeaseType;
+        EncodedLease encodedLease;
+        SerialMutex copiedSerialMutex;
+        SerialQueue copiedSerial(copiedSerialMutex);
+        struct ArchiveSink {
+            std::array<std::byte,32U> Copied{};
+            std::size_t Used{0U};
+            unsigned Calls{0U};
+            Logging::RecordSinkSubmission operator()(
+                Logging::EdlgCodec, std::span<const std::byte> payload
+            ) noexcept {
+                ++Calls;
+                Used=payload.size();
+                for(std::size_t i=0U;i<Used;++i) Copied[i]=payload[i];
+                return Logging::RecordSinkSubmission::Accepted;
+            }
+        } archiveSink;
+        struct Encoder {
+            unsigned Calls{0U};
+            Logging::RepresentationEncodeResult operator()(
+                const std::uint32_t& source, std::span<std::byte> output
+            ) noexcept {
+                ++Calls;
+                const auto result=
+                    ESPressio::Serialisation::SerialisePositionalCbor<1U>(
+                        output,source
+                    );
+                return {
+                    result.IsSuccessful()
+                        ? Logging::RepresentationEncodeStatus::Succeeded
+                        : Logging::RepresentationEncodeStatus::Rejected,
+                    result.BytesWritten
+                };
+            }
+        } encoder;
+        auto serialSink=[&copiedSerial](
+            Logging::EdlgCodec codec,std::span<const std::byte> payload
+        ) noexcept -> Logging::RecordSinkSubmission {
+            const auto offered=copiedSerial.TryEnqueue(codec,payload);
+            return offered.Status==ESPressio::Serial::EdlgQueueOfferStatus::Queued
+                ? Logging::RecordSinkSubmission::Accepted
+                : offered.FrameWasQueued
+                    ? Logging::RecordSinkSubmission::Partial
+                    : Logging::RecordSinkSubmission::Rejected;
+        };
+        for(std::uint32_t source=11U;source<14U;++source) {
+            const auto delivered=Logging::EncodeOnceAndSubmitToSinks<
+                Logging::EdlgCodec::Cbor,32U>(
+                encodedPool,encodedLease,source,encoder,serialSink,archiveSink
+            );
+            if(!Check(encodedLease.IsEmpty() &&
+                delivered.EncoderInvocations==1U &&
+                delivered.SinkInvocations==2U &&
+                delivered.EncodedBytes!=0U &&
+                archiveSink.Used==delivered.EncodedBytes &&
+                ((source<13U &&
+                  delivered.Status==Logging::OwnedRepresentationStatus::SubmittedAndReleased &&
+                  delivered.Accepted==2U) ||
+                 (source==13U &&
+                  delivered.Status==Logging::OwnedRepresentationStatus::SubmissionNotAccepted &&
+                  delivered.Accepted==1U)),
+                "native-encoded-per-format-fanout")) return false;
+        }
+        struct Endpoint final : ESPressio::Serial::Framework::Provider<
+            ESPressio::Serial::Domain,
+            ESPressio::Serial::Framework::Offers<
+                ESPressio::Serial::Framework::Offer<ESPressio::Serial::ByteStreamWriter>
+            >
+        > {
+            std::array<std::byte,128U> Bytes{};
+            std::size_t Used{0U};
+            ESPressio::Serial::ByteWriteResult TryWrite(
+                std::span<const std::byte> payload
+            ) noexcept {
+                if(payload.size()>Bytes.size()-Used)
+                    return {ESPressio::Serial::ByteWriteStatus::ProviderFailure,0U};
+                for(const auto item:payload) Bytes[Used++]=item;
+                return {ESPressio::Serial::ByteWriteStatus::Accepted,payload.size()};
+            }
+        } endpoint;
+        for(std::uint32_t source=11U;source<13U;++source) {
+            const auto sent=copiedSerial.PumpNext(endpoint);
+            if(!Check(sent.Status==ESPressio::Serial::EdlgQueuePumpStatus::Complete &&
+                sent.FrameCompleted,"native-encoded-serial-complete")) return false;
+        }
+        std::size_t offset=0U;
+        for(std::uint32_t source=11U;source<13U;++source) {
+            Logging::EdlgFrameView frame{};
+            if(!Check(Logging::ReadEdlgFrame(
+                std::span<const std::byte>(endpoint.Bytes).subspan(offset),
+                frame,32U)==Logging::EdlgFrameReadResult::Succeeded &&
+                frame.Codec==Logging::EdlgCodec::Cbor &&
+                !frame.Payload.empty(),
+                "native-encoded-edlg-crc")) return false;
+            offset+=frame.Consumed;
+        }
+        if(!Check(offset==endpoint.Used &&
+            copiedSerial.Depth()==0U &&
+            encoder.Calls==3U && archiveSink.Calls==3U &&
+            encodedRuntime.TearDown()==Memory::MemoryTopologyTeardownResult::Succeeded,
+            "native-encoded-memory-reclaimed")) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY\n");
     }
     // 4. Real task is blocked for queue capacity when shutdown starts.
     // ShutdownUntil must wait for this producer to retire, not report false

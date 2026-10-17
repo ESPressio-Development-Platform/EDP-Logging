@@ -425,3 +425,26 @@ Bootstrap, not a Logging library clock provider), followed by
 terminal `FinalizeShutdown`. This is an ordinary managed Thread
 with safe unmanaged Bootstrap observation, not a positive
 Thread::JoinFor proof from the wrong context.
+
+
+## 2026-10-17 native Memory-owned per-format copying-Sink qualification
+
+The 17th HIL marker `EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY`
+uses a *distinct real EDP-Memory Runtime* with one dedicated
+`OwnedEncodedPayload<32>` ObjectPool slot selected at Bootstrap.
+A real EDP-Serialisation positional CBOR adapter encodes exactly
+once per input into that EDP-Memory-owned slot; independent
+EDP-Serial::BoundedEdlgFrameQueue copy-on-enqueue and Archive-like
+synchronous copying sinks receive the immutable same payload.
+Three source requests show native Serial FIFO capacity at two
+frames while the archive-like sink still accepts the third
+independently; all three source EDP-Memory leases are released
+and its full runtime torn down. The two Serial queued copies
+are then pumped to a real owner-conformant byte endpoint,
+independently parsed as valid EDLG/CRC after the original
+temporary payload leases have been reclaimed.
+This is a *representation and storage-lifetime integration* test,
+not a complete G4 LogRecord TypedEnvelope, a real Persistence
+archive lifecycle or actual physical UART delivery for those
+synthetic payloads. Explicit upstream Serial binary UART G1
+test remains distinct.

@@ -225,3 +225,14 @@ provider. The physical ESP-IDF HIL separately selects
 EDP-Platform-ESP-IDF execution and SpinLock concrete owners at
 Bootstrap, demonstrating the intended architectural separation.
 See `docs/DEDICATED-COORDINATOR.MD`.
+
+## G10 native encoded buffer (2026-10-17)
+
+`logging/OwnedRepresentationFanout.hpp` composes
+`EDP-Memory::ObjectPool` (capacity and movable lease),
+EDP-Platform finite NoWait policy, and the existing Logging
+source/sink status/EDLG codec enums; no direct EDP-Serial or
+Persistence provider dependency. Application tests select real
+`EDP-Serial::BoundedEdlgFrameQueue` copy-on-enqueue, whose
+owning mutex is selected from EDP-Threading. Full G4 canonical
+TypedEnvelope implementation remains with EDP-Serialisation.

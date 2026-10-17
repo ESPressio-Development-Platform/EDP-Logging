@@ -238,3 +238,16 @@ must observe `StaticThreadingRuntime::IsExecutionQuiescent()`
 with its own finite deadline before terminal teardown. It must
 not introduce an unmanaged join waiter or claim a foreign native
 join succeeded. See the G10 dedicated coordinator contract.
+
+## Bounded encoded representation fanout (G10 subset)
+
+`logging/OwnedRepresentationFanout.hpp` composes an actual
+EDP-Memory ObjectPool lease for one per-profile CBOR/JSON encoded
+buffer, a caller-selected EDP-Serialisation encoder, and 2–8
+independent *copying* sinks. Strict NoWait pool admission,
+one encode per selected representation, explicit per-sink results,
+native release-status and retained failed leases avoid hidden
+allocation, source-buffer escaping and fake durability claims.
+The test includes real EDP-Serial bounded FIFO owned-copy
+backpressure and independently checked EDLG frame CRC.
+See [owned representation fanout](docs/OWNED-REPRESENTATION-FANOUT.MD).

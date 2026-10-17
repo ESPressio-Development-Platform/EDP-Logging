@@ -77,3 +77,15 @@ created. The callback does NOT prove end-to-end production
 LogRecord serialization, task stack limits, power-loss durability,
 or async encoded-buffer lifetime. See
 [Dedicated Coordinator](../docs/DEDICATED-COORDINATOR.MD).
+
+## Encoded representation buffer ownership (2026-10-17)
+
+`logging/OwnedRepresentationFanout.hpp` provides an optional
+EDP-Memory-pool-owned, representation-selected CBOR/JSON buffer
+whose source bytes live until all synchronous copy-on-accept sinks
+have been offered the same one-time-encoded bytes. One sink's
+rejection never retracts another sink's accepted enqueue;
+unknown EDP-Memory release leaves the caller's lease explicit.
+This is not a shared asynchronous borrowed buffer or a final
+15-field TypedEnvelope writer. See
+[Owned Representation Fanout](../docs/OWNED-REPRESENTATION-FANOUT.MD).
