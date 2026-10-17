@@ -14,6 +14,7 @@ from .record_structure import EnvelopeError, PreservedFloat, inspect_typed_envel
 from .schema import SchemaError, decode_declared_arguments, load_generated_schema
 from .historical_schema import load_archived_diagnostic_schema
 from .record_facts import RecordFactError, inspect_log_record_facts
+from .analysis import EvidenceError, analyse_attempts
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -32,12 +33,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--validate-record", action="store_true", help="validate the known outer LogRecord V1 field structure")
     parser.add_argument("--expected-root-type-hex",
         help="16 hex digits of LogRecord's independently verified EDP-System TypeIdentifier; requires --validate-record")
+    parser.add_argument("--analyse-attempts", action="store_true",
+                        help="emit bounded per-device/incarnation ticket-evidence summaries; requires strict pinned-root record validation")
+    parser.add_argument("--max-analysis-records", type=int, default=65536,
+                        help="maximum validated LogRecords retained for attempt evidence")
+    parser.add_argument("--max-analysis-groups", type=int, default=1024,
+                        help="maximum distinct device/incarnation evidence groups")
     parser.add_argument("--forensic", action="store_true", help="bounded resync; mark recovered candidate frames")
     parser.add_argument("--max-payload", type=int, default=65_536)
     parser.add_argument("--resync-limit", type=int, default=1_048_576)
     args = parser.parse_args(argv)
 
     failures = 0
+    if args.analyse_attempts and (
+        not args.validate_record or args.expected_root_type_hex is None
+    ):
+        print(json.dumps({"kind": "schema-error",
+                          "message": "--analyse-attempts requires --validate-record and --expected-root-type-hex"}))
+        return 2
+    if args.max_analysis_records < 1 or args.max_analysis_groups < 1:
+        print(json.dumps({"kind": "schema-error",
+                          "message": "analysis resource bounds must both be positive"}))
+        return 2
+    analysis_records = []
+    analysis_overflow = False
     expected_root = None
     if args.expected_root_type_hex is not None:
         if not args.validate_record or re.fullmatch(
@@ -182,6 +201,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 # check, not proof of who issued or signed that identity.
                                 report["rootTypeMatchedSuppliedIdentity"] = expected_root is not None
                                 report["rootTypeGoverned"] = False
+                                if args.analyse_attempts:
+                                    if len(analysis_records) >= args.max_analysis_records:
+                                        analysis_overflow = True
+                                    else:
+                                        analysis_records.append(facts)
                         if historical_schema is not None:
                             report["schemaArtifactSha256PinMatched"] = (
                                 historical_schema.artifact_sha256_pin_matched
@@ -228,4 +252,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "kind": "frame-error", "offset": event.offset,
                     "status": event.status.value,
                 }))
+    if args.analyse_attempts:
+        if analysis_overflow:
+            failures += 1
+            print(json.dumps({
+                "kind": "attempt-evidence-error",
+                "message": "validated record observations exceeded bounded evidence capacity",
+            }))
+        else:
+            try:
+                evidence = analyse_attempts(
+                    analysis_records,
+                    max_records=args.max_analysis_records,
+                    max_groups=args.max_analysis_groups,
+                )
+            except (ValueError, EvidenceError) as error:
+                failures += 1
+                print(json.dumps({
+                    "kind": "attempt-evidence-error",
+                    "message": str(error),
+                }))
+            else:
+                for group in evidence:
+                    print(json.dumps({
+                        "kind": "attempt-evidence",
+                        "deviceIdentifierHex": group.device_identifier.hex().upper(),
+                        "incarnation": group.incarnation,
+                        "sequenceWidth": group.sequence_width,
+                        "observedDistinctTickets": group.observed_count,
+                        "duplicateObservations": group.duplicate_observations,
+                        "firstObservedTicket": group.first_ticket,
+                        "lastObservedTicket": group.last_ticket,
+                        "unseenTicketIntervals": list(group.unseen_intervals),
+                        "partialCapturePossible": group.partial_capture_possible,
+                        "rootTypeMatchedSuppliedIdentity": True,
+                        "lossCauseInferred": False,
+                    }))
     return 1 if failures else 0

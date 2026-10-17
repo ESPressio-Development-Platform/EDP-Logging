@@ -110,3 +110,43 @@ caller-selected bytes into historical authenticity. The existing
 forensic candidate inspection for legacy forensic use.
 Malformed/partial option or mismatched types fail closed.
 No changed EDLG/EDLS, Typed Envelope or Field11/14 semantics.
+
+## 2026-10-17 bounded multi-device attempt evidence (partial G8/G9)
+
+`--validate-record --expected-root-type-hex HEX16 --analyse-attempts`
+now reports separate JSON Lines `kind=attempt-evidence` summaries for
+each observed strong DeviceIdentifier and RuntimeIncarnationId pair,
+**only** after independently selected exact root-TypeIdentifier matching
+and the existing structural LogRecord checks. Generated-schema/publisher
+authenticity and archive provenance require their separate trusted
+manifests; supplying an expected root is a candidate identity equality
+test, never a claim of record origin authentication.
+
+Two explicit resource controls:
+`--max-analysis-records` (default 65536; positive) caps stored
+validated source observations, and `--max-analysis-groups` (default
+1024; positive) caps distinct device/incarnation groups. A bound
+exceeded returns a typed `attempt-evidence-error`, nonzero exit,
+and NO misleading incomplete summary. Malformed policy arguments
+and attempts to analyze without both root pin and structural
+validation fail before opening the capture. The raw frame/per-record
+JSONL events are still emitted, including damage/errors in forensic
+mode.
+
+Each summary distinguishes distinct tickets from duplicate
+observations and displays only **unseen intervals between actually
+observed tickets**. It explicitly publishes
+`partialCapturePossible=true` and `lossCauseInferred=false`.
+An unseen ticket is NEVER proof that an event was dropped by
+Logging, Persistence, Serial, the producer, or transport. The same
+incarnation cannot advertise competing attempt sequence widths;
+the existing evidence owner rejects that contradiction rather
+than silently partitioning. Cross-device temporal ordering and
+translation remain separate governed analyses, not inferred here.
+
+Regression: a synthetic canonical 15-field (14 required, one optional)
+CBOR TypedEnvelope inside actual EDLG v1 frames, with tickets
+1,3,3, proves two distinct observations, duplicate=1, unseen
+interval [2,2], exact device/incarnation, strict overflow refusal and
+negative root/option cases. Neither Field 11 nor Field 14 subflags
+are allocated by these test-only synthetic placeholder bytes.

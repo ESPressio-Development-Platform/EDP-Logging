@@ -11,6 +11,88 @@ from edp_logging.framing import (
 
 class FramingTests(unittest.TestCase):
 
+    def test_cli_bounded_attempt_analysis_with_real_frames(self) -> None:
+        import contextlib
+        import json
+        import tempfile
+        from pathlib import Path
+        from edp_logging.cli import main
+
+        # Fixtures use the standard canonical CBOR container/scalar vocabulary
+        # and include all required LogRecord outer fields. These are test-only
+        # structural candidates, not production-issued G4 Field 11/14 formats.
+        def header(major: int, size: int) -> bytes:
+            if size < 24:
+                return bytes([(major << 5) | size])
+            if size <= 255:
+                return bytes([(major << 5) | 24, size])
+            if size <= 65535:
+                return bytes([(major << 5) | 25]) + size.to_bytes(2, "big")
+            if size <= 0xFFFFFFFF:
+                return bytes([(major << 5) | 26]) + size.to_bytes(4, "big")
+            return bytes([(major << 5) | 27]) + size.to_bytes(8, "big")
+
+        def encode(value: object) -> bytes:
+            if type(value) is int:
+                return header(0, value)
+            if type(value) is bytes:
+                return header(2, len(value)) + value
+            if type(value) is list:
+                return header(4, len(value)) + b"".join(encode(item) for item in value)
+            if type(value) is dict:
+                return header(5, len(value)) + b"".join(
+                    encode(key) + encode(item) for key, item in sorted(value.items())
+                )
+            raise AssertionError("unexpected test fixture type")
+
+        root_id = bytes.fromhex("0000010000000001")
+        def frame_for(ticket: int) -> bytes:
+            fields = {
+                0: [1, 0, 3], 1: 2, 2: bytes(range(1, 17)),
+                3: 5, 4: ticket, 5: 16, 6: 1_000 + ticket,
+                8: 0, 9: 0, 10: 0xFFFFFFFF, 11: 0,
+                12: bytes(range(16)), 13: [], 14: 0,
+            }
+            payload = encode([1, root_id, fields])
+            return encode_frame(FrameCodec.Cbor, payload)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "captured.edlg"
+            path.write_bytes(frame_for(1) + frame_for(3) + frame_for(3))
+            prefix = [
+                str(path), "--validate-record", "--expected-root-type-hex",
+                root_id.hex(), "--analyse-attempts",
+            ]
+            def call(*arguments: str) -> tuple[int, list[dict]]:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    code = main([*prefix, *arguments])
+                return code, [json.loads(line) for line in output.getvalue().splitlines()]
+
+            status, rows = call()
+            self.assertEqual(status, 0)
+            self.assertEqual([r["kind"] for r in rows],
+                             ["frame", "frame", "frame", "attempt-evidence"])
+            evidence = rows[-1]
+            self.assertEqual(evidence["observedDistinctTickets"], 2)
+            self.assertEqual(evidence["duplicateObservations"], 1)
+            self.assertEqual(evidence["unseenTicketIntervals"], [[2, 2]])
+            self.assertTrue(evidence["partialCapturePossible"])
+            self.assertFalse(evidence["lossCauseInferred"])
+            self.assertTrue(evidence["rootTypeMatchedSuppliedIdentity"])
+
+            status, rows = call("--max-analysis-records", "2")
+            self.assertEqual(status, 1)
+            self.assertEqual(rows[-1]["kind"], "attempt-evidence-error")
+            self.assertNotIn("unseenTicketIntervals", rows[-1])
+
+            status, rows = call("--max-analysis-groups", "0")
+            self.assertEqual(status, 2)
+            self.assertEqual(rows[0]["kind"], "schema-error")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main([str(path), "--analyse-attempts"]), 2)
+
     def test_cli_expected_root_pin_requires_strict_shape(self) -> None:
         import contextlib
         import tempfile
