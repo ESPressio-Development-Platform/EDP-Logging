@@ -65,3 +65,34 @@ injection handling, chronological uncertainty *as carried in source
 events*, and nonseekable stdin. This standalone exporter does not
 establish full historical Localisation trust, a complete LogRecord
 typed serializer, or on-device PowerLoss qualification.
+
+
+## Transactional destination output (2026-10-17 follow-on)
+
+Supply `--output analysis.csv` to publish the CSV to a named file only
+after **the entire bounded JSONL source has been parsed and exported
+successfully**. The exporter creates a uniquely named temporary
+file **in the destination directory**, writes the fixed-schema CSV,
+flushes and syncs that temporary file, and performs one host
+`os.replace` when the export finishes without errors.
+
+A malformed later JSONL event, row limit, unexpected field, file I/O
+error or interruption before replacement leaves any previously
+committed destination unchanged; the uncommitted temporary file is
+cleaned up on controlled failures. The CLI rejects setting the
+destination equal to its JSONL input. For example:
+
+```bash
+python3 -m edp_logging.export_csv capture.jsonl --output capture.csv
+```
+
+When chaining an external decoder with this exporter, retain
+`set -o pipefail` and require the **entire pipeline** to exit
+successfully. The converter cannot know that an upstream pipeline
+stage failed after producing a syntactically valid prefix; do not
+treat a successful converter exit alone as an authenticated or
+complete capture. A host filesystem namespace replace is **not a
+PowerLoss durability guarantee** or signed historical provenance.
+The existing default stdout mode remains incremental and therefore
+may emit partial rows before a failure; use `--output` for a
+single-file all-or-nothing *logical* result.

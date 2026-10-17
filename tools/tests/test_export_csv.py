@@ -84,5 +84,59 @@ class ExportCsvTests(unittest.TestCase):
         self.assertFalse(input_stream.closed)
         self.assertEqual(list(csv.DictReader(io.StringIO(output_stream.getvalue())))[0]["offset"],"0")
 
+
+    def test_cli_transaction_does_not_replace_destination_on_bad_input(self) -> None:
+        import contextlib
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "events.jsonl"
+            committed = root / "analysis.csv"
+            committed.write_text("PREVIOUS_COMMITTED_EXPORT\n", encoding="utf-8")
+            source.write_text('{"kind":"frame","offset":0}\ninvalid-json\n', encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(main([str(source), "--output", str(committed)]), 1)
+            self.assertEqual(committed.read_text(encoding="utf-8"),
+                             "PREVIOUS_COMMITTED_EXPORT\n")
+            self.assertEqual(list(root.glob(".analysis.csv.*.tmp")), [])
+
+            source.write_text('{"kind":"frame","offset":0}\n', encoding="utf-8")
+            self.assertEqual(main([str(source), "--output", str(committed)]), 0)
+            with committed.open("r", encoding="utf-8", newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["offset"], "0")
+            self.assertEqual(list(root.glob(".analysis.csv.*.tmp")), [])
+
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(main([str(source), "--output", str(source)]), 1)
+            self.assertEqual(source.read_text(encoding="utf-8"),
+                             '{"kind":"frame","offset":0}\n')
+
+    def test_cli_transaction_stream_failure_and_capacity_preserve_old_file(self) -> None:
+        import contextlib
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "evidence.csv"
+            target.write_text("OLD\n", encoding="utf-8")
+            stdin = io.StringIO('{"kind":"frame","offset":1}\n{"kind":"frame","offset":2}\n')
+            with patch("sys.stdin", stdin):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(main(["-", "--output", str(target), "--max-rows", "1"]), 1)
+            self.assertFalse(stdin.closed)
+            self.assertEqual(target.read_text(encoding="utf-8"), "OLD\n")
+            self.assertEqual(list(Path(directory).glob(".evidence.csv.*.tmp")), [])
+
+            stdin = io.StringIO('{"kind":"frame","offset":1}\n')
+            with patch("sys.stdin", stdin):
+                self.assertEqual(main(["-", "--output", str(target)]), 0)
+            with target.open("r", encoding="utf-8", newline="") as stream:
+                self.assertEqual(next(csv.DictReader(stream))["offset"], "1")
+            self.assertFalse(stdin.closed)
+
 if __name__ == "__main__":
     unittest.main()
