@@ -533,3 +533,20 @@ No test here certifies full production async sink lifetime, power-loss
 durability, true finite Memory blocking, full typed wire/schema or
 enabled/Off resource delta. Those remain separately open under
 Policy living handoff G1–G15.
+
+## Test-only Off/Info site gate comparative code generation — 2026-10-18
+
+Detached on RPI400: `20261018T094609-a2061881` PASS, exit 0.
+New reusable fixtures `tests/G11CompileOutProof.cpp` and
+`tests/run-g11-compile-out-proof.sh` compile with two exact
+`EDP_LOGGING_G11_ENABLE_SITE` settings, **0 (Off)** and **1 (Info)**.
+On GCC and Clang, Off executes no Clock/identity/argument capture,
+whereas Info evaluates each exactly once; linker eliminates
+the capture routine from Off binaries. `size` `.text`:
+GCC Off/Info 1,900/2,116 bytes, Clang 1,895/2,055 bytes;
+Xtensa C++ object `.text` 350/367 bytes.
+This is isolated host/Xtensa **codegen/contract evidence**, NOT
+a new physical-device run or complete firmware-sized logging delta.
+The three clean G11 physical runs and measurements remain in the
+previous section. Complete on-WROOM enabled/Off product-resource
+qualification remains pending.

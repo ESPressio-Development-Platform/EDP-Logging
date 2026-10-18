@@ -144,3 +144,40 @@ whole-binary and `.bss`/heap/stack/flash comparison, per-stage CPU
 and encoding-format compile-outs, small/large profile and all ticket
 widths, and a real product-specific budget. Do not close G11 because
 the present resource assertion and 18 HIL markers passed.
+
+## Site-only disabled/enabled codegen comparison — 2026-10-18
+
+The independent `tests/G11CompileOutProof.cpp` is compiled from the
+*same source*, with exactly one build-level change:
+`EDP_LOGGING_G11_ENABLE_SITE=0` (fully disabled) versus `=1` (Info
+site). It simulates Clock, identity and argument captures under the
+actual public `EDP_LOG_WHEN_ENABLED` lazy macro. The compiler definition
+is **test-only**; it is not a production library configuration switch.
+The companion `tests/run-g11-compile-out-proof.sh` builds and runs
+both cases with GCC and Clang, examines linked symbols and reports code
+sizes, and can compile the same two sources into Xtensa/ESP32 object
+files when the target compiler is installed.
+
+RPI400 detached run `20261018T094609-a2061881`: **PASS**;
+the disabled site executed **zero** Clock, identity and argument
+evaluations for both host compilers; the enabled site executed each
+**once**. The disabled linked host binaries contained **no reachable
+Clock capture function symbol**; the enabled binaries did.
+Using identical `-Os -ffunction-sections -fdata-sections` and
+`--gc-sections` options, GCC linked `.text` respectively
+**1,900 versus 2,116 bytes** (216-byte enabled-site delta) and
+Clang respectively **1,895 versus 2,055 bytes** (160-byte delta).
+The Xtensa compiler built both object forms successfully: ELF
+object `.text` **350 versus 367 bytes** and `.bss` **12 bytes in
+both**. These precise deltas are for the **isolated proof fixture**,
+not the Logging runtime, entire ESP-IDF firmware, or a real deployment.
+An object-file `.text` delta is not necessarily a final linked
+firmware footprint delta, because linking eliminates unreferenced
+sections.
+
+**Still missing for full G11:** a physically measured WROOM
+**complete application** enabled-versus-compiled-out comparison
+using the identical dependency/toolchain/stack/partition/feature profile,
+including runtime heap, real coordinator/writer, flash segment size,
+task stack margins and per-stage timing. These early host/object results
+prove only the selected site-gate contract and are not a substitute.
