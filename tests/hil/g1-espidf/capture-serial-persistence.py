@@ -20,6 +20,7 @@ expected=(
     "EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM",
     "EDP_LOGGING_HIL|PASS|EDP_THREADING_DEDICATED_COORDINATOR",
     "EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY",
+    "EDP_LOGGING_HIL|PASS|WROOM_WHOLE_APP_RESOURCE_SNAPSHOT",
     "EDP_LOGGING_HIL|PASS|FIFO_MEMORY_OWNERSHIP",
     "EDP_LOGGING_HIL|PASS|DUAL_CORE_PRODUCER_WAKE",
     "EDP_LOGGING_HIL|PASS|STANDALONE_CLOCK_PRODUCER_CBOR_EDLG",
@@ -63,8 +64,36 @@ finally:
     output.write_text("\n".join(all_lines)+"\n"+(
         "HIL_WIRE="+wire_received.hex()+"\n" if wire_received is not None else ""
     ),encoding="utf-8")
+# The resource snapshot records observed whole-application measurements;
+# it is not a fabricated per-Logging-library CPU/memory budget.
+resource_lines=[
+    line for line in all_lines if line.startswith("EDP_LOGGING_HIL|RESOURCE|")
+]
+resource_valid=False
+if len(resource_lines)==1:
+    fields=dict(
+        part.split("=",1) for part in resource_lines[0].split("|")[2:]
+        if "=" in part
+    )
+    names=(
+        "free8_before","free8_after","free8_min",
+        "app_main_stack_margin_bytes","elapsed_us",
+        "static_record_bytes","static_record_queue_bytes"
+    )
+    try:
+        values={name:int(fields[name]) for name in names}
+        resource_valid=(
+            fields.get("app_scope")=="whole_test_bundle"
+            and all(values[name]>0 for name in names)
+            and values["free8_min"]<=values["free8_after"]
+            and values["free8_min"]<=values["free8_before"]
+        )
+    except (KeyError, ValueError):
+        resource_valid=False
 matched=[e for e in expected if any(e in l for l in all_lines)]
 failed=[l for l in all_lines if "EDP_LOGGING_HIL|FAIL|" in l]
 print(f"EDP_LOGGING_NATIVE_HIL_SUMMARY|markers={len(matched)}/{len(expected)}|"
-      f"fail={len(failed)}|binary_edlg_verified={frame_verified}",flush=True)
-sys.exit(0 if len(matched)==len(expected) and not failed and frame_verified else 1)
+      f"fail={len(failed)}|binary_edlg_verified={frame_verified}|"
+      f"resource_snapshot_verified={resource_valid}",flush=True)
+sys.exit(0 if len(matched)==len(expected) and not failed
+         and frame_verified and resource_valid else 1)

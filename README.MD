@@ -251,3 +251,14 @@ allocation, source-buffer escaping and fake durability claims.
 The test includes real EDP-Serial bounded FIFO owned-copy
 backpressure and independently checked EDLG frame CRC.
 See [owned representation fanout](docs/OWNED-REPRESENTATION-FANOUT.MD).
+
+## WROOM whole-app resource HIL (G11 partial)
+
+The ESP-IDF test app records actual 8-bit free/minimum heap,
+test-task stack margin and elapsed time alongside a mandatory
+18th physical PASS gate. Three native tests with a HIL-only
+8192-byte app_main stack passed 18/18 and raised margin to
+5056-5072 bytes compared with 448 at the 3584-byte SDK default.
+These are whole-application test-resource observations, not
+isolated Logging footprint or final production CPU/flash budgets.
+See docs/WROOM-RESOURCE-QUALIFICATION.MD.

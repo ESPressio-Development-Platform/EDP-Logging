@@ -7,6 +7,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_timer.h>
+#include <esp_heap_caps.h>
 #include <ESPressio_Clock.hpp>
 #include <ESPressio_Memory.hpp>
 #include <ESPressio_Platform_FreeRTOS.hpp>
@@ -890,13 +891,41 @@ bool Run() {
 }
 }
 extern "C" void app_main() {
+    // Whole-test-app envelope, not an attribution to the Logging library:
+    // platform/Flash/VFS/Threading and the startup task also consume resources.
+    const auto timeBeforeUs=esp_timer_get_time();
+    const auto freeBefore=heap_caps_get_free_size(MALLOC_CAP_8BIT);
     std::printf("EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS\n");
     const bool nvs=Test::TestNvsCheckpointAcrossReboot();
     const bool vfs=nvs && Test::TestConcreteEdlsVfsSuccessor();
     const bool governed=vfs && Test::TestGovernedLogRecordValidation();
     const bool core=governed && Test::Run();
     const bool success=core && Test::TestComposedSerialHardwareEndpoint();
-    std::printf("EDP_LOGGING_HIL|RESULT|%s\n",success?"PASS":"FAIL");
+    const auto elapsedUs=esp_timer_get_time()-timeBeforeUs;
+    const auto freeAfter=heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    const auto minimumFree=heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
+    // ESP-IDF FreeRTOS reports the high-water stack margin in bytes on
+    // ESP32. It is specifically app_main task margin, NOT every worker.
+    const auto stackMargin=uxTaskGetStackHighWaterMark(nullptr);
+    const bool resourceMeasurementValid=
+        success && elapsedUs>0 && freeBefore>0 && freeAfter>0 &&
+        minimumFree>0 && minimumFree<=freeAfter && minimumFree<=freeBefore &&
+        stackMargin>0;
+    std::printf("EDP_LOGGING_HIL|RESOURCE|app_scope=whole_test_bundle|"
+                "free8_before=%llu|free8_after=%llu|free8_min=%llu|"
+                "app_main_stack_margin_bytes=%llu|elapsed_us=%lld|"
+                "static_record_bytes=%llu|static_record_queue_bytes=%llu\n",
+                static_cast<unsigned long long>(freeBefore),
+                static_cast<unsigned long long>(freeAfter),
+                static_cast<unsigned long long>(minimumFree),
+                static_cast<unsigned long long>(stackMargin),
+                static_cast<long long>(elapsedUs),
+                static_cast<unsigned long long>(sizeof(Test::Record)),
+                static_cast<unsigned long long>(sizeof(Test::Queue)));
+    if(resourceMeasurementValid)
+        std::printf("EDP_LOGGING_HIL|PASS|WROOM_WHOLE_APP_RESOURCE_SNAPSHOT\n");
+    std::printf("EDP_LOGGING_HIL|RESULT|%s\n",
+                resourceMeasurementValid?"PASS":"FAIL");
     std::fflush(stdout);
     for(;;) vTaskDelay(pdMS_TO_TICKS(1000U));
 }

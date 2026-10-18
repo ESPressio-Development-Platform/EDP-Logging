@@ -448,3 +448,41 @@ not a complete G4 LogRecord TypedEnvelope, a real Persistence
 archive lifecycle or actual physical UART delivery for those
 synthetic payloads. Explicit upstream Serial binary UART G1
 test remains distinct.
+
+## G11 WROOM fixture resource observation (2026-10-18)
+
+The UART HIL now requires an 18th PASS marker:
+WROOM_WHOLE_APP_RESOURCE_SNAPSHOT. Exactly one RESOURCE line
+reports before/after/minimum 8-bit heap bytes, elapsed microseconds,
+app_main task's remaining stack in bytes, and test Record/Queue
+static sizes. The host parser rejects missing/malformed/nonpositive
+or contradictory values. The reporter does not assert that these
+are Logging-only CPU/RAM costs or establish a production budget.
+
+Initial real 18/18 WROOM test using the ESP-IDF default 3584-byte
+app_main stack had just 448 bytes reported remaining stack;
+this prompted adding a HIL-only sdkconfig.defaults selecting 8192
+bytes, pending independent subsequent native readings.
+For details see docs/WROOM-RESOURCE-QUALIFICATION.MD.
+
+### G11 revised stack qualification result — 2026-10-18
+
+ESP-IDF sdkconfig.defaults now selects CONFIG_ESP_MAIN_TASK_STACK_SIZE
+=8192 for this HIL only; generated local sdkconfig.esp32dev was
+also updated for the source build. Full Xtensa/PioArduino target
+build completed successfully under detached run
+20261018T071810-5fbf6005 (generated config header verified 8192).
+Flashed test image 342208 bytes and independently verified
+digest 20261018T072415-16afd75a PASS. Three separate native
+UART captures after actual GPIO reset:
+20261018T072450-bead0b95,
+20261018T072524-51bdc0f0,
+20261018T072558-b09f3074, each 18/18, failures=0, valid
+binary EDLG CRC, and verified resource tuple.
+
+At 3584-byte fixture stack, app_main remaining margin was 448;
+at 8192 it was 5056-5072. Extra configured 4608-byte stack
+caused exactly 4608-byte reduction in free 8-bit heap. This is
+a fixture-specific correctness margin, not a product-wide
+application stack policy or a Logging-only memory profile.
+See docs/WROOM-RESOURCE-QUALIFICATION.MD and Policy handoff.

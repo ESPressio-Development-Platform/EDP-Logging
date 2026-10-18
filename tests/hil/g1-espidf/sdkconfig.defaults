@@ -1,0 +1,7 @@
+# ESP-IDF WROOM-32 Logging physical HIL, NOT a platform-wide library default.
+# Evidence 2026-10-18: at ESP-IDF's 3584-byte default the test's app_main
+# measured only 448 bytes stack high-water margin after NVS/SPIFFS, Memory,
+# dual-core producer, EDP-Threading coordinator, Serial and frame validation.
+# Provide an explicit 8192-byte fixture stack to keep this test safe.
+# A production application's Bootstrap must independently set its own budget.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

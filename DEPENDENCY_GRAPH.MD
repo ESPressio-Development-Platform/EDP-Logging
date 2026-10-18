@@ -236,3 +236,11 @@ Persistence provider dependency. Application tests select real
 `EDP-Serial::BoundedEdlgFrameQueue` copy-on-enqueue, whose
 owning mutex is selected from EDP-Threading. Full G4 canonical
 TypedEnvelope implementation remains with EDP-Serialisation.
+
+## G11 WROOM fixture metrics (2026-10-18)
+
+Only the ESP-IDF physical HIL application selects the concrete
+ESP-IDF heap-capability metrics, FreeRTOS task-stack watermark,
+and esp_timer monotonic provider. Portable Logging has no added
+platform resource-provider dependency; measured readings cover the
+complete test application, not Logging's own isolated overhead.

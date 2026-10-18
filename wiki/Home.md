@@ -13,3 +13,10 @@ The [optional historical diagnostic schema host bridge](Tooling-edp-logging-hist
 [Optional generated ClockEra parameter](Reference-logging-ClockEraDiagnostic) preserves exact temporal-identity Types without claiming G2 coherence.
 
 - [Generated-schema-bound LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md) — optional owner-generated identity and finite owned source preparation, not a wire envelope.
+
+### G11 WROOM resource fixture
+
+The physical WROOM Logging HIL captures full-test heap and task-stack
+measurements, with an explicit dedicated app_main stack configuration.
+See docs/WROOM-RESOURCE-QUALIFICATION.MD. This is not a measured
+Logging-only product footprint and does not prove all G11 gates.
