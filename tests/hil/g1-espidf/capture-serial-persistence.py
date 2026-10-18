@@ -77,7 +77,8 @@ if len(resource_lines)==1:
     )
     names=(
         "free8_before","free8_after","free8_min",
-        "app_main_stack_margin_bytes","elapsed_us",
+        "app_main_stack_margin_bytes",
+        "dedicated_worker_stack_margin_bytes","elapsed_us",
         "static_record_bytes","static_record_queue_bytes"
     )
     try:
@@ -87,6 +88,7 @@ if len(resource_lines)==1:
             and all(values[name]>0 for name in names)
             and values["free8_min"]<=values["free8_after"]
             and values["free8_min"]<=values["free8_before"]
+            and values["dedicated_worker_stack_margin_bytes"]<=6144
         )
     except (KeyError, ValueError):
         resource_valid=False

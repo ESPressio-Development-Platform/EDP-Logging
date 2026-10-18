@@ -92,3 +92,55 @@ hardware measurements, but it is NOT a measurement of every
 EDP-Threading Dedicated Thread's stack. The board deliberately
 remains on the new disposable test image; the user authorised
 no preflash backup or restoration for development boards.
+
+## Independent dedicated-worker stack evidence — 2026-10-18 (G11 partial)
+
+A test-only `MeasuredCallable` wraps the real `EDP-Threading` Dedicated Thread
+coordinator's callable in `tests/hil/g1-espidf/src/main.cpp`. It records
+FreeRTOS `uxTaskGetStackHighWaterMark(nullptr)` **inside the actual native
+worker**, at the callback's final boundary, and publishes the high-water
+minimum-free-byte count through one atomic value read by the bootstrap
+thread after verified quiescence. This is *test-only ESP-IDF instrumentation*,
+not a new platform-independent Logging SDK dependency or a new public API.
+`EDP-Platform` already owns the portable `ExecutionStackTelemetry` concept;
+production instrumentation should prefer that existing owner if it becomes
+available through the correct Threading context API.
+
+The HIL parser requires the additional
+`dedicated_worker_stack_margin_bytes` field, nonzero and not greater
+than the **6,144-byte** Dedicated Thread configured stack capacity.
+Each of **three independent fresh physical WROOM runs** on RPI400
+reported **5,036 bytes remaining** for this worker, alongside positive
+main-task and whole-app heap measurements. The high-water sample is taken
+before the Threading framework completes the final context exit; the
+reported measurement does **not** include any later Threading teardown,
+other worker stacks, or future product workloads. It must not be
+interpreted as an application-wide stack guarantee.
+
+Clean-source immutable GitHub-pinned firmware build:
+`20261018T092422-384c757e` (PASS), ESP-IDF/PioArduino,
+`CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192`;
+factory image **SHA-256
+`806fd3d4995ea5545c54a9340ebc691db9c25dccfdf674d8c251bd24b3feb9e9`**.
+Real device `ESP32-D0WD`, RPI400 `/dev/serial0` verified-write
+run `20261018T093122-9db1dbb2` (PASS). Fresh physical cycles
+`20261018T093216-c4b23987` and
+`20261018T093236-a348032a`: **three reboots, 18/18 each,
+independent EDLG CRC and whole-resource tuple valid**, no failed markers.
+Worker margin: 5,036 bytes in all three; app-main margins:
+5,056 / 5,056-or-5,072 / 5,072 bytes (exact per-cycle values retained in
+the detached run logs, not used to claim an invariant). Free 8-bit heap
+before/after/min: 290,468 / 286,948 / 282,024 bytes.
+These are measurements of the *entire test application*, not isolated
+incremental Logging RAM or CPU costs.
+
+The clean source and all **17 pinned EDP dependency refs** are recorded
+in `/srv/espressio/scratch/gpt6-logging-takeover-20261018-g11/source-pins.json`
+on the RPI400 evidence appliance. Source blobs and exact publication
+commit are recorded in the living Policy Logging handoff.
+
+**Still open:** identical toolchain enabled-versus-compile-time-Off
+whole-binary and `.bss`/heap/stack/flash comparison, per-stage CPU
+and encoding-format compile-outs, small/large profile and all ticket
+widths, and a real product-specific budget. Do not close G11 because
+the present resource assertion and 18 HIL markers passed.

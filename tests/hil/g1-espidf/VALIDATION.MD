@@ -486,3 +486,50 @@ caused exactly 4608-byte reduction in free 8-bit heap. This is
 a fixture-specific correctness margin, not a product-wide
 application stack policy or a Logging-only memory profile.
 See docs/WROOM-RESOURCE-QUALIFICATION.MD and Policy handoff.
+
+## 2026-10-18 successor clean-source worker-stack regression (partial G11)
+
+All verification below used RPI400 under explicitly authorised exclusive
+agent lock `gpt6-logging-takeover-20261018-0909` and independently
+published GitHub-feature-head-based, clean extracted EDP dependency
+sources. **The pre-existing dirty RPI400 Logging working tree was never
+reset, overwritten, or used to compile this qualification.**
+
+- Clean pinned ESP-IDF/PioArduino build:
+  `20261018T092422-384c757e`, PASS, exit code 0.
+  Generated `sdkconfig.h` verified
+  `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192`.
+- Exact factory firmware SHA-256:
+  `806fd3d4995ea5545c54a9340ebc691db9c25dccfdf674d8c251bd24b3feb9e9`,
+  342,384 bytes. Independent physical ESP32-D0WD `write-flash` plus
+  `verify-flash` and matched digest:
+  `20261018T093122-9db1dbb2`, PASS.
+- Independent board resets and native UART/CRC parsing:
+  `20261018T093216-c4b23987` (cycle 1) and
+  `20261018T093236-a348032a` (cycles 2, 3); all three
+  18/18 functional markers, zero failed assertions, exact 24-byte
+  EDLG Serial frame with independently verified CRC,
+  one validated resource line, and `RESULT|PASS`.
+- Actual Dedicated Thread native stack high-water margin:
+  **5,036 bytes** in each cycle from **6,144 configured**,
+  measured inside its worker callback, published after bounded
+  Threading quiescence. This covers the tested task execution,
+  not all downstream cleanup or any production work.
+- Whole-app free 8-bit heap before/after/min respectively
+  290,468 / 286,948 / 282,024 bytes on all three captures;
+  `app_main` margin above 5 KB. No attribution of these
+  figures to Logging alone.
+- Independent clean Python suite
+  `20261018T092757-a0b7f97e`, **30 tests PASS**;
+  GCC + Clang C++20 host foundation
+  `20261018T093004-0631a378`, both PASS.
+  An initial exploratory wrong-script invocation
+  `20261018T092925-d178b763` exited 127 because that
+  nonexistent script name was supplied; reran the actual
+  `run-host-tests.sh` successfully. Do not mask this red-first
+  command-selection mistake.
+
+No test here certifies full production async sink lifetime, power-loss
+durability, true finite Memory blocking, full typed wire/schema or
+enabled/Off resource delta. Those remain separately open under
+Policy living handoff G1–G15.

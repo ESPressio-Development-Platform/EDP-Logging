@@ -70,6 +70,10 @@ public:
 };
 std::atomic<int> Record::Live{0};
 
+// G11 test-only observation, written by the actual EDP-Threading managed
+// worker at its final callable boundary, read by app_main after quiescence.
+std::atomic<unsigned> DedicatedWorkerStackMarginBytes{0U};
+
 using Resource = Platform::Portable::Memory::MemoryResourceProvider;
 using Mutex = Platform::FreeRTOS::Synchronization::MutexProvider;
 using Signal = Platform::FreeRTOS::Synchronization::SignalProvider;
@@ -641,8 +645,27 @@ bool Run() {
                 Threading::AnyAffinity
             >
         >;
+        struct MeasuredCallable final {
+            Callable Inner;
+            std::atomic<unsigned>* Margin;
+            explicit MeasuredCallable(
+                Callable&& inner, std::atomic<unsigned>& margin
+            ) noexcept : Inner(std::move(inner)), Margin(&margin) {}
+            MeasuredCallable(MeasuredCallable&&) noexcept = default;
+            MeasuredCallable(const MeasuredCallable&) = delete;
+            MeasuredCallable& operator=(const MeasuredCallable&) = delete;
+            void operator()(Threading::ThreadContext& context) noexcept {
+                Inner(context);
+                // One snapshot *after* the final worker callback, in the
+                // actual native thread, before its EDP-Threading exit path.
+                Margin->store(
+                    static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
+                    std::memory_order_release
+                );
+            }
+        };
         using Binding=decltype(Threading::BindDedicatedThread<CoordinatorThreadIdentity>(
-            std::declval<Callable>()
+            std::declval<MeasuredCallable>()
         ));
         using NativeThreading=Threading::StaticThreadingRuntime<
             Topology,std::tuple<Binding>,Signal,
@@ -655,7 +678,10 @@ bool Run() {
         static Logging::DedicatedCoordinatorReport report{};
         static NativeThreading dedicated(std::make_tuple(
             Threading::BindDedicatedThread<CoordinatorThreadIdentity>(
-                Callable(queue,report,sinkA,sinkB)
+                MeasuredCallable(
+                    Callable(queue,report,sinkA,sinkB),
+                    DedicatedWorkerStackMarginBytes
+                )
             )
         ));
         if(!Check(dedicated.Initialize()==
@@ -709,7 +735,9 @@ bool Run() {
             vTaskDelay(pdMS_TO_TICKS(5U));
         }
         if(!Check(dedicated.IsExecutionQuiescent() &&
-            report.Exit.load()==Logging::DedicatedCoordinatorExit::CooperativeStop,
+            report.Exit.load()==Logging::DedicatedCoordinatorExit::CooperativeStop &&
+            DedicatedWorkerStackMarginBytes.load(std::memory_order_acquire)>0U &&
+            DedicatedWorkerStackMarginBytes.load(std::memory_order_acquire)<=6144U,
             "dedicated-thread-finite-quiescence")) return false;
         if(!Check(dedicated.BeginShutdown()==
             Threading::ThreadingShutdownResult::Accepted,
@@ -907,18 +935,23 @@ extern "C" void app_main() {
     // ESP-IDF FreeRTOS reports the high-water stack margin in bytes on
     // ESP32. It is specifically app_main task margin, NOT every worker.
     const auto stackMargin=uxTaskGetStackHighWaterMark(nullptr);
+    const auto dedicatedWorkerMargin=
+        Test::DedicatedWorkerStackMarginBytes.load(std::memory_order_acquire);
     const bool resourceMeasurementValid=
         success && elapsedUs>0 && freeBefore>0 && freeAfter>0 &&
         minimumFree>0 && minimumFree<=freeAfter && minimumFree<=freeBefore &&
-        stackMargin>0;
+        stackMargin>0 && dedicatedWorkerMargin>0 &&
+        dedicatedWorkerMargin<=6144U;
     std::printf("EDP_LOGGING_HIL|RESOURCE|app_scope=whole_test_bundle|"
                 "free8_before=%llu|free8_after=%llu|free8_min=%llu|"
-                "app_main_stack_margin_bytes=%llu|elapsed_us=%lld|"
+                "app_main_stack_margin_bytes=%llu|"
+                "dedicated_worker_stack_margin_bytes=%llu|elapsed_us=%lld|"
                 "static_record_bytes=%llu|static_record_queue_bytes=%llu\n",
                 static_cast<unsigned long long>(freeBefore),
                 static_cast<unsigned long long>(freeAfter),
                 static_cast<unsigned long long>(minimumFree),
                 static_cast<unsigned long long>(stackMargin),
+                static_cast<unsigned long long>(dedicatedWorkerMargin),
                 static_cast<long long>(elapsedUs),
                 static_cast<unsigned long long>(sizeof(Test::Record)),
                 static_cast<unsigned long long>(sizeof(Test::Queue)));
