@@ -341,3 +341,19 @@ and Reliable evidence at both ends, not merely synchronized timestamps.
 The CLI reports numeric owner statuses without claiming independent
 producer authentication. Full root Typed Envelope and complete
 schema-driven argument decoding remain open.
+
+
+## G5 — schema-bound host JSON positional decoding (2026-10-19)
+
+Optional host decoder validates EDP-Serialisation JSON positional values
+against exact generated EDP-Localisation historical parameter kinds,
+with strict canonical Base64 for bytes/DeviceIdentifier, an eight-byte
+TypeIdentifier array, finite typed numeric widths and no hidden
+underflow/overflow. JSON lexical floating values are parsed exactly
+until bounded binary64/binary32 checks complete; no tiny nonzero token
+becomes a fabricated zero. 
+
+RPI400 full host Python suite: `20261019T124110-449cdd49`
+PASS exit0, 34 tests. [Host Decoder](docs/HOST-DECODER.MD).
+No complete 15-field record wire encoder, independent issuer
+authentication or physical PowerLoss claim follows from these tests.

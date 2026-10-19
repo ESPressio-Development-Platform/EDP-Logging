@@ -10,6 +10,7 @@ import json
 import math
 import re
 import struct
+from decimal import Decimal
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -146,6 +147,12 @@ def _validate_json(value: Any, depth: int, budget: list[int], max_depth: int) ->
     if depth > max_depth or budget[0] <= 0:
         raise EnvelopeError("JSON depth/node budget exceeded")
     budget[0] -= 1
+    if type(value) is Decimal:
+        if not value.is_finite():
+            raise EnvelopeError("non-finite JSON floating value")
+        native = float(value)
+        if not math.isfinite(native) or (value != 0 and native == 0):
+            raise EnvelopeError("JSON numeric overflow or lexical underflow")
     if type(value) is float and not math.isfinite(value):
         raise EnvelopeError("non-finite JSON floating value")
     if isinstance(value, dict):
@@ -199,6 +206,7 @@ def inspect_typed_envelope(
             root = json.loads(
                 payload.decode("utf-8", "strict"),
                 object_pairs_hook=_unique_object,
+                parse_float=Decimal,
                 parse_constant=_reject_nonfinite,
             )
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:

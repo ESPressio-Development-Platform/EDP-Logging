@@ -86,3 +86,17 @@ Correlated and assessment Reliable at both sources plus same nonzero
 ClockEra, eligible synchronization and finite uncertainty. Otherwise
 Incomparable; no fabricated chronology. The CLI exposes owner numeric
 values without asserting an authenticated producer.
+
+
+## G5 schema-qualified JSON positional arguments (2026-10-19)
+
+The host historical decoder now validates JSON positional arguments
+using Localisation's generated parameter-kind schema and the actual
+EDP-Serialisation representations: strict canonical Base64 for byte
+containers and DeviceIdentifier, an eight-element TypeIdentifier array,
+exact typed scalar width, and bounded Float32/Float64 conversions.
+Floating JSON lexemes are preserved as Decimal through overflow/
+underflow qualification; reserved/malformed values cannot be quietly
+reinterpreted. Full 34-test host Python suite PASS on RPI400.
+This does not complete the fifteen-field LogRecord encoder or prove
+historical issuer provenance or physical durability.

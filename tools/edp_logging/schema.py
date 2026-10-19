@@ -7,11 +7,15 @@ a separately pinned build manifest or trusted catalogue supplies provenance.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import hmac
 import json
 import re
 import math
+import struct
+from decimal import Decimal
 from dataclasses import dataclass
 from typing import Any
 
@@ -226,19 +230,80 @@ def _argument_matches(kind: str, value: Any) -> bool:
     return False
 
 
+def decode_canonical_json_base64(value: Any, *, expected_length: int | None = None) -> bytes:
+    """Decode only owner-defined padded RFC4648 Base64; prohibit ambiguous spellings."""
+    if type(value) is not str or len(value) % 4 != 0:
+        raise SchemaError("JSON canonical Base64 must be padded string")
+    try:
+        raw = value.encode("ascii")
+        data = base64.b64decode(raw, validate=True)
+    except (UnicodeEncodeError, ValueError, binascii.Error) as error:
+        raise SchemaError("invalid JSON canonical Base64") from error
+    if base64.b64encode(data) != raw:
+        raise SchemaError("JSON Base64 noncanonical pad bits or alphabet")
+    if expected_length is not None and len(data) != expected_length:
+        raise SchemaError("JSON decoded identifier has wrong width")
+    return data
+
+
+def _json_argument(kind: str, value: Any) -> Any:
+    """Convert EDP-Serialisation JSON surrogates into owner-typed validation shapes.
+
+    Strong bytes/DeviceIdentifier use strict Base64. TypeIdentifier is an
+    eight-element uint8 array, as issued by the System owner. Floats are
+    schema-width-limited; never silently interpret an integer as a float
+    argument without an explicitly declared floating parameter kind.
+    """
+    if kind in ("bytes", "device-identifier"):
+        return decode_canonical_json_base64(
+            value, expected_length=16 if kind == "device-identifier" else None
+        )
+    if kind == "type-identifier":
+        if (type(value) is not list or len(value) != 8
+                or any(type(x) is not int or not 0 <= x <= 255 for x in value)):
+            raise SchemaError("TypeIdentifier must be exactly eight JSON uint8 elements")
+        return bytes(value)
+    if kind in ("f32", "f64"):
+        if type(value) not in (int, float, Decimal):
+            raise SchemaError("JSON floating argument must be numeric, not Boolean or string")
+        try:
+            source_nonzero = value != 0
+            number = float(value)
+            if not math.isfinite(number):
+                raise SchemaError("non-finite JSON floating argument")
+            if source_nonzero and number == 0:
+                raise SchemaError("JSON floating value underflows native binary64")
+            if kind == "f32":
+                packed = struct.pack(">f", number)
+                restored = struct.unpack(">f", packed)[0]
+                if not math.isfinite(restored) or (number != 0 and restored == 0):
+                    raise SchemaError("JSON f32 out of owner representable range")
+                return PreservedFloat(restored, 32)
+            return PreservedFloat(number, 64)
+        except (OverflowError, ValueError) as error:
+            raise SchemaError("JSON floating argument out of range") from error
+    return value
+
+
 def decode_declared_arguments(
     record: TypedEnvelope, schema: DiagnosticSchema
 ) -> DecodedArguments:
-    """Validate portable CBOR positional arguments against an exact historical schema.
+    """Validate positional values with the exact generated Localisation schema.
 
-    JSON opaque-identifier byte encoding and cross-format argument semantics remain
-    unfinalised; reject rather than guessing their representation.
+    CBOR retains native portable values; JSON uses ONLY owner-verified
+    EDP-Serialisation surrogate representations. This proves value types and
+    fingerprint match, not artifact publisher authenticity or interpolation.
     """
-    if record.codec != FrameCodec.Cbor:
-        raise SchemaError("typed JSON argument validation not yet implemented")
+    if record.codec not in (FrameCodec.Cbor, FrameCodec.Json):
+        raise SchemaError("unsupported diagnostic positional codec")
     identity_value = record.fields.get(0)
     schema_value = record.fields.get(12)
     values = record.fields.get(13)
+    if record.codec == FrameCodec.Json and type(schema_value) is list:
+        if (len(schema_value) != 16 or
+                any(type(n) is not int or not 0 <= n <= 255 for n in schema_value)):
+            raise SchemaError("JSON schema fingerprint requires 16 uint8 elements")
+        schema_value = bytes(schema_value)
     if (
         type(identity_value) is not list or len(identity_value) != 3
         or any(type(v) is not int or v < 0 for v in identity_value)
@@ -256,9 +321,13 @@ def decode_declared_arguments(
         raise SchemaError("diagnostic argument arity mismatch")
     if any(p.status != "active" for p in message.parameters):
         raise SchemaError("cannot decode retired diagnostic parameter as active")
-    for parameter, value in zip(message.parameters, values):
+    interpreted: list[Any] = []
+    for parameter, raw_value in zip(message.parameters, values):
+        value = (_json_argument(parameter.type_name, raw_value)
+                 if record.codec == FrameCodec.Json else raw_value)
         if not _argument_matches(parameter.type_name, value):
             raise SchemaError(
                 f"argument {parameter.index} is not the governed {parameter.type_name} type"
             )
-    return DecodedArguments(message, tuple(values))
+        interpreted.append(value)
+    return DecodedArguments(message, tuple(interpreted))

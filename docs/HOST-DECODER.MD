@@ -225,3 +225,49 @@ uncertainty. Local monotonic ordering within one device incarnation
 remains valid even if synchronized evidence is unreliable. Bounded
 attempt ticket gap analysis is unchanged. Tests cover negative wire
 states and no false cross-device total-order claim.
+
+
+## 2026-10-19 — schema-governed positional JSON decoding (G3/G5 incremental)
+
+The historical schema adapter now interprets EDP-Serialisation JSON
+positional argument values using only **generated EDP-Localisation**
+parameter kinds and owner-emitted shapes; this is not a second encoder:
+
+- `bytes` and `device-identifier`: canonical padded RFC4648 Base64,
+  exact round-trip re-encoding (reject alternate padding bits), and 16
+  bytes exactly for the DeviceIdentifier
+- `type-identifier`: exact eight-element JSON uint8 array, per
+  EDP-Serialisation's System canonical representation, with nonzero
+  required by strong semantic validation
+- `bool`, signed/unsigned fixed widths, bounded UTF-8 text,
+  field-identifier, runtime-incarnation, ClockEra and ordered
+  StringIdentifier: exact type/range checks against historical schema
+- `f32` and `f64`: finite source JSON numeric values converted to
+  PreservedFloat with the governed width; binary32 overflow and
+  underflow reject, never coerce Boolean/string to float
+- Field12 diagnostic fingerprint: JSON 16-element uint8 source array
+  or CBOR exact 16-byte form, checked against historical schema
+- Integer and floating JSON lexical tokens remain distinct. Structural
+  JSON parsing retains arbitrary-precision Decimal until finite
+  binary64 range/lexical underflow checks, avoiding irreversible
+  `1e-5000` → zero interpretation before schema validation.
+
+These are **typed parameter values** under a previously verified
+schema fingerprint, not evidence of the historical schema publisher,
+record authenticity, a complete fifteen-field LogRecord serializer,
+or an approved generic JSON rendition of every LogRecord field.
+Historical template interpolation is still disabled.
+
+Executable unit tests: `tools/tests/test_json_schema_owner.py`.
+Full Python test suite: RPI400 detached
+`20261019T124110-449cdd49` **PASS exit0**, 34 tests.
+An initial fixture incorrectly classified canonical `AQL/` as invalid
+(it is legitimate Base64), corrected to `AQL-`. A preexisting
+nonfinite JSON envelope test exposed a second transient implementation
+gap after Decimal parsing; structural finite-binary64 checks were
+added before final PASS. Earlier FAIL runs are not completion evidence.
+
+No new firmware was physically flashed for this host-only decoder
+tranche. The earlier actual G4 approved Field11/14 WROOM physical
+qualification remains separately valid.
+
