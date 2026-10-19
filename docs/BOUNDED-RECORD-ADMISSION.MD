@@ -27,3 +27,25 @@ From EDP-Logging, with six exact pinned abstract EDP siblings: CXX=g++ bash test
 ## Producer-slot authority and independent publication health
 
 The lifecycle coordinator's new ValidProducerSlot(slot) checks the exclusive producer range and rejects the dedicated shutdown drainer slot (or any out-of-range value) **before** a queue slot is claimed or a Threading WaitUntil is attempted. InvalidProducerSlot (strong enum value 11) leaves all caller-owned Queue and Memory state unchanged. RecordAdmissionOutcome also includes the independent WakePublication status: the original AdmissionWakePublicationResult produced on an actual Memory grant is retained even if the returned RecordAdmissionStatus is Admitted. A successful reservation with a failed producer wake is not a silently healthy operation; Bootstrap must respond to that provider failure. When both a native Memory release and Queue abort fail, ReleaseUnconfirmed remains the top-level ownership-uncertainty status and Queue carries the second failure. Tests include genuine Memory grants with an injected Threading wake failure and invalid use of the reserved shutdown slot. This remains incomplete G1, not finished physical qualification.
+
+
+## 2026-10-19 — physical full-queue deadline evidence
+
+New opt-in native HIL test uses real ESP32 FreeRTOS EDP-Threading,
+EDP-Clock, EDP-Memory and the two-slot queue under a 40 ms producer
+deadline. Requires a DeadlineElapsed result, no Memory acquisition,
+no outstanding pool lease/reservation, zero live records and queue
+capacity returned, within a 60 ms measured wall-clock check.
+Separate verified flash plus three independent actual WROOM runs
+were **PASS**, measured 31.810, 31.808, 31.678 ms, factory SHA256
+e4bb59b63d1e0d3c03c7a17bf95bf68da43589184276dae330f340464e0b1f1b.
+Exact jobs and capture-hash proof are in
+[HIL validation](../tests/hil/g1-espidf/VALIDATION.MD).
+GCC+Clang actual Memory/Threading owner admission tests
+20261019T125527-7f3a13e2 PASS exit0.
+
+This proves the **full queue / no-memory-borrow** deadline path,
+not all contended native internal locks, coordinator shutdown,
+multiple producer slots and all strict product worst-case bounds.
+G1 release remains open.
+

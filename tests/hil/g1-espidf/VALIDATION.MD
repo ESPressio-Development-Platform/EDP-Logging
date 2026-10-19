@@ -624,3 +624,46 @@ captured real host-reset/NVS-restart UART sessions detached
 plus actual G4 CBOR/JSON pair round-trip and zero-only Field14 probe
 inside GOVERNED_LOG_RECORD_VALIDATION. No external power cut, complete
 15-field typed envelope, historical decode, or product budget is claimed.
+
+
+## 2026-10-19 — fresh real ESP32 G1 native full-queue finite deadline
+
+The integrated ESP32-D0WD native HIL now tests a *real* EDP-Threading
+FreeRTOS wait against a genuine EDP-Clock monotonic deadline. Two
+queue reservations occupy all slots, then a distinct producer invokes
+AcquireRecordUntil (40 ms deadline, bounded wake retries) with actual
+EDP-Memory pool and ordinary native mutex/provider. The test requires
+DeadlineElapsed, MemoryAttempted=false, a fully empty scratch lease
+and output Reservation, zero live Record allocations, and measured
+elapsed time under **60 ms** (40 ms requested deadline + finite RTOS
+scheduling margin). Both occupied queue slots must be successfully
+reclaimed afterward, and the original 18 functional markers,
+two-core wake tests, G4 child codecs, G10 sinks, UART EDLG/CRC,
+G11 gating and resource validation must continue to pass.
+
+Final stricter source firmware PioArduino/ESP-IDF build detached
+20261019T125446-745ed1df **PASS exit0**, factory SHA256
+e4bb59b63d1e0d3c03c7a17bf95bf68da43589184276dae330f340464e0b1f1b.
+Real physical 0x0 write **and separately verified on-chip flash**
+20261019T125557-e2d5a09b **PASS exit0**. Three new independent
+host-triggered actual UART/NVS-restart cycles:
+20261019T125636-ff55bc4e **PASS exit0**; measured deadline path
+31,810 / 31,808 / 31,678 microseconds; all existing 18/18
+functional gates, framing CRC, resources and G11 selection still
+PASS. Privately retained capture manifest SHA256
+aa860fef4bf708e7abafcb0a284274533a318a1452dbd4c584182cf0191be535.
+
+Native real EDP-Memory+EDP-Threading host admission test suite separately
+ran GCC and Clang, detached 20261019T125527-7f3a13e2
+**PASS exit0**. A previous accepted physical image used a loose
+250 ms assertion and a literal backslash-n test output; both
+test-only evidence weaknesses were corrected, firmware rebuilt,
+independently flashed, and three clean physical cycles repeated
+before this final evidence was issued.
+
+**Boundary:** This establishes one actual full-queue deadline
+and no-Memory-borrow path only. It does not prove *all* G1
+application producer policies, contended provider internal mutex,
+all cancellation/shutdown races, external power-loss recovery, nor
+a bounded Product-wide worst-case response distribution.
+

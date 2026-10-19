@@ -357,3 +357,17 @@ RPI400 full host Python suite: `20261019T124110-449cdd49`
 PASS exit0, 34 tests. [Host Decoder](docs/HOST-DECODER.MD).
 No complete 15-field record wire encoder, independent issuer
 authentication or physical PowerLoss claim follows from these tests.
+
+
+## G1 real ESP32 native finite full-queue wait (2026-10-19)
+
+Fresh ESP32-D0WD firmware qualified a 40 ms monotonic-clock
+AcquireRecordUntil deadline under completely occupied native queue:
+measured 31.810 / 31.808 / 31.678 ms across three independent
+physical runs; DeadlineElapsed, no Memory lease borrowed,
+no active reservation or live records and released slots required.
+Full build, actual flash+verify, all earlier 18/18 HIL checks PASS.
+See [HIL qualification](tests/hil/g1-espidf/VALIDATION.MD).
+GCC+Clang G1 Memory/Threading owner admission regressions also PASS.
+Still partial G1 — no declaration of complete native contention,
+shutdown or product-wide finite-time coverage.

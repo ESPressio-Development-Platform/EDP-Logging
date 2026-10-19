@@ -449,6 +449,36 @@ bool Run() {
         std::printf("EDP_LOGGING_HIL|PASS|FIFO_MEMORY_OWNERSHIP\n");
     }
     using Timeout=Platform::Synchronization::WaitTimeout;
+    // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
+    // host wait. Full queue MUST NOT borrow Memory and MUST return within
+    // the caller's one bounded Clock deadline.
+    {
+        Queue::Reservation deadlineA,deadlineB;
+        if(!Check(queue.ReserveSlot(deadlineA,Timeout::NoWait())==
+                  Logging::RecordQueueResult::Succeeded,
+                  "g1-deadline-reserve-first")) return false;
+        if(!Check(queue.ReserveSlot(deadlineB,Timeout::NoWait())==
+                  Logging::RecordQueueResult::Succeeded,
+                  "g1-deadline-reserve-second")) return false;
+        Lease scratch;
+        Queue::Reservation output;
+        const auto beforeUs=esp_timer_get_time();
+        const auto result=Logging::AcquireRecordUntil<32U,8U>(
+            queue,lifecycle,wakes,0U,pool,scratch,output,
+            Deadline(40U),neverStop,409
+        );
+        const auto elapsedUs=esp_timer_get_time()-beforeUs;
+        if(!Check(result.Status==Logging::RecordAdmissionStatus::DeadlineElapsed &&
+                  !result.MemoryAttempted && scratch.IsEmpty() &&
+                  !output.IsActive() && Record::Live.load()==0 &&
+                  elapsedUs>=0 && elapsedUs<60000LL,
+                  "g1-real-native-40ms-full-queue-deadline")) return false;
+        if(!Check(deadlineA.Abort()==Logging::RecordQueueResult::Succeeded &&
+                  deadlineB.Abort()==Logging::RecordQueueResult::Succeeded,
+                  "g1-deadline-release-queue-slots")) return false;
+        std::printf("EDP_LOGGING_HIL|G1_NATIVE_DEADLINE_US|%lld\n",
+                    static_cast<long long>(elapsedUs));
+    }
     {
         Queue::Reservation holdA,holdB;
         if(!Check(queue.ReserveSlot(holdA,Timeout::NoWait())==

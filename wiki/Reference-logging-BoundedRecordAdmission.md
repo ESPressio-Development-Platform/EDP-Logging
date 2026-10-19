@@ -21,3 +21,17 @@ There is no persistent state in this header beyond the owning Queue/Lifecycle/Me
 ## Extended safety qualifiers
 
 RecordAdmissionStatus::InvalidProducerSlot=11 rejects a slot reserved for shutdown or outside the configured producer range *before* Queue reservation/wait. RecordAdmissionOutcome::WakePublication is an independently returned AdmissionWakePublicationResult (NotAttempted, Published or ProviderFailure); it is copied from the existing coordinator's Memory-grant wake fanout, so an Admitted result can still reveal a failed notification. ReleaseUnconfirmed retains highest ownership-uncertainty priority when a failing Memory release coincides with unsuccessful queue-abort rollback; the Queue field exposes the additional error. Genuine EDP-Memory integration regression exercises the reserved shutdown slot and injected failed broadcast while preserving successful exclusive record ownership.
+
+
+## 2026-10-19 physical native full-queue deadline
+
+The ESP32-D0WD real FreeRTOS HIL now checks a completely occupied
+two-slot queue, requested 40 ms Clock monotonic producer deadline,
+actual DeadlineElapsed result within a 60 ms measured bound, **no
+EDP-Memory lease acquisition**, zero live records, and complete queue
+slot reclamation. Independent on-chip flash verification and three
+new UART/NVS-restart cycles PASS (31.810 / 31.808 / 31.678 ms),
+while retaining 18/18 earlier HIL markers. Full GCC/Clang real
+Memory+Threading owner admission tests also PASS. These are narrow
+actual physical evidence, not G1 comprehensive strict-timeout
+or full product release qualification.
