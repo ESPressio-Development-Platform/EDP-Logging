@@ -12,7 +12,8 @@ The application Bootstrap declares a real
 `EDP-Memory::ObjectPoolSpec<Logging::OwnedEncodedPayload<N>,
 DedicatedInstances<C>>` with a finite slot count. It selects one
 `EDP-Serialisation` representation-specific encoder, one immutable codec
-profile (CBOR or JSON) and 2–8 static bounded sinks. Nothing in Logging
+profile (CBOR or JSON) and **1–8 static bounded copying sinks**. The one-sink profile
+(e.g. Serial-only or Persistence-only) is valid without a dummy sink. Nothing in Logging
 allocates memory or creates a competing object pool.
 
 `EncodeOnceAndSubmitToSinks<Codec,N>` attempts one
@@ -65,7 +66,9 @@ declare and observe their own finite execution budgets.
 `tests/run-owned-representation-fanout-tests.sh` compiles against
 actual EDP-Memory Runtime/ObjectPool/Lease and real
 EDP-Serial::BoundedEdlgFrameQueue with an EDP-Threading ordinary
-mutex. Checks: one encode for two independently copying sinks,
+mutex. Checks: single copying sink accepted/rejected, encoder and
+pool error isolation, input mutation after the last borrower, and
+one encode for two independently copying sinks,
 exact codec binding, accepted buffers survive input mutation,
 one rejected sink does not roll back the other, single-slot pool
 exhaustion and preoccupied output lease, overlong owner encoder
@@ -84,3 +87,18 @@ or establish true PowerLoss durability. A production coordinator
 still requires fully integrated app macros, profile assignment,
 bounded async downstream completion and independently verified
 resource budgets.
+
+## Single-sink G10 bug qualification — 2026-10-19, issue #7
+
+D10 does not require a second consumer. The earlier compile-time minimum of
+two excluded otherwise valid Serial-only and Archive-only application
+compositions. The bounded output and outcome now allow exactly one sink
+(minimum 1, maximum 8) while still rejecting zero. The same EDP-Memory
+pool/lease, no-wait acquisition, one encoding and synchronous copy-before-return
+rules apply. No wire or public owner dependency changed.
+
+Host regression tests validate accepted and rejected sole sink, source-input
+mutation after EDP-Memory release, encoder provider failure before any sink
+callback, and pool exhaustion with no double-ownership. Historical two-copy-sink,
+Serial queue and CRC cases remain in the same test executable. No async leasing
+is introduced, and a copying sink's acceptance still does not mean durable.

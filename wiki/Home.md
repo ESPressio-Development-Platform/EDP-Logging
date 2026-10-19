@@ -20,3 +20,12 @@ The physical WROOM Logging HIL captures full-test heap and task-stack
 measurements, with an explicit dedicated app_main stack configuration.
 See docs/WROOM-RESOURCE-QUALIFICATION.MD. This is not a measured
 Logging-only product footprint and does not prove all G11 gates.
+
+## G10 one-sink output composition
+
+The opt-in
+[EDP-Memory-owned representation fanout](Reference-logging-OwnedRepresentationFanout.md)
+accepts 1–8 synchronous copying sinks; see issue #7 for the previously
+incorrect two-sink minimum. An accepted callback must have independently
+copied its output before return; asynchronous sink borrowing is not yet an
+implemented G10 feature.

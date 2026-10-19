@@ -239,5 +239,76 @@ namespace {
         assert(lease.IsEmpty());
         assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
     }
+
+    // The single-sink configuration is valid: Serial-only, Archive-only,
+    // or one selected representation must not require a dummy second sink.
+    void TestSingleSinkComposition() {
+        Resource resource;
+        TestSupport::TestMutexProvider mutex;
+        MemoryComposition::Select<
+            M::SharedReserveAllocationRequirement,
+            ESPressio::System::CompositionFramework::SelectUnique
+        > allocator;
+        Buffers runtime(mutex, allocator, resource);
+        M::MemoryTopologyInitializationFailure failure{};
+        assert(runtime.Initialize(failure)==M::MemoryTopologyInitializationResult::Succeeded);
+        auto& pool=runtime.ObjectPoolFor<Buffer>();
+        using Lease=std::remove_reference_t<decltype(pool)>::LeaseType;
+        Lease lease;
+        Encoder encoder;
+        CopyingSink soleSink;
+        Source source{0x54U};
+
+        const auto accepted=L::EncodeOnceAndSubmitToSinks<
+            L::EdlgCodec::Cbor,32U
+        >(pool,lease,source,encoder,soleSink);
+        static_assert(std::tuple_size_v<decltype(accepted.Submissions)> == 1U);
+        assert(accepted.Status==L::OwnedRepresentationStatus::SubmittedAndReleased);
+        assert(accepted.EncoderInvocations==1U && encoder.Calls==1);
+        assert(accepted.SinkInvocations==1U && accepted.Accepted==1U);
+        assert(accepted.Submissions[0]==L::RecordSinkSubmission::Accepted);
+        assert(accepted.Release==M::ObjectPoolLeaseReleaseResult::Released);
+        assert(lease.IsEmpty() && soleSink.Calls==1 && soleSink.Used==3U);
+        assert(soleSink.Copy[1]==std::byte{0x54U});
+
+        // The caller can mutate its input immediately after the single
+        // copying sink accepted; no use-after-release or alias is allowed.
+        source.Code=0x55U;
+        assert(soleSink.Copy[1]==std::byte{0x54U});
+        soleSink.Reject=true;
+        const auto rejected=L::EncodeOnceAndSubmitToSinks<
+            L::EdlgCodec::Cbor,32U
+        >(pool,lease,source,encoder,soleSink);
+        assert(rejected.Status==L::OwnedRepresentationStatus::SubmissionNotAccepted);
+        assert(rejected.EncoderInvocations==1U && rejected.SinkInvocations==1U);
+        assert(rejected.Accepted==0U);
+        assert(rejected.Submissions[0]==L::RecordSinkSubmission::Rejected);
+        assert(rejected.Release==M::ObjectPoolLeaseReleaseResult::Released);
+        assert(lease.IsEmpty() && soleSink.Calls==2 && encoder.Calls==2);
+        assert(soleSink.Copy[1]==std::byte{0x54U});
+
+        // An encoder failure must never reach even the sole sink.
+        encoder.Force=L::RepresentationEncodeStatus::ProviderFailure;
+        const auto failed=L::EncodeOnceAndSubmitToSinks<
+            L::EdlgCodec::Json,32U
+        >(pool,lease,source,encoder,soleSink);
+        assert(failed.Status==L::OwnedRepresentationStatus::EncoderProviderFailure);
+        assert(failed.EncoderInvocations==1U && failed.SinkInvocations==0U);
+        assert(failed.Accepted==0U && soleSink.Calls==2 && lease.IsEmpty());
+
+        // Even with just one sink, a pre-held buffer prevents duplicate
+        // pool ownership; no new encoding or sink call can take place.
+        assert(pool.Acquire(lease,P::Synchronization::WaitTimeout::NoWait())==
+            M::ObjectPoolAcquisitionResult::Succeeded);
+        Lease second;
+        const auto exhausted=L::EncodeOnceAndSubmitToSinks<
+            L::EdlgCodec::Cbor,32U
+        >(pool,second,source,encoder,soleSink);
+        assert(exhausted.Status==L::OwnedRepresentationStatus::PoolCapacityUnavailable);
+        assert(exhausted.EncoderInvocations==0U && exhausted.SinkInvocations==0U);
+        assert(second.IsEmpty() && !lease.IsEmpty());
+        assert(lease.Release()==M::ObjectPoolLeaseReleaseResult::Released);
+        assert(runtime.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
+    }
 }
-int main(){TestMemoryOwnedRepresentation();TestRealSerialFrameOwnership();}
+int main(){TestMemoryOwnedRepresentation();TestRealSerialFrameOwnership();TestSingleSinkComposition();}

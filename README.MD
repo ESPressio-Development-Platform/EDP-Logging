@@ -252,6 +252,13 @@ The test includes real EDP-Serial bounded FIFO owned-copy
 backpressure and independently checked EDLG frame CRC.
 See [owned representation fanout](docs/OWNED-REPRESENTATION-FANOUT.MD).
 
+**G10 one-sink composition (issue #7):** an application may select exactly
+one synchronous copying sink (e.g. Serial-only or archive-only) without a
+dummy second sink. The same bounded EDP-Memory-owned representation is encoded
+once and remains borrowed only for the duration of that synchronous callback.
+The fanout still supports up to eight sinks and does NOT provide asynchronous
+downstream shared ownership or durability. See the G10 Wiki reference.
+
 ## WROOM whole-app resource HIL (G11 partial)
 
 The ESP-IDF test app records actual 8-bit free/minimum heap,

@@ -28,6 +28,7 @@
 - [Physical ESP32-WROOM G1 test (partial)](Testing-G1-ESP32-Physical)
 
 - [RecordProduction](Reference-logging-RecordProduction.md)
+- [G10 owned representation fanout](Reference-logging-OwnedRepresentationFanout.md)
 
 - [EDLG checkpoint](Reference-logging-EdlgCheckpoint.md)
 

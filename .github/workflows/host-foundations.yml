@@ -104,6 +104,16 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-Localisation
           ref: feature/logging-v1
           path: EDP-Localisation
+      - name: Checkout abstract EDP-Serial copying-sink owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Serial
+          ref: feature/logging-v1
+          path: EDP-Serial
+      - name: Run G10 one-sink and two-sink owner-composed lifetime regression
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-owned-representation-fanout-tests.sh ${{ matrix.compiler }}
       - name: Verify permanent System-governed LogRecord identity and golden bytes
         env:
           CXX: ${{ matrix.compiler }}

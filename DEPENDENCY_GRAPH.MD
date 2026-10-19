@@ -249,3 +249,12 @@ complete test application, not Logging's own isolated overhead.
 ## G11 whole-firmware test dependency closure
 
 The G11 comparator is test-only. Its Bootstrap links the existing explicit EDP-Clock, EDP-Memory, EDP-Threading, EDP-Serialisation, EDP-Localisation, EDP-Persistence, EDP-Serial, EDP-Platform and System/Bounded* owner abstractions and selected concrete ESP-IDF/FreeRTOS providers through the caller-pinned dependency directory. Both builds share the same closure, SDK settings and application source. This adds no new dependency (mandatory or optional) to production EDP-Logging and no Mesh coupling or circular dependency.
+
+## G10 single-sink composition dependency revalidation (issue #7)
+
+Allowing one copying sink does not introduce any direct or transitive
+dependency: the existing optional OwnedRepresentationFanout.hpp
+still requires application-selected abstract EDP-Memory and EDP-Platform,
+with the encoder and concrete Serial/Persistence adapters at Bootstrap.
+No new owner, Mesh coupling or circular edge was introduced. The 1-sink
+and 2-sink regression cases use the same optional EDP-Memory/Serial closure.

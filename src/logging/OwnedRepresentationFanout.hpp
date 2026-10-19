@@ -49,12 +49,12 @@ namespace ESPressio::Logging {
         MemoryReclaimUnconfirmed = 9U
     };
 
-    /// Encodes once for a selected codec and attempts every sink independently.
+    /// Encodes once for a selected codec and attempts one to eight sinks independently.
     /// No accepted submission is mistaken for Persistence durability, UART
     /// transmission, or a destination's eventual consumption.
     template<std::size_t TSinkCount>
     struct OwnedRepresentationOutcome final {
-        static_assert(TSinkCount >= 2U && TSinkCount <= 8U);
+        static_assert(TSinkCount >= 1U && TSinkCount <= 8U);
         OwnedRepresentationStatus Status{OwnedRepresentationStatus::PoolUnavailable};
         ESPressio::Memory::ObjectPoolAcquisitionResult Acquisition{
             ESPressio::Memory::ObjectPoolAcquisitionResult::NotInitialized
@@ -78,6 +78,8 @@ namespace ESPressio::Logging {
     /// TCodec is selected at application Composition; call once for every
     /// distinct requested representation profile, NOT once per sink.
     ///
+    /// One sink is a valid deployment composition; a fanout does not
+    /// require a second sink purely for bookkeeping.
     /// Every sink must synchronously make its *own* bounded copy/ownership
     /// transfer of the borrowed encoded payload before returning Accepted.
     /// EDP-Serial::BoundedEdlgFrameQueue is one suitable copying sink. A
@@ -104,7 +106,7 @@ namespace ESPressio::Logging {
     ) noexcept {
         constexpr std::size_t Count = sizeof...(TSinks);
         static_assert(TCodec == EdlgCodec::Cbor || TCodec == EdlgCodec::Json);
-        static_assert(Count >= 2U && Count <= 8U);
+        static_assert(Count >= 1U && Count <= 8U);
         static_assert(std::is_same_v<
             typename TPool::ObjectType, OwnedEncodedPayload<TMaximumPayloadBytes>
         >, "EDP-Memory pool must own exactly this representation's bounded payload");
