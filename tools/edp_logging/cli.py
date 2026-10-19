@@ -213,6 +213,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 report["synchronizedNanoseconds"] = facts.synchronized_nanoseconds
                                 report["clockEra"] = facts.clock_era
                                 report["uncertaintyNanoseconds"] = facts.uncertainty_nanoseconds
+                                report["clockCorrelationProjectionStatus"] = facts.temporal_quality[0]
+                                report["temporalQualityAssessment"] = facts.temporal_quality[1]
+                                report["recordValidityFacts"] = facts.record_flags
                                 # A caller supplied digest/type pin is a strict equality
                                 # check, not proof of who issued or signed that identity.
                                 report["rootTypeMatchedSuppliedIdentity"] = expected_root is not None

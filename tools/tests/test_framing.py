@@ -20,7 +20,7 @@ class FramingTests(unittest.TestCase):
 
         # Fixtures use the standard canonical CBOR container/scalar vocabulary
         # and include all required LogRecord outer fields. These are test-only
-        # structural candidates, not production-issued G4 Field 11/14 formats.
+        # structural candidates with approved G4 child values, not authenticated history.
         def header(major: int, size: int) -> bytes:
             if size < 24:
                 return bytes([(major << 5) | size])
@@ -51,7 +51,7 @@ class FramingTests(unittest.TestCase):
                 0: [1, 0, 3], 1: 2,
                 2: bytes([device_start]) + bytes(range(2, 17)),
                 3: 5, 4: ticket, 5: 16, 6: 1_000 + ticket,
-                8: 0, 9: 0, 10: 0xFFFFFFFF, 11: 0,
+                8: 0, 9: 0, 10: 0xFFFFFFFF, 11: [1, 0],
                 12: bytes(range(16)), 13: [], 14: 0,
             }
             payload = encode([1, root_id, fields])
@@ -72,6 +72,9 @@ class FramingTests(unittest.TestCase):
 
             status, rows = call()
             self.assertEqual(status, 0)
+            self.assertEqual(rows[0]["clockCorrelationProjectionStatus"], 1)
+            self.assertEqual(rows[0]["temporalQualityAssessment"], 0)
+            self.assertEqual(rows[0]["recordValidityFacts"], 0)
             self.assertEqual([r["kind"] for r in rows],
                              ["frame", "frame", "frame", "attempt-evidence"])
             evidence = rows[-1]
@@ -426,11 +429,13 @@ class FramingTests(unittest.TestCase):
         base = {
             0: [1, 0, 3], 1: 4, 2: bytes(range(1, 17)), 3: 10,
             4: 65535, 5: 16, 6: 1_000, 7: 0, 8: 1, 9: 17,
-            10: 999, 11: 1, 12: bytes(range(16)), 13: [],
+            10: 999, 11: [1, 0], 12: bytes(range(16)), 13: [],
             14: 0,
         }
         sample = TypedEnvelope(bytes(range(1, 9)), base, FrameCodec.Cbor)
         facts = inspect_log_record_facts(sample)
+        self.assertEqual(facts.temporal_quality, (1, 0))
+        self.assertEqual(facts.record_flags, 0)
         self.assertEqual((facts.sequence_width, facts.attempt_sequence), (16, 65535))
         self.assertEqual(
             inspect_log_record_facts(
@@ -450,6 +455,14 @@ class FramingTests(unittest.TestCase):
             {**base, 8: 0},
             {**base, 2: bytes(16)},
             {**base, 13: {}},
+            {**base, 11: [4, 0]},
+            {**base, 11: [0, 3]},
+            {**base, 11: [1]},
+            {**base, 11: [1, 0, 0]},
+            {**base, 11: (1, 0)},
+            {**base, 11: [True, 0]},
+            {**base, 14: 1},
+            {**base, 14: False},
             {**base, 15: 0},
         ):
             with self.assertRaises(RecordFactError):
@@ -541,7 +554,7 @@ class FramingTests(unittest.TestCase):
                 synchronized_nanoseconds=None, synchronization_state=0,
                 clock_era=0, uncertainty_nanoseconds=0xFFFFFFFF,
                 diagnostic_fingerprint=bytes(range(16)), positional_arguments=[],
-                temporal_quality=0, record_flags=0, type_identifier=bytes(range(1, 9)),
+                temporal_quality=(1, 0), record_flags=0, type_identifier=bytes(range(1, 9)),
             )
 
         evidence = analyse_attempts([record(1), record(3), record(3), record(6), record(2, 4)])
@@ -569,7 +582,7 @@ class FramingTests(unittest.TestCase):
             monotonic_nanoseconds=1000, synchronized_nanoseconds=5000,
             synchronization_state=1, clock_era=17, uncertainty_nanoseconds=100,
             diagnostic_fingerprint=bytes(range(16)), positional_arguments=[],
-            temporal_quality=2, record_flags=0, type_identifier=bytes(range(1, 9)),
+            temporal_quality=(0, 2), record_flags=0, type_identifier=bytes(range(1, 9)),
         )
         same_device = replace(left, monotonic_nanoseconds=1100, attempt_sequence=2)
         self.assertEqual(compare_record_time(left, same_device), TemporalOrder.Earlier)
@@ -578,6 +591,11 @@ class FramingTests(unittest.TestCase):
             synchronized_nanoseconds=5400, uncertainty_nanoseconds=100,
         )
         self.assertEqual(compare_record_time(left, other), TemporalOrder.Earlier)
+        # Across device/incarnation, a synchronized coordinate is insufficient
+        # without both existing owner statuses proving usable correlation.
+        for bad in ((1, 2), (0, 0), (0, 1), (False, 2), 2):
+            self.assertEqual(compare_record_time(left, replace(other, temporal_quality=bad)),
+                             TemporalOrder.Incomparable)
         self.assertEqual(
             compare_record_time(left, replace(other, synchronized_nanoseconds=5150)),
             TemporalOrder.Overlaps

@@ -204,3 +204,24 @@ exceeded the CLI emits only one
 an incomplete subset of comparisons**. The raw per-frame findings
 remain available. A verified root TypeIdentifier value is still a
 user-supplied equality pin, not historical publisher authentication.
+
+
+## 2026-10-19 — approved Field11/14 historical validation
+
+Strict candidate RecordFacts inspection now validates approved Field11
+as a two-element ordered EDP-Clock pair: ClockCorrelationProjectionStatus
+(0..3) and TemporalQualityAssessment (0..2), and Field14 as exactly
+one uint8 zero-only. Unknown/out-of-range values, malformed child
+arrays, boolean coercions and reserved facts fail closed. The CLI
+exports numeric clockCorrelationProjectionStatus,
+temporalQualityAssessment and recordValidityFacts only after strict
+validation, and never asserts record origin/authenticity based solely
+on a type identifier.
+
+Cross-device chronological comparison requires both sides explicitly
+Correlated (projection 0) and Reliable (quality 2), plus existing same
+nonzero ClockEra, eligible synchronization states and nonsaturated
+uncertainty. Local monotonic ordering within one device incarnation
+remains valid even if synchronized evidence is unreliable. Bounded
+attempt ticket gap analysis is unchanged. Tests cover negative wire
+states and no false cross-device total-order claim.

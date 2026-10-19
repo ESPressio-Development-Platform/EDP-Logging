@@ -34,8 +34,8 @@ class RecordFacts:
     uncertainty_nanoseconds: int
     diagnostic_fingerprint: bytes
     positional_arguments: list[Any]
-    temporal_quality: Any
-    record_flags: Any
+    temporal_quality: tuple[int, int]  # Owner Clock projection, then assessment
+    record_flags: int  # Field14 zero-only v1
     type_identifier: bytes
 
 
@@ -54,7 +54,7 @@ def inspect_log_record_facts(
     *,
     expected_root_type_identifier: bytes | None = None,
 ) -> RecordFacts:
-    """Check D13 FieldIds 0..14 while preserving not-yet-registered quality facts.
+    """Check D13 FieldIds 0..14 and approved Clock/validity child semantics.
 
     EDP-System formally issued the permanent LogRecord root
     00 00 01 00 00 00 00 01 on 2026-10-17. This parser intentionally accepts
@@ -116,11 +116,17 @@ def inspect_log_record_facts(
     if type(arguments) is not list:
         raise RecordFactError("positional arguments must be a definite array")
 
-    # Field11 and field14 sub-vocabularies are not yet formally registered.
-    # Preserve their canonical parsed contents without manufacturing enum meanings.
+    # These two v1 child domains are explicitly approved; never reinterpret
+    # unknown Clock codes or treat reserved validity facts as valid history.
+    provenance = fields[11]
+    if type(provenance) is not list or len(provenance) != 2:
+        raise RecordFactError("Field11 must be two ordered Clock owner statuses")
+    projection = _unsigned(provenance[0], 3, "ClockCorrelationProjectionStatus")
+    assessment = _unsigned(provenance[1], 2, "TemporalQualityAssessment")
+    facts = _unsigned(fields[14], 0, "Field14 reserved v1 validity facts")
     return RecordFacts(
         identifiers, severity, device, incarnation, sequence, width,
         monotonic, synchronized, state, era, uncertainty,
-        fingerprint, arguments, fields[11], fields[14],
+        fingerprint, arguments, (projection, assessment), facts,
         envelope.type_identifier,
     )

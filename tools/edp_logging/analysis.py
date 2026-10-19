@@ -48,6 +48,14 @@ def _identity(facts: RecordFacts) -> tuple[bytes, int]:
     return facts.device_identifier, facts.incarnation
 
 
+def _correlated_and_reliable(facts: RecordFacts) -> bool:
+    """Use only approved Clock values: Correlated=0, Reliable=2."""
+    quality = facts.temporal_quality
+    return (type(quality) is tuple and len(quality) == 2
+            and all(type(value) is int for value in quality)
+            and quality == (0, 2))
+
+
 def analyse_attempts(
     records: Iterable[RecordFacts], *,
     max_records: int = 65_536,
@@ -128,9 +136,11 @@ def compare_record_time(left: RecordFacts, right: RecordFacts) -> TemporalOrder:
     """Compare two occurrences only when their monotonic or Era facts permit it.
 
     Within one device incarnation, local Monotonic coordinate is authoritative.
-    Across devices/incarnations, a common nonzero Era and correlated synchronized
-    coordinate with a nonsaturated uncertainty estimate is required, and
-    interval overlap MUST NOT be advertised as a definite ordering.
+    Across devices/incarnations, a common nonzero Era, both approved Field11
+    Clock projections Correlated with quality Reliable, and a synchronized
+    coordinate with nonsaturated uncertainty are required. Otherwise no
+    cross-device temporal ordering is asserted. Interval overlap MUST NOT
+    be advertised as a definite ordering.
 
     No assumption is made that the synchronized coordinate is UTC/civil time.
     """
@@ -148,6 +158,8 @@ def compare_record_time(left: RecordFacts, right: RecordFacts) -> TemporalOrder:
         or right.synchronized_nanoseconds is None
         or left.synchronization_state not in (1, 2)
         or right.synchronization_state not in (1, 2)
+        or not _correlated_and_reliable(left)
+        or not _correlated_and_reliable(right)
         or type(left.uncertainty_nanoseconds) is not int
         or type(right.uncertainty_nanoseconds) is not int
         or left.uncertainty_nanoseconds < 0

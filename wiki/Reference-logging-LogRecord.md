@@ -74,3 +74,15 @@ nonzero and unknown enum values fail closed. The approved
 EDP-Serialisation rather than a Logging-local codec. GCC/Clang and
 fresh three-run real ESP32 WROOM qualification passed. These proofs
 do **not** establish the complete Typed Envelope or persistent durability.
+
+
+## Host historical G4 validation and temporal comparison
+
+The Python host decoder validates Field11 as exactly the ordered pair
+[ClockCorrelationProjectionStatus, TemporalQualityAssessment] and
+Field14 exactly zero. Unknown enum values, wrong array shapes and
+reserved facts fail closed. Cross-device ordering requires projection
+Correlated and assessment Reliable at both sources plus same nonzero
+ClockEra, eligible synchronization and finite uncertainty. Otherwise
+Incomparable; no fabricated chronology. The CLI exposes owner numeric
+values without asserting an authenticated producer.

@@ -330,3 +330,14 @@ native G4 CBOR/JSON source checks within the standard 18/18 HIL.
 These are **child-field** proofs, NOT a complete 15-field LogRecord
 Typed Envelope or durability certification. No new TypeIdentifier,
 parent FieldId, package version or mandatory dependency was introduced.
+
+
+## G4 historical Clock quality and reserved-facts inspection
+
+The host forensic inspector rejects malformed/unknown Field11 Clock
+statuses and any nonzero Field14, following approved v1 child wire
+contracts. Cross-device time comparison requires explicit Correlated
+and Reliable evidence at both ends, not merely synchronized timestamps.
+The CLI reports numeric owner statuses without claiming independent
+producer authentication. Full root Typed Envelope and complete
+schema-driven argument decoding remain open.
