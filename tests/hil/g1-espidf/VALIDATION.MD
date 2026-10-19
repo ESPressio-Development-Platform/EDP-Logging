@@ -790,3 +790,45 @@ at `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-native-memory-exhaustion
 Scope limited to physical actual pool exhaustion and clean release;
 no unpowered reset, adversarial late-grant provider, native Memory
 mutex contention or every shutdown/cancellation interleaving claimed.
+
+
+## 2026-10-19 — G1 real concurrent shutdown during Memory capacity wait
+
+Additional true dual-core WROOM lifecycle test uses an independent
+local EDP-Threading Wake provider + AdmissionLifecycleCoordinator
++ TransactionalRecordQueue so requesting shutdown does NOT
+contaminate other HIL cases. Two actual EDP-Memory dedicated pool
+leases hold all Record objects. A genuine Core1 producer enters
+AcquireRecordUntil with a 3.5s bounded Clock deadline and reserves
+Queue capacity, then blocks on unavailable Memory. Core0 observes
+ActiveAdmissions>0 and invokes real ShutdownUntil with a separate
+1.2s bounded Clock deadline. The test requires shutdown
+Quiescent, zero active producers, joined notified worker with
+ShutdownRequested and no output/scratch lease, actual held leases
+released through the coordinator with wake publication, and
+zero total live Records. All tests retain 18 canonical markers.
+
+PioArduino ESP-IDF WROOM image compiled
+`20261019T150854-1bd69c19` **PASS exit0**,
+factory full SHA256
+`6dfa67de9586eab6ae0dc49d4324d6fe65c069aae219d80dfa141512850eaa02`.
+Real write + separately verified on-chip flash
+`20261019T150959-42cb1357` **PASS exit0**.
+Three independent physical UART/NVS-restart captures
+`20261019T151045-90d672b0` **PASS exit0**;
+initial waiting flag true, shutdown=Quiescent=0,
+active admissions zero, worker.Success=true,
+worker.Completed=true, task notification received,
+all old Record leases released, live count zero.
+Actual shutdown coordination measured 292 / 292 / 293
+microseconds. All existing HIL 18/18 markers, G1 queue-full,
+native queue-mutex, exhausted Memory timeout, G2/G4/G10/G11,
+EDLG CRC and whole-bundle resource checks remained PASS.
+Private evidence manifest SHA256
+`e39384b12ce2e72c5e02801955a576f8e463b8cfa097c3f70dd02816f2b0a336`
+at `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-shutdown-memory-wait-captures`.
+
+Boundary: one pre-confirmed native memory-wait worker and
+coordinated shutdown; not an exhaustive race/fuzz exploration
+of late grants, failed native wake notification or
+multiple simultaneous producer-slot interactions.

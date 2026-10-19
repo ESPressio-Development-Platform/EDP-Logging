@@ -86,3 +86,21 @@ native HIL, independent flash verify and retained capture SHA
 in [VALIDATION](../tests/hil/g1-espidf/VALIDATION.MD).
 Actual provider-specific late-grant and adversarial wake/shutdown
 cases remain to be independently closed.
+
+
+## 2026-10-19 — real concurrent Memory-wait shutdown and join
+
+A dedicated real ESP32 WROOM FreeRTOS Core1 producer enters
+AcquireRecordUntil and waits against an exhausted native
+EDP-Memory Record pool. Core0 confirms ActiveAdmissions>0
+and requests a separate finite ShutdownUntil. Genuine
+EDP-Threading wake notification leads to Quiescent, zero
+active producers, worker returned ShutdownRequested,
+joined via native task notification, zero retained output/
+scratch ownership, and two held pool leases returned via
+the original coordinator. Three physical runs PASS with
+292–293 microseconds measured shutdown coordination,
+all 18/18 HIL markers intact. Full jobs and artifact hash
+in [HIL VALIDATION](../tests/hil/g1-espidf/VALIDATION.MD).
+Native provider-failure and adversarial late-grant stress
+cases remain independently open.

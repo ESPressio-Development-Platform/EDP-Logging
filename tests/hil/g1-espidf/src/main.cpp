@@ -527,6 +527,55 @@ bool VerifyNativeMemoryCapacityDeadline(
                  "g1-native-memory-capacity-deadline");
 }
 
+bool VerifyShutdownDuringNativeMemoryWait(Pool& pool) noexcept {
+    Wakes isolatedWakes;
+    Lifecycle isolatedLifecycle(isolatedWakes);
+    QueueMutex isolatedMutex;
+    Queue isolatedQueue(isolatedMutex,isolatedLifecycle);
+    const auto noWait=Platform::Synchronization::WaitTimeout::NoWait();
+    Lease heldA,heldB;
+    const auto a=pool.Acquire(heldA,noWait,831);
+    const auto b=pool.Acquire(heldB,noWait,832);
+    if(!Check(a==Memory::ObjectPoolAcquisitionResult::Succeeded &&
+              b==Memory::ObjectPoolAcquisitionResult::Succeeded &&
+              Record::Live.load()==2,
+              "g1-shutdown-memory-capacity-held")) return false;
+    Work work{&pool,&isolatedQueue,&isolatedLifecycle,&isolatedWakes};
+    work.Parent=xTaskGetCurrentTaskHandle();
+    work.ExpectShutdown=true;
+    if(xTaskCreatePinnedToCore(&Worker,"logging_mem_shutdown",
+        6144U,&work,3U,nullptr,1)!=pdPASS)
+        return Check(false,"g1-shutdown-memory-worker-start");
+    for(unsigned i=0U; i<250U &&
+        (!work.Entered.load() || isolatedLifecycle.ActiveAdmissions()==0U);++i)
+        vTaskDelay(1U);
+    const bool wasWaiting=work.Entered.load() &&
+        isolatedLifecycle.ActiveAdmissions()>0U && Record::Live.load()==2;
+    const auto before=esp_timer_get_time();
+    const auto stopped=isolatedLifecycle.ShutdownUntil<16U>(Deadline(1200U));
+    const auto elapsed=esp_timer_get_time()-before;
+    const auto completed=ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(5000U));
+    const auto releasedA=isolatedLifecycle.ReleaseAndNotify(heldA);
+    const auto releasedB=isolatedLifecycle.ReleaseAndNotify(heldB);
+    std::printf("EDP_LOGGING_HIL|G1_SHUTDOWN_MEMORY|waiting=%u|shutdown=%u|active=%u|worker=%u|completed=%u|elapsed_us=%lld|live=%d\n",
+                static_cast<unsigned>(wasWaiting),
+                static_cast<unsigned>(stopped.Status),
+                static_cast<unsigned>(isolatedLifecycle.ActiveAdmissions()),
+                static_cast<unsigned>(work.Success.load()),
+                static_cast<unsigned>(completed>0U && work.Completed.load()),
+                static_cast<long long>(elapsed),
+                static_cast<int>(Record::Live.load()));
+    return Check(wasWaiting &&
+        stopped.Status==Logging::AdmissionShutdownStatus::Quiescent &&
+        isolatedLifecycle.ActiveAdmissions()==0U &&
+        work.Success.load() && work.Completed.load() && completed>0U &&
+        elapsed>=0 && elapsed<1300000LL &&
+        releasedA==Logging::CoordinatedReleaseResult::ReleasedAndNotified &&
+        releasedB==Logging::CoordinatedReleaseResult::ReleasedAndNotified &&
+        heldA.IsEmpty() && heldB.IsEmpty() && Record::Live.load()==0,
+        "g1-real-shutdown-while-memory-exhausted");
+}
+
 bool Run() {
     static Timebase timebase;
     static Clock::MonotonicClockProvider<Timebase> clock(timebase);
@@ -571,6 +620,7 @@ bool Run() {
     using Timeout=Platform::Synchronization::WaitTimeout;
     if(!VerifyNativeQueueMutexDeadline(queue,mutex,lifecycle,wakes,pool)) return false;
     if(!VerifyNativeMemoryCapacityDeadline(queue,lifecycle,wakes,pool)) return false;
+    if(!VerifyShutdownDuringNativeMemoryWait(pool)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.

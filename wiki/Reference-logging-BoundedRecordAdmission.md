@@ -62,3 +62,17 @@ Both pre-existing leases release through the coordinator
 with successful producer wake publication, live records
 return to zero. Three independently captured physical
 runs and all 18/18 HIL markers PASS.
+
+
+## 2026-10-19 real dual-core exhausted-Memory shutdown
+
+With both native EDP-Memory object slots held, Core1
+producer enters finite AcquireRecordUntil and is counted
+as active while waiting for Memory. Core0 requests real
+coordinated shutdown, the worker wakes, yields
+ShutdownRequested, terminates and joins, while
+ReleaseAndNotify returns original held leases. Three
+physical runs PASS 292–293µs shutdown coordination,
+zero active admissions and live objects, full 18/18
+HIL regressions intact. Adversarial late grant and
+provider failure remain open.

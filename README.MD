@@ -416,3 +416,15 @@ existing leases are released with capacity notifications.
 Prior full-queue and cross-core mutex deadline cases and
 all 18/18 full HIL markers remain PASS.
 [Validation](tests/hil/g1-espidf/VALIDATION.MD).
+
+
+## G1 real exhausted-pool shutdown (2026-10-19)
+
+The real ESP32 HIL now confirms a Core1 producer is blocked
+waiting on full EDP-Memory while Core0 triggers the
+original bounded AdmissionLifecycleCoordinator::ShutdownUntil.
+All 3 independent WROOM runs PASS, lifecycle Quiescent,
+producer joined with ShutdownRequested, zero active
+admissions/leaks and all 18/18 earlier HIL markers retained;
+292–293µs observed controlled shutdown coordination.
+[Validation](tests/hil/g1-espidf/VALIDATION.MD).
