@@ -33,7 +33,9 @@ namespace Test {
             Clock::MonotonicTimestamp::FromNanoseconds(200U),
             Read(Clock::SynchronizationState::Synchronized),
             Clock::ClockEra::FromValue(5U),
-            true
+            true,
+            Clock::ClockCorrelationProjectionStatus::Correlated,
+            Clock::TemporalQualityAssessment::Reliable
         };
         const auto accepted = Logging::QualifyLogClockSample(coherent);
         assert(accepted.Status == Logging::LogTemporalEvidenceStatus::Synchronized);
@@ -42,6 +44,9 @@ namespace Test {
         assert(accepted.Era.Value() == 5U);
         assert(accepted.Monotonic.Nanoseconds() == 200U);
         assert(accepted.Uncertainty.Nanoseconds() == 20U);
+        assert(accepted.ProjectionStatus ==
+               Clock::ClockCorrelationProjectionStatus::Correlated);
+        assert(accepted.Assessment == Clock::TemporalQualityAssessment::Reliable);
 
         CaptureOwner provider{coherent};
         const auto readOnce = Logging::CaptureLogTime(provider);
@@ -117,6 +122,39 @@ namespace Test {
         });
         assert(falseReady.Status == Logging::LogTemporalEvidenceStatus::Incoherent);
         assert(!falseReady.HasSynchronizedCoordinate());
+
+        const auto notRequired = Logging::QualifyLogClockSample({
+            Clock::MonotonicTimestamp::FromNanoseconds(501U),
+            Read(Clock::SynchronizationState::NeverSynchronized),
+            Clock::ClockEra(), false,
+            Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable,
+            Clock::TemporalQualityAssessment::NotRequired
+        });
+        assert(notRequired.Status == Logging::LogTemporalEvidenceStatus::Unavailable);
+        assert(notRequired.Assessment == Clock::TemporalQualityAssessment::NotRequired);
+        assert(!notRequired.Era.IsValid());
+
+        const auto impossible = Logging::QualifyLogClockSample({
+            Clock::MonotonicTimestamp::FromNanoseconds(502U),
+            Read(Clock::SynchronizationState::NeverSynchronized),
+            Clock::ClockEra(), false,
+            Clock::ClockCorrelationProjectionStatus::Correlated,
+            Clock::TemporalQualityAssessment::Reliable
+        });
+        assert(impossible.Status == Logging::LogTemporalEvidenceStatus::Incoherent);
+        assert(impossible.ProjectionStatus ==
+               Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable);
+        assert(impossible.Assessment == Clock::TemporalQualityAssessment::Unreliable);
+
+        const auto unknownOwnerStatus = Logging::QualifyLogClockSample({
+            Clock::MonotonicTimestamp::FromNanoseconds(503U),
+            Read(Clock::SynchronizationState::Synchronized),
+            Clock::ClockEra::FromValue(7U), true,
+            static_cast<Clock::ClockCorrelationProjectionStatus>(255U),
+            Clock::TemporalQualityAssessment::Reliable
+        });
+        assert(unknownOwnerStatus.Status == Logging::LogTemporalEvidenceStatus::Incoherent);
+        assert(!unknownOwnerStatus.HasSynchronizedCoordinate());
     }
 
 } // Test

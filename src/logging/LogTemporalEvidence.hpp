@@ -16,6 +16,14 @@ namespace ESPressio::Logging {
         ESPressio::Clock::SynchronizedReading Synchronized;
         ESPressio::Clock::ClockEra Era;
         bool HasSynchronizedCoordinate;
+        // Optional owner-issued Clock assessment in the SAME coherent sample.
+        // Legacy four-element initializers remain conservatively unavailable.
+        ESPressio::Clock::ClockCorrelationProjectionStatus ProjectionStatus{
+            ESPressio::Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
+        };
+        ESPressio::Clock::TemporalQualityAssessment Assessment{
+            ESPressio::Clock::TemporalQualityAssessment::Unreliable
+        };
     };
 
     /// A conservative Logging classification of one immutable temporal sample.
@@ -35,6 +43,13 @@ namespace ESPressio::Logging {
         ESPressio::Clock::ClockEra Era;
         ESPressio::Clock::SynchronizationState ClockState;
         LogTemporalEvidenceStatus Status;
+        // Caller-supplied EDP-Clock owner statuses: never Logging-derived bits.
+        ESPressio::Clock::ClockCorrelationProjectionStatus ProjectionStatus{
+            ESPressio::Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
+        };
+        ESPressio::Clock::TemporalQualityAssessment Assessment{
+            ESPressio::Clock::TemporalQualityAssessment::Unreliable
+        };
 
         [[nodiscard]] constexpr bool HasSynchronizedCoordinate() const noexcept {
             return Status == LogTemporalEvidenceStatus::Synchronized ||
@@ -65,9 +80,21 @@ namespace ESPressio::Logging {
             state == SynchronizationState::Holdover ||
             state == SynchronizationState::Reacquiring;
 
-        const auto consistent = hasCoordinate
-            ? eraValid && eligible
-            : !eraValid && state != SynchronizationState::Synchronized;
+        const auto ownerStatusValid =
+            static_cast<std::uint8_t>(sample.ProjectionStatus) <=
+                static_cast<std::uint8_t>(
+                    ClockCorrelationProjectionStatus::SynchronizedCoordinateOverflow) &&
+            static_cast<std::uint8_t>(sample.Assessment) <=
+                static_cast<std::uint8_t>(TemporalQualityAssessment::Reliable);
+        // A claimed correlated projection without any coordinate is false
+        // evidence; do not silently convert it into a plausible timestamp.
+        const auto contradictoryProjection =
+            !hasCoordinate &&
+            sample.ProjectionStatus == ClockCorrelationProjectionStatus::Correlated;
+        const auto consistent = ownerStatusValid && !contradictoryProjection &&
+            (hasCoordinate
+                ? eraValid && eligible
+                : !eraValid && state != SynchronizationState::Synchronized);
 
         const auto quality = !consistent
             ? LogTemporalEvidenceStatus::Incoherent
@@ -86,7 +113,10 @@ namespace ESPressio::Logging {
             usable ? sample.Synchronized.Uncertainty() : SynchronizationUncertainty::Maximum(),
             usable ? sample.Era : ClockEra(),
             state,
-            quality
+            quality,
+            consistent ? sample.ProjectionStatus :
+                ClockCorrelationProjectionStatus::CorrelationUnavailable,
+            consistent ? sample.Assessment : TemporalQualityAssessment::Unreliable
         };
     }
 

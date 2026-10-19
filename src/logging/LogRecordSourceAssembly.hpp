@@ -201,6 +201,9 @@ namespace ESPressio::Logging {
         candidate.Attempt = attempt;
         candidate.Monotonic = temporal.Monotonic;
         candidate.SyncState = temporal.ClockState;
+        // Field 11 is copied from the SAME owner-qualified temporal sample.
+        // No Logging-local inference of Clock projection or policy quality.
+        candidate.Provenance = {temporal.ProjectionStatus, temporal.Assessment};
         if (synchronized) {
             candidate.Synchronized = temporal.Synchronized;
             candidate.Era = temporal.Era;

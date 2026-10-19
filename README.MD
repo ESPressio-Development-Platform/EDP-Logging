@@ -371,3 +371,20 @@ See [HIL qualification](tests/hil/g1-espidf/VALIDATION.MD).
 GCC+Clang G1 Memory/Threading owner admission regressions also PASS.
 Still partial G1 — no declaration of complete native contention,
 shutdown or product-wide finite-time coverage.
+
+
+## G2 Clock owner-status source propagation — host and WROOM (2026-10-19)
+
+The optional coherent Clock capture now carries the **existing**
+EDP-Clock correlation projection and temporal quality assessment
+statuses directly through LogTemporalEvidence into the approved
+LogRecord Field 11 source value. Unknown statuses and contradictory
+correlated-without-coordinate evidence fail closed. Old Clock source
+initializers conservatively default to unavailable/unreliable.
+GCC+Clang real generated Localisation integration PASS and fresh
+corrected ESP32 WROOM flash + 3/3 native HIL cycles PASS (18/18).
+[Evidence and bounds](docs/COHERENT-TEMPORAL-EVIDENCE.MD).
+A preceding physical image panicked due to the new test reading an
+unbound Clock before bootstrap; decoded, corrected and physically
+requalified. Not a claim of live multi-node Clock coherence or a
+completed persistent 15-field record wire.

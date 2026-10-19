@@ -13,3 +13,20 @@
 ## Tests and prerequisites
 
 `tests/LogTemporalEvidenceTests.cpp` and `tests/run-log-temporal-tests.sh` require direct EDP-Clock/EDP-System/EDP-Platform *abstractions*, using only fake coherent sources; strict C++20 GCC+Clang passed on RPI400 in detached run `20261016T073929-8ef41bf6`. The **production** Clock/coordinator revision-atomic capture owner, era provenance, source transitions, ISR constraints and physical/target tests remain outstanding. EDP-Logging is forbidden from selecting a Mesh concrete or deriving its own Era.
+
+
+## G2 2026-10-19 — owner-issued Field 11 values through one Clock sample
+
+Optional coherent Clock source captures
+`ClockCorrelationProjectionStatus` and
+`TemporalQualityAssessment` from EDP-Clock itself; legacy sources
+default unavailable/unreliable. Qualifier checks exact owner numeric
+vocabulary, rejects correlated-without-coordinate and preserves
+monotonic evidence alone on incoherence. Source assembly copies the
+pair into structural LogRecord Field11 without invented Logging
+status values. GCC/Clang generated-contract tests PASS and corrected
+real ESP32 WROOM physical flash and 3/3 runs PASS.
+The first physical test panicked by reading unbound Clock before
+bootstrap; root cause fixed and included in HIL/Policy handoff.
+Application Bootstrap must still supply a **genuine one-epoch** provider:
+injected test facts are not synchronization proof.

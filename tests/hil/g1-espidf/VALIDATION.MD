@@ -667,3 +667,35 @@ application producer policies, contended provider internal mutex,
 all cancellation/shutdown races, external power-loss recovery, nor
 a bounded Product-wide worst-case response distribution.
 
+
+
+## 2026-10-19 — G2 Clock owner pair, real WROOM negative/recovery
+
+G2 application-composed Clock source now preserves owner-issued
+ProjectionStatus and TemporalQualityAssessment without Logging minting
+new values. Host GCC and Clang generated-contract tests detached
+`20261019T130909-8d20664a` PASS exit0.
+
+Initial G2 real WROOM image physical run
+`20261019T142256-5e601233` FAIL (4/18, repeated Core0
+InstrFetchProhibited) because the added test called
+`Clock::MonotonicNow()` before the full app's
+`Clock::BindMonotonicClock()`. Decoded ELF addresses
+`0x400de908` in governed validation and
+`0x400d356f` in MonotonicNow; confirmed null early call.
+Corrected helper uses fixed injected monotonic test evidence.
+
+Final corrected ESP-IDF firmware build detached
+`20261019T142627-5ed6a666` PASS exit0, factory image
+SHA256 `ec074528b319a3ad6650545a9e14bbc5ef994c2eb5ade33b88dc678278e7d6f5`.
+Real verified flash job
+`20261019T142728-f73d9168` PASS exit0.
+Three fresh independent native UART reboot/NVS-restart capture sessions
+`20261019T142822-974150f9` PASS exit0,
+all 18/18 existing markers, G2 owner sample, G4 real codecs, G1
+finite deadline and prior resource/serial/fanout tests PASS.
+Private capture manifest digest:
+`3c8187e82aa82c5c5246cf0edaf0493091fdec7ff9d50f18d7ecd8512289d8d0`.
+
+No physical mesh Clock synchronization or cross-revision actual
+provider is asserted from synthetically injected sample values.

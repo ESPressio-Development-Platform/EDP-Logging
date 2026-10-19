@@ -73,6 +73,19 @@ int main() {
     assert(record.DiagnosticSchemaFingerprint ==
         Fixture::Diagnostic::GeneratedLocalisationContract::DiagnosticSchemaFingerprint);
     assert(L::ValidateLogRecord(record) == L::LogRecordValidation::Valid);
+    Small ownerQualityRecord{};
+    auto ownerQualityTime = temporal;
+    ownerQualityTime.Assessment = C::TemporalQualityAssessment::NotRequired;
+    assert((L::AssembleLogRecordSource<ActualGovernedFixture>(
+        ownerQualityRecord,
+        L::Severity::Info, device, incarnation, attempt,
+        ownerQualityTime, std::uint16_t{300U}, true
+    ) == L::LogRecordAssemblyStatus::Prepared));
+    assert(ownerQualityRecord.Provenance.Quality ==
+           C::TemporalQualityAssessment::NotRequired);
+    assert(ownerQualityRecord.Provenance.Projection ==
+           C::ClockCorrelationProjectionStatus::CorrelationUnavailable);
+    assert(L::ValidateLogRecord(ownerQualityRecord) == L::LogRecordValidation::Valid);
     assert((L::AssembleLogRecordSource<
         ActualGovernedFixture
     >(
