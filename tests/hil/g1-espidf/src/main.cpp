@@ -18,6 +18,7 @@
 #include <logging/CoordinatorQuantum.hpp>
 #include <logging/DedicatedCoordinator.hpp>
 #include <logging/OwnedRepresentationFanout.hpp>
+#include <logging/Instrumentation.hpp>
 #include <execution/ExecutionContextProvider.hpp>
 #include <synchronization/SpinLockProvider.hpp>
 #include <logging/LogRecord.hpp>
@@ -73,6 +74,35 @@ std::atomic<int> Record::Live{0};
 // G11 test-only observation, written by the actual EDP-Threading managed
 // worker at its final callable boundary, read by app_main after quiescence.
 std::atomic<unsigned> DedicatedWorkerStackMarginBytes{0U};
+
+
+// G11 application-level codegen and resource test: these counters are
+// test instrumentation only and exist in both full-firmware variants.
+#ifndef EDP_LOGGING_G11_APP_SITE_ENABLED
+#define EDP_LOGGING_G11_APP_SITE_ENABLED 0
+#endif
+#if EDP_LOGGING_G11_APP_SITE_ENABLED != 0 && EDP_LOGGING_G11_APP_SITE_ENABLED != 1
+#error "G11 whole-app instrumentation selection must be 0 or 1"
+#endif
+#if EDP_LOGGING_G11_APP_SITE_ENABLED == 1
+inline constexpr Logging::SeverityThreshold G11SiteThreshold =
+    Logging::SeverityThreshold::Info;
+#else
+inline constexpr Logging::SeverityThreshold G11SiteThreshold =
+    Logging::SeverityThreshold::Off;
+#endif
+std::atomic<std::uint32_t> G11ClockReads{0U};
+std::atomic<std::uint32_t> G11IdentityReads{0U};
+std::atomic<std::uint32_t> G11ArgumentReads{0U};
+[[gnu::noinline]] void G11ClockRead() noexcept {
+    G11ClockReads.fetch_add(1U, std::memory_order_relaxed);
+}
+[[gnu::noinline]] void G11IdentityRead() noexcept {
+    G11IdentityReads.fetch_add(1U, std::memory_order_relaxed);
+}
+[[gnu::noinline]] void G11ArgumentRead() noexcept {
+    G11ArgumentReads.fetch_add(1U, std::memory_order_relaxed);
+}
 
 using Resource = Platform::Portable::Memory::MemoryResourceProvider;
 using Mutex = Platform::FreeRTOS::Synchronization::MutexProvider;
@@ -924,6 +954,27 @@ extern "C" void app_main() {
     const auto timeBeforeUs=esp_timer_get_time();
     const auto freeBefore=heap_caps_get_free_size(MALLOC_CAP_8BIT);
     std::printf("EDP_LOGGING_HIL|START|G1_WROOM_REAL_EDP_PROVIDERS\n");
+    EDP_LOG_WHEN_ENABLED(
+        Test::G11SiteThreshold, Test::Logging::Severity::Info,
+        Test::G11ClockRead();
+        Test::G11IdentityRead();
+        Test::G11ArgumentRead()
+    );
+    const auto g11Clock = Test::G11ClockReads.load(std::memory_order_relaxed);
+    const auto g11Identity = Test::G11IdentityReads.load(std::memory_order_relaxed);
+    const auto g11Arguments = Test::G11ArgumentReads.load(std::memory_order_relaxed);
+    const bool g11SiteMatches = g11Clock == EDP_LOGGING_G11_APP_SITE_ENABLED &&
+        g11Identity == EDP_LOGGING_G11_APP_SITE_ENABLED &&
+        g11Arguments == EDP_LOGGING_G11_APP_SITE_ENABLED;
+    std::printf(
+        "EDP_LOGGING_HIL|G11_WHOLE_FIRMWARE_SITE|selected=%d|clock=%u|identity=%u|arguments=%u|result=%s\n",
+        EDP_LOGGING_G11_APP_SITE_ENABLED,
+        static_cast<unsigned>(g11Clock),
+        static_cast<unsigned>(g11Identity),
+        static_cast<unsigned>(g11Arguments),
+        g11SiteMatches ? "PASS" : "FAIL"
+    );
+
     const bool nvs=Test::TestNvsCheckpointAcrossReboot();
     const bool vfs=nvs && Test::TestConcreteEdlsVfsSuccessor();
     const bool governed=vfs && Test::TestGovernedLogRecordValidation();
@@ -938,7 +989,7 @@ extern "C" void app_main() {
     const auto dedicatedWorkerMargin=
         Test::DedicatedWorkerStackMarginBytes.load(std::memory_order_acquire);
     const bool resourceMeasurementValid=
-        success && elapsedUs>0 && freeBefore>0 && freeAfter>0 &&
+        g11SiteMatches && success && elapsedUs>0 && freeBefore>0 && freeAfter>0 &&
         minimumFree>0 && minimumFree<=freeAfter && minimumFree<=freeBefore &&
         stackMargin>0 && dedicatedWorkerMargin>0 &&
         dedicatedWorkerMargin<=6144U;

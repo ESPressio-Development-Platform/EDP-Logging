@@ -5,3 +5,8 @@
 The target's **entire original 4 MB flash was restored** and independently verified byte-identical before final normal reboot, after account was taken of runtime NVS updates caused by the integrated reset helper. Durable restoration: `20261016T192020-381dcdea`, PASS. No original firmware images or data are committed.
 
 See [physical HIL test source](../tests/hil/g1-espidf/src/main.cpp), [PlatformIO project](../tests/hil/g1-espidf/platformio.ini), [test documentation](../tests/hil/g1-espidf/README.MD), and [run-by-run evidence](../tests/hil/g1-espidf/VALIDATION.MD). The Policy/main Logging living handoff records the complete G1-G15 remaining work and distinguishes physical proof from unimplemented sink, durable archive and Clock/Mesh integration.
+
+
+## G11 whole-firmware test-site evidence (partial)
+
+The 2026-10-18 physical WROOM Off/On comparison has three independently recovered captures in each mode, all 18/18 native functional checkpoints plus separate correctly selected two-boot site markers. See [G11 qualification](../docs/WROOM-RESOURCE-QUALIFICATION.MD), [dual-image build runner](../tests/run-g11-whole-firmware-comparison.sh), [UART site verifier](../tests/hil/g1-espidf/g11_site_evidence.py) and [physical proof history](../tests/hil/g1-espidf/VALIDATION.MD). Test-site proof does not certify all production Logging code paths or externally interrupted Persistence durability.

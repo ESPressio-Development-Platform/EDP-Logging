@@ -118,3 +118,8 @@ original firmware reboot. See VALIDATION.MD for all source pins,
 evidence and limits. This is NOT externally interrupted POWERLOSS,
 atomic filesystem replace, destructive generation rotation, or
 final canonical LogRecord certification.
+
+
+## G11 compiled-out source site test
+
+The new test-only EDP_LOGGING_G11_APP_SITE_ENABLED switch is 0 by default and 1 for an enabled Info source site. Build with [dual-image comparator](../../run-g11-whole-firmware-comparison.sh) using pinned EDP_LOGGING_DEPENDENCY_ROOT and a fresh G11_REPORT_DIR; optional EDP_LOGGING_G11_PIO_BIN, EDP_LOGGING_G11_SIZE_BIN and EDP_LOGGING_G11_PLATFORMIO_CORE_DIR select installed tools. This builds and hashes linked images; it does not flash. The actual UART capture sets EDP_LOGGING_G11_APP_SITE_ENABLED=0/1 in its **host** environment and requires two correctly selected site observations, one on each side of the expected NVS restart, in addition to the unchanged 18 functional markers. See [historical HIL record](VALIDATION.MD).

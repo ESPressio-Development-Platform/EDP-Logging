@@ -262,3 +262,12 @@ test-task stack margin and elapsed time alongside a mandatory
 These are whole-application test-resource observations, not
 isolated Logging footprint or final production CPU/flash budgets.
 See docs/WROOM-RESOURCE-QUALIFICATION.MD.
+
+
+## G11 dual whole-firmware compile-out qualification (test-only)
+
+The integrated ESP32-WROOM HIL has one additional compile-time-selected lazy instrumentation site. The test flag EDP_LOGGING_G11_APP_SITE_ENABLED defaults to 0 (Off); 1 enables an Info-level site, and other values are rejected at compilation. The switch is not a public Logging configuration API. The original 18 functional HIL markers are unchanged.
+
+The [whole-firmware comparator](tests/run-g11-whole-firmware-comparison.sh) builds Off/On from identical source and an explicitly pinned EDP_LOGGING_DEPENDENCY_ROOT using a new G11_REPORT_DIR. Its source, SDK configuration, ELF sizes, factory image hashes and tool versions are captured for reproducibility. The [native site verifier](tests/hil/g1-espidf/g11_site_evidence.py) validates both site-marker observations per full NVS-restarting UART session. The [Python negative suite](tests/test_g11_site_evidence.py) checks wrong modes, missing/duplicate/malformed markers, and unexpected source evaluations.
+
+This proves only the chosen HIL source site; full production Logging integration and product resource budgets remain outstanding. See [G11 WROOM measurements](docs/WROOM-RESOURCE-QUALIFICATION.MD).

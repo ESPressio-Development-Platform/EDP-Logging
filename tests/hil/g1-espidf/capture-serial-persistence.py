@@ -4,7 +4,9 @@ from pathlib import Path
 from io import BytesIO
 import sys
 import time
+import os
 import serial
+from g11_site_evidence import validate_site_markers
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -92,10 +94,17 @@ if len(resource_lines)==1:
         )
     except (KeyError, ValueError):
         resource_valid=False
+# The G11 test-site assertion is deliberately separate from the existing
+# eighteen canonical functional HIL assertions, and must occur exactly once.
+site_mode=os.environ.get("EDP_LOGGING_G11_APP_SITE_ENABLED","0")
+site_verified=(
+    site_mode in ("0","1")
+    and validate_site_markers(all_lines,int(site_mode),2)
+)
 matched=[e for e in expected if any(e in l for l in all_lines)]
 failed=[l for l in all_lines if "EDP_LOGGING_HIL|FAIL|" in l]
 print(f"EDP_LOGGING_NATIVE_HIL_SUMMARY|markers={len(matched)}/{len(expected)}|"
       f"fail={len(failed)}|binary_edlg_verified={frame_verified}|"
-      f"resource_snapshot_verified={resource_valid}",flush=True)
+      f"resource_snapshot_verified={resource_valid}|g11_site_verified={site_verified}",flush=True)
 sys.exit(0 if len(matched)==len(expected) and not failed
-         and frame_verified and resource_valid else 1)
+         and frame_verified and resource_valid and site_verified else 1)

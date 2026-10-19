@@ -244,3 +244,8 @@ ESP-IDF heap-capability metrics, FreeRTOS task-stack watermark,
 and esp_timer monotonic provider. Portable Logging has no added
 platform resource-provider dependency; measured readings cover the
 complete test application, not Logging's own isolated overhead.
+
+
+## G11 whole-firmware test dependency closure
+
+The G11 comparator is test-only. Its Bootstrap links the existing explicit EDP-Clock, EDP-Memory, EDP-Threading, EDP-Serialisation, EDP-Localisation, EDP-Persistence, EDP-Serial, EDP-Platform and System/Bounded* owner abstractions and selected concrete ESP-IDF/FreeRTOS providers through the caller-pinned dependency directory. Both builds share the same closure, SDK settings and application source. This adds no new dependency (mandatory or optional) to production EDP-Logging and no Mesh coupling or circular dependency.

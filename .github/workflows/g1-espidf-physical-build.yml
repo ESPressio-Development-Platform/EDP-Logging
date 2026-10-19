@@ -121,3 +121,13 @@ jobs:
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: pio run -e esp32dev
+
+      - name: Run G11 site evidence negative tests
+        working-directory: EDP-Logging
+        run: python3 tests/test_g11_site_evidence.py
+      - name: Compare G11 whole-firmware Off and On linked images (build-only)
+        working-directory: EDP-Logging
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+          G11_REPORT_DIR: ${{ runner.temp }}/edp-logging-g11-images
+        run: bash tests/run-g11-whole-firmware-comparison.sh
