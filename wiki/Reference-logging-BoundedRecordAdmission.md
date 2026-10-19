@@ -35,3 +35,17 @@ while retaining 18/18 earlier HIL markers. Full GCC/Clang real
 Memory+Threading owner admission tests also PASS. These are narrow
 actual physical evidence, not G1 comprehensive strict-timeout
 or full product release qualification.
+
+
+## Real ESP32 two-core Queue mutex test — 2026-10-19
+
+Actual EDP-Threading OrdinaryMutexProvider is held by
+Core1 task while Core0 attempts AcquireRecordUntil
+with 40 ms absolute Clock deadline. Fresh verified
+WROOM firmware three cycles PASS at 40.035 ms each,
+no Memory borrowed, no output reservation, zero
+live records, mutex released by actual holder.
+A predecessor test erroneously used a zero-tick
+FreeRTOS poll delay; corrected to one tick and
+full hardware test rerun. Actual deadline proof is
+bounded to this scenario, not product worst-case.

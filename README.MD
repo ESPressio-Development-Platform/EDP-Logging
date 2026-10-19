@@ -388,3 +388,18 @@ A preceding physical image panicked due to the new test reading an
 unbound Clock before bootstrap; decoded, corrected and physically
 requalified. Not a claim of live multi-node Clock coherence or a
 completed persistent 15-field record wire.
+
+
+## G1 native cross-core mutex deadline — physically qualified
+
+Alongside the real ESP32 full-queue finite wait, a separate actual
+Core1 mutex-owner task now holds the **queue's same native mutex**
+against a Core0 producer for a 40 ms Clock deadline.
+Final three physical WROOM runs PASS 40.035 ms each, no Memory
+borrow, no active output, zero live Record and verified owner
+release. Intermediate failed diagnostic images traced to the
+test's zero-tick `pdMS_TO_TICKS(2)` loop; corrected and
+independently reflashed. Evidence
+[HIL validation](tests/hil/g1-espidf/VALIDATION.MD).
+Remaining shutdown, late Memory, concurrency and power-loss
+bounds require further independent tests.

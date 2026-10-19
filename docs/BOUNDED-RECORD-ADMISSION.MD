@@ -49,3 +49,25 @@ not all contended native internal locks, coordinator shutdown,
 multiple producer slots and all strict product worst-case bounds.
 G1 release remains open.
 
+
+
+## 2026-10-19 — independent native cross-core queue-mutex contention
+
+Beyond the previously physically qualified 40 ms **full queue**
+timeout, actual ESP32 FreeRTOS Core 1 now locks
+the same EDP-Threading queue mutex while Core 0 attempts
+AcquireRecordUntil with a 40 ms EDP-Clock absolute deadline.
+Three fresh physical runs PASS with observed **40.035 ms**
+elapsed each; DeadlineElapsed, MemoryAttempted=false, scratch
+lease empty, no queue output owner, zero live records and
+verified true-owner mutex release. Existing 18/18 HIL probes
+remain PASS. Full build, flash verify, capture jobs and
+SHA-256 recorded in HIL VALIDATION.MD.
+
+The first two images failed because the test owner task
+poll delay `pdMS_TO_TICKS(2)` rounded to **zero RTOS ticks**,
+allowing premature mutex release and legitimate producer
+admission. The test now uses `vTaskDelay(1U)` and
+demonstrated the intended actual held-mutex path.
+These tests are *not* exhaustive all-provider cancellation
+or all-race qualification.

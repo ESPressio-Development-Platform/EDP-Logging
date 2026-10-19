@@ -699,3 +699,58 @@ Private capture manifest digest:
 
 No physical mesh Clock synchronization or cross-revision actual
 provider is asserted from synthetically injected sample values.
+
+
+## 2026-10-19 — G1 real cross-core native queue-mutex contention
+
+Added separate actual FreeRTOS two-core contention case: Core 1
+takes the **same EDP-Threading OrdinaryMutexProvider** that
+TransactionalRecordQueue uses; Core 0 calls AcquireRecordUntil
+against one 40 ms EDP-Clock deadline with queue otherwise empty.
+The test requires no Memory attempted or leased, no active
+reservation, zero live records, mutex release by true Core 1 owner
+and wall elapsed below 60 ms, without weakening prior full-queue
+finite admission test.
+
+Initial release build `20261019T144136-2eda367c`
+PASS and verified flash `20261019T144239-a8670819` PASS,
+but physical run `20261019T144335-e1d94c57` FAIL exit18
+at 6/18 markers. Diagnostic rebuild
+`20261019T144553-51d830d9` and verified flash
+`20261019T144646-a6a69528` PASS; physical capture
+`20261019T144726-47ef055d` FAIL exit18, revealing status
+Admitted=0 at 5,722 us, MemoryAttempted=1, owner active,
+one live record. Cause: test worker used
+`vTaskDelay(pdMS_TO_TICKS(2U))`, which yielded **zero ticks**
+on this FreeRTOS platform, so its 500-iteration holding period
+ended in ~5 ms and it released mutex before the admission
+deadline. This was an early-release test defect, not an
+admission implementation violation.
+
+Corrected holder and parent polling to
+`vTaskDelay(1U)` (always one real native RTOS tick), retaining
+finite retry count and cross-core release protocol.
+Final corrected ESP-IDF/PioArduino firmware build
+`20261019T144940-f5117240` **PASS exit0**;
+factory SHA256
+`9570e2b5214b4989f41d46e95942379b960a5b3101cc20beaa3aef968e7eaa71`.
+Actual 0x0 ESP32 flash write + independent readback
+`20261019T145043-4be56437` **PASS exit0**.
+Three separate real UART/NVS-restart cycles
+`20261019T145122-b0bb8241` **PASS exit0**;
+actual mutex-contention wall elapsed each
+**40,035 microseconds**, admission Status
+DeadlineElapsed=1, queue result Busy=3, MemoryAttempted=0,
+scratch empty, output inactive, Record::Live=0, worker
+mutex released=1. All old 18/18 HIL checkpoints, EDLG CRC,
+resources, G2 owner statuses, G4 child codecs and G11 Off
+selection PASS. Private captured evidence SHA manifest digest
+`ac2b902a5dc4e79583fc4d30aa94ac7947b1036f5bcbac8f0691324044b7c062`
+under `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-native-mutex-realtick-captures`.
+No new package version or persistent product release claim.
+
+**Boundary:** One real queue mutex contention and one real full
+queue deadline are now physically exercised; extensive mixed
+Memory pool/Queue contention, provider failures, cancellation
+and shutdown, power interruption and worst-case product
+load are not yet certified.

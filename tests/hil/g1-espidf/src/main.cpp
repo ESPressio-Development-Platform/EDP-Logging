@@ -409,6 +409,80 @@ void Worker(void* arg) {
     xTaskNotifyGive(work.Parent);
     vTaskDelete(nullptr);
 }
+struct NativeQueueMutexHold final {
+    QueueMutex* MutexPtr{};
+    std::atomic<bool> Holding{false};
+    std::atomic<bool> ReleaseRequested{false};
+    std::atomic<bool> Released{false};
+    std::atomic<bool> Acquired{false};
+};
+void NativeQueueMutexHolder(void* arg) noexcept {
+    auto& work=*static_cast<NativeQueueMutexHold*>(arg);
+    const auto held=work.MutexPtr->TryAcquire();
+    work.Acquired.store(held==Threading::OrdinaryMutexAcquireResult::Acquired);
+    work.Holding.store(true);
+    if(work.Acquired.load()) {
+        // Use an actual RTOS tick: pdMS_TO_TICKS(2) can round to ZERO
+        // at the platform's configured FreeRTOS tick frequency.
+        for(unsigned retry=0U;
+            retry<500U && !work.ReleaseRequested.load(); ++retry)
+            vTaskDelay(1U);
+        const auto released=work.MutexPtr->Release();
+        work.Released.store(released==Threading::OrdinaryMutexReleaseResult::Released);
+    } else {
+        work.Released.store(true);
+    }
+    vTaskDelete(nullptr);
+}
+bool VerifyNativeQueueMutexDeadline(
+    Queue& queue, QueueMutex& mutex, Lifecycle& lifecycle,
+    Wakes& wakes, Pool& pool
+) noexcept {
+    NativeQueueMutexHold work{};
+    work.MutexPtr=&mutex;
+    if(xTaskCreatePinnedToCore(&NativeQueueMutexHolder,
+        "logging_mutex_hold",4096U,&work,3U,nullptr,1)!=pdPASS)
+        return Check(false,"g1-native-mutex-task-start");
+    for(unsigned n=0U;n<200U && !work.Holding.load();++n)
+        vTaskDelay(1U);
+    if(!work.Holding.load() || !work.Acquired.load()) {
+        work.ReleaseRequested.store(true);
+        return Check(false,"g1-native-mutex-acquired");
+    }
+    Lease scratch;
+    Queue::Reservation output;
+    const auto neverStop=[]() noexcept -> bool {return false;};
+    const auto start=esp_timer_get_time();
+    const auto result=Logging::AcquireRecordUntil<8U,8U>(
+        queue,lifecycle,wakes,0U,pool,scratch,output,
+        Deadline(40U),neverStop,704
+    );
+    const auto elapsed=esp_timer_get_time()-start;
+    work.ReleaseRequested.store(true);
+    for(unsigned n=0U;n<300U && !work.Released.load();++n)
+        vTaskDelay(1U);
+    std::printf("EDP_LOGGING_HIL|G1_MUTEX_DIAGNOSTIC|status=%u|queue=%u|elapsed_us=%lld|memory=%u|scratch=%u|active=%u|live=%d|released=%u\n",
+                static_cast<unsigned>(result.Status),
+                static_cast<unsigned>(result.Queue),
+                static_cast<long long>(elapsed),
+                static_cast<unsigned>(result.MemoryAttempted),
+                static_cast<unsigned>(scratch.IsEmpty()),
+                static_cast<unsigned>(output.IsActive()),
+                static_cast<int>(Record::Live.load()),
+                static_cast<unsigned>(work.Released.load()));
+    const bool bounded=
+        (result.Status==Logging::RecordAdmissionStatus::DeadlineElapsed ||
+         result.Status==Logging::RecordAdmissionStatus::QueueFailure) &&
+        !result.MemoryAttempted && scratch.IsEmpty() &&
+        !output.IsActive() && Record::Live.load()==0 &&
+        elapsed>=0 && elapsed<60000LL && work.Released.load();
+    if(!Check(bounded,"g1-native-mutex-contention-finite-no-lease"))
+        return false;
+    std::printf("EDP_LOGGING_HIL|G1_NATIVE_MUTEX_US|%lld\n",
+                static_cast<long long>(elapsed));
+    return true;
+}
+
 bool Run() {
     static Timebase timebase;
     static Clock::MonotonicClockProvider<Timebase> clock(timebase);
@@ -451,6 +525,7 @@ bool Run() {
         std::printf("EDP_LOGGING_HIL|PASS|FIFO_MEMORY_OWNERSHIP\n");
     }
     using Timeout=Platform::Synchronization::WaitTimeout;
+    if(!VerifyNativeQueueMutexDeadline(queue,mutex,lifecycle,wakes,pool)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.
