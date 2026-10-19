@@ -483,6 +483,50 @@ bool VerifyNativeQueueMutexDeadline(
     return true;
 }
 
+bool VerifyNativeMemoryCapacityDeadline(
+    Queue& queue, Lifecycle& lifecycle, Wakes& wakes, Pool& pool
+) noexcept {
+    const auto noWait=Platform::Synchronization::WaitTimeout::NoWait();
+    Lease heldA,heldB;
+    const auto a=pool.Acquire(heldA,noWait,811);
+    const auto b=pool.Acquire(heldB,noWait,812);
+    if(!Check(a==Memory::ObjectPoolAcquisitionResult::Succeeded &&
+              b==Memory::ObjectPoolAcquisitionResult::Succeeded &&
+              Record::Live.load()==2,
+              "g1-memory-occupancy-two-owned-leases")) return false;
+    Lease scratch;
+    Queue::Reservation reservation;
+    const auto neverStop=[]() noexcept -> bool {return false;};
+    const auto before=esp_timer_get_time();
+    const auto status=Logging::AcquireRecordUntil<8U,16U>(
+        queue,lifecycle,wakes,0U,pool,scratch,reservation,
+        Deadline(40U),neverStop,813
+    );
+    const auto elapsed=esp_timer_get_time()-before;
+    const bool memoryBounded=
+        status.Status==Logging::RecordAdmissionStatus::DeadlineElapsed &&
+        status.MemoryAttempted && scratch.IsEmpty() &&
+        !reservation.IsActive() && elapsed>=0 && elapsed<60000LL &&
+        Record::Live.load()==2;
+    const auto releasedA=lifecycle.ReleaseAndNotify(heldA);
+    const auto releasedB=lifecycle.ReleaseAndNotify(heldB);
+    std::printf("EDP_LOGGING_HIL|G1_MEMORY_DIAGNOSTIC|status=%u|memory=%u|elapsed_us=%lld|empty=%u|active=%u|release_a=%u|release_b=%u|live=%d\n",
+                static_cast<unsigned>(status.Status),
+                static_cast<unsigned>(status.Memory),
+                static_cast<long long>(elapsed),
+                static_cast<unsigned>(scratch.IsEmpty()),
+                static_cast<unsigned>(reservation.IsActive()),
+                static_cast<unsigned>(releasedA),
+                static_cast<unsigned>(releasedB),
+                static_cast<int>(Record::Live.load()));
+    return Check(memoryBounded &&
+                 releasedA==Logging::CoordinatedReleaseResult::ReleasedAndNotified &&
+                 releasedB==Logging::CoordinatedReleaseResult::ReleasedAndNotified &&
+                 heldA.IsEmpty() && heldB.IsEmpty() &&
+                 Record::Live.load()==0,
+                 "g1-native-memory-capacity-deadline");
+}
+
 bool Run() {
     static Timebase timebase;
     static Clock::MonotonicClockProvider<Timebase> clock(timebase);
@@ -526,6 +570,7 @@ bool Run() {
     }
     using Timeout=Platform::Synchronization::WaitTimeout;
     if(!VerifyNativeQueueMutexDeadline(queue,mutex,lifecycle,wakes,pool)) return false;
+    if(!VerifyNativeMemoryCapacityDeadline(queue,lifecycle,wakes,pool)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.

@@ -71,3 +71,18 @@ admission. The test now uses `vTaskDelay(1U)` and
 demonstrated the intended actual held-mutex path.
 These tests are *not* exhaustive all-provider cancellation
 or all-race qualification.
+
+
+## 2026-10-19 — actual exhausted EDP-Memory pool finite admission
+
+Third independently physically qualified native WROOM source path:
+two dedicated EDP-Memory object leases occupied, queue empty,
+third producer reserves one Queue slot, waits on Memory with
+same 40 ms monotonic deadline, times out at **36.863 ms** in
+three runs, yields no scratch lease/queue reservation,
+no unauthorized third object, and both held leases return via
+ReleaseAndNotify with successful capacity publication. Full 18/18
+native HIL, independent flash verify and retained capture SHA
+in [VALIDATION](../tests/hil/g1-espidf/VALIDATION.MD).
+Actual provider-specific late-grant and adversarial wake/shutdown
+cases remain to be independently closed.

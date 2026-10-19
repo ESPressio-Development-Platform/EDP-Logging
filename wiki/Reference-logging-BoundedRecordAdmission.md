@@ -49,3 +49,16 @@ A predecessor test erroneously used a zero-tick
 FreeRTOS poll delay; corrected to one tick and
 full hardware test rerun. Actual deadline proof is
 bounded to this scenario, not product worst-case.
+
+
+## 2026-10-19 — real Memory object-pool exhaustion
+
+Two live native WROOM EDP-Memory Record leases fully
+occupy the dedicated pool while Queue slots remain free;
+third AcquireRecordUntil reserves/rolls back its Queue slot
+and times out at 36.863 ms of a requested 40 ms Clock
+deadline, without owning scratch/queue after timeout.
+Both pre-existing leases release through the coordinator
+with successful producer wake publication, live records
+return to zero. Three independently captured physical
+runs and all 18/18 HIL markers PASS.

@@ -754,3 +754,39 @@ queue deadline are now physically exercised; extensive mixed
 Memory pool/Queue contention, provider failures, cancellation
 and shutdown, power interruption and worst-case product
 load are not yet certified.
+
+
+## 2026-10-19 — G1 native real EDP-Memory exhaustion with queue rollback
+
+Third independent real ESP32 finite-admission scenario: two actual
+EDP-Memory dedicated ObjectPool leases hold every physical Record
+instance, while the two-slot transactional queue remains EMPTY.
+Third producer invokes AcquireRecordUntil on the SAME 40 ms
+EDP-Clock absolute deadline, so it first reserves its Queue slot,
+then waits for actual Memory capacity. Requires DeadlineElapsed,
+MemoryAttempted=true, Memory result DeadlineElapsed, no scratch
+lease, no remaining output reservation, two retained old objects
+while waiting, then clean releases of both held leases via
+AdmissionLifecycleCoordinator::ReleaseAndNotify, successful wake
+publication and Record::Live=0. Elapsed must remain <60ms.
+
+PioArduino ESP-IDF WROOM build
+`20261019T145955-ae1d1ed2` **PASS exit0**,
+factory SHA256
+`ece445320cf50fc97bfaba339a7b24351544266f13b68ad3f89946c256dee2ee`.
+Actual hardware write and independent on-chip verify-flash
+`20261019T150100-3bfccd90` **PASS exit0**.
+Three real independent UART/NVS-restart cycles
+`20261019T150155-b01ce6e4` **PASS exit0**:
+**36,863 µs each**, Status DeadlineElapsed=1,
+Memory outcome DeadlineElapsed=2, both CoordinatedReleaseResult
+ReleasedAndNotified=0, no live records, no output/scratch ownership.
+All 18/18 prior HIL markers including G1 full queue and
+two-core mutex, G2/G4, EDLG/CRC, resources, G11 OFF PASS.
+Private evidence capture SHA manifest
+`a14d7c49745219022b288fe73ddae06106ee3ca1af258c017e2e5dcb5541940b`
+at `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-native-memory-exhaustion-captures`.
+
+Scope limited to physical actual pool exhaustion and clean release;
+no unpowered reset, adversarial late-grant provider, native Memory
+mutex contention or every shutdown/cancellation interleaving claimed.

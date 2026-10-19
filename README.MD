@@ -403,3 +403,16 @@ independently reflashed. Evidence
 [HIL validation](tests/hil/g1-espidf/VALIDATION.MD).
 Remaining shutdown, late Memory, concurrency and power-loss
 bounds require further independent tests.
+
+
+## G1 native exhausted Memory pool deadline (2026-10-19)
+
+A real ESP32 WROOM test now fully occupies both EDP-Memory
+dedicated record slots while the queue remains available.
+The third producer's one 40ms Clock deadline times out in
+36.863ms (3/3 physical cycles), cleanly aborts its Queue
+reservation, retains no Memory lease, and confirms both
+existing leases are released with capacity notifications.
+Prior full-queue and cross-core mutex deadline cases and
+all 18/18 full HIL markers remain PASS.
+[Validation](tests/hil/g1-espidf/VALIDATION.MD).
