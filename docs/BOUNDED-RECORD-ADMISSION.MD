@@ -104,3 +104,24 @@ all 18/18 HIL markers intact. Full jobs and artifact hash
 in [HIL VALIDATION](../tests/hil/g1-espidf/VALIDATION.MD).
 Native provider-failure and adversarial late-grant stress
 cases remain independently open.
+
+
+## 2026-10-19 — two-core real Memory release ordering proof
+
+A new actual WROOM FreeRTOS HIL exercises the same native object
+pool across Core1 producer/Core0 Memory capacity release:
+one true Memory grant before a 500ms deadline and one 40ms
+Memory wait timeout **before capacity is returned**. It requires
+only approved `AcquireRecordUntil`, EDP-Memory, Coordinator,
+Queue, EDP-Threading signalling, final complete reservation
+rollback, and zero live objects or active admissions.
+Final physical build `20261019T163505-49528812`, write/verify
+`20261019T164114-6cda40fd`, independent real UART cycles
+`20261019T164337-cf0128ff` all PASS; 3/3 full native
+18/18 markers and both race orderings. See
+[HIL Validation](../tests/hil/g1-espidf/VALIDATION.MD).
+
+This is **not** an assertion that a provider granted capacity
+at the exact deadline or after it already elapsed; that rare
+`GrantedAfterDeadline` interleaving still requires a separately
+controlled stress/fault-injection test.

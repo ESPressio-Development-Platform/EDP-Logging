@@ -832,3 +832,54 @@ Boundary: one pre-confirmed native memory-wait worker and
 coordinated shutdown; not an exhaustive race/fuzz exploration
 of late grants, failed native wake notification or
 multiple simultaneous producer-slot interactions.
+
+
+## 2026-10-19 — G1 native cross-core Memory grant before/after deadline
+
+Added `g1_memory_grant_boundary.hpp` (included within Test in
+`main.cpp`), creating a fresh independent bounded Queue,
+EDP-Threading Wakes, AdmissionLifecycleCoordinator and native mutex
+for each trial, sharing the initialized real EDP-Memory pool.
+Two actual pool leases occupy all dedicated instances while the
+third producer is spawned on ESP32 Core1. Core0 observes an active
+admission before releasing capacity, or waits until the Core1
+producer has timed out. Cases:
+
+- **Before**: one leased object released by coordinator before the
+  500ms deadline; producer MUST be Admitted with its expected value,
+  then Abort the reservation without leak, and release remaining
+  held objects.
+- **After**: producer waits against 40ms Clock deadline while
+  pool remains full, returns DeadlineElapsed without a lease or
+  active Queue reservation; ONLY AFTER worker completes does Core0
+  return capacity. Late available capacity must not resurrect a
+  completed transaction.
+
+Both require actual MemoryAttempted, task completion notification,
+zero final live Record objects, zero ActiveAdmissions, both held
+leases released/notified and empty; all 18 existing native markers
+remain required. This tests two real release orderings, **NOT**
+adversarial `GrantedAfterDeadline` inside the race window.
+
+Initial build `20261019T162611-7acaf0d4` PASS but test log
+included a literal newline escape; corrected source. First
+incremental build `20261019T163216-59e579af` FAIL exit1 because
+build invocation forgot pinned EDP_LOGGING_DEPENDENCY_ROOT; not
+a source failure. Corrected full PioArduino ESP-IDF build
+`20261019T163505-49528812` **PASS exit0**, factory image SHA256
+`0639d7dd742041004e0636fde7b6c4f0cbe0b86dc96223536317544831db527c`.
+Real physical flash and separate on-chip verification
+`20261019T164114-6cda40fd` **PASS exit0**. Three fresh
+independent native UART/NVS-restart cycles, now correctly labelled,
+`20261019T164337-cf0128ff` **PASS exit0**, all existing
+18/18 markers and CRC/resources/G11 each cycle.
+Each cycle before-case result Admitted (status 0), observed
+418us after Core0 release, no leaks; after-case
+DeadlineElapsed (status 1), observed 30922us from the parent
+measurement start, no leases/reservations leaked.
+Private evidence capture manifest SHA256
+`c104ec53258a67a83bb9dcf97aa175c1c4620b679df76592d8f3d9805f22b58a`;
+captures remain in `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-grant-boundary-qualified-captures`.
+
+No unexpected physical power interruption occurred, and the exact
+sub-tick late-grant-after-deadline interleaving remains open.

@@ -76,3 +76,16 @@ physical runs PASS 292–293µs shutdown coordination,
 zero active admissions and live objects, full 18/18
 HIL regressions intact. Adversarial late grant and
 provider failure remain open.
+
+
+## 2026-10-19 real two-core Memory capacity arrival
+
+New opt-in native test runs Core1 producer under a bounded Clock
+deadline while Core0 controls release from actual EDP-Memory.
+A grant well before the deadline is admitted then released; capacity
+that arrives only *after* a timed-out producer has exited cannot
+resurrect its output reservation or retain an object. Full
+18/18 prior hardware markers and 3/3 independent real-device
+UART/NVS restart captures PASS. The exact race where the
+Memory provider grants after deadline but before the consumer
+observes it remains a separate qualification gap.

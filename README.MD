@@ -428,3 +428,16 @@ producer joined with ShutdownRequested, zero active
 admissions/leaks and all 18/18 earlier HIL markers retained;
 292–293µs observed controlled shutdown coordination.
 [Validation](tests/hil/g1-espidf/VALIDATION.MD).
+
+
+## G1 native Core0/Core1 Memory grant boundary (2026-10-19)
+
+Actual ESP32-D0WD/WROOM two-core producer/capacity-release tests
+now prove both grant-before-deadline and capacity-released-only-after
+timeout with real EDP-Memory, EDP-Threading and rollback.
+Fresh build, independent chip write/verify and 3/3 UART/NVS
+restart sessions passed all original 18/18 HIL gates and verified
+no live Record or active admission remains after either case.
+[Evidence and limitations](tests/hil/g1-espidf/VALIDATION.MD).
+Exact near-deadline late-provider-grant interleaving and final G1
+release remain outstanding.

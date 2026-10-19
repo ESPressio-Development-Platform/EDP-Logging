@@ -576,6 +576,8 @@ bool VerifyShutdownDuringNativeMemoryWait(Pool& pool) noexcept {
         "g1-real-shutdown-while-memory-exhausted");
 }
 
+#include "g1_memory_grant_boundary.hpp"
+
 bool Run() {
     static Timebase timebase;
     static Clock::MonotonicClockProvider<Timebase> clock(timebase);
@@ -621,6 +623,8 @@ bool Run() {
     if(!VerifyNativeQueueMutexDeadline(queue,mutex,lifecycle,wakes,pool)) return false;
     if(!VerifyNativeMemoryCapacityDeadline(queue,lifecycle,wakes,pool)) return false;
     if(!VerifyShutdownDuringNativeMemoryWait(pool)) return false;
+    if(!VerifyCrossCoreMemoryGrantBoundary(pool,true)) return false;
+    if(!VerifyCrossCoreMemoryGrantBoundary(pool,false)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.
