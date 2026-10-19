@@ -317,3 +317,16 @@ memory fixture, **not** a durable EDP-Persistence sink. Accepted Serial
 FIFO bytes are not proof of end-user physical receipt. This one-sink
 change does not complete asynchronous copy/lease/fork-join, governed
 15-field CBOR/JSON or power-interruption durability; issue #1 remains open.
+
+
+## G4 approved Field 11 and 14 codec validation (2026-10-19)
+
+The G4-approved Clock projection/quality pair (Field 11) and zero-only
+validity fact byte (Field 14) are implemented through reversible opt-in
+EDP-Serialisation/EDP-BoundedTypes adapters; [wire documentation](docs/G4-APPROVED-FIELD-WIRE.MD).
+Native GCC and Clang exhaustive child-field CBOR/JSON tests pass. Real
+ESP32-WROOM firmware independently flashed/verified and passed three
+native G4 CBOR/JSON source checks within the standard 18/18 HIL.
+These are **child-field** proofs, NOT a complete 15-field LogRecord
+Typed Envelope or durability certification. No new TypeIdentifier,
+parent FieldId, package version or mandatory dependency was introduced.

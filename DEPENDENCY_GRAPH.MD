@@ -258,3 +258,13 @@ still requires application-selected abstract EDP-Memory and EDP-Platform,
 with the encoder and concrete Serial/Persistence adapters at Bootstrap.
 No new owner, Mesh coupling or circular edge was introduced. The 1-sink
 and 2-sink regression cases use the same optional EDP-Memory/Serial closure.
+
+
+## G4 approved Field 11/14 opt-in conversion dependency closure
+
+The optional `logging/LogRecordApprovedFieldsSerialisation.hpp` imports
+EDP-Serialisation and EDP-BoundedTypes to adapt Logging-typed values,
+and consumes EDP-Clock owner statuses through LogRecord. These are
+optional application composition edges, not mandatory Logging foundation
+imports. EDP-Serialisation owns both CBOR/JSON codecs, no duplication or
+new Mesh dependencies, package versions remain at 0.1.0.

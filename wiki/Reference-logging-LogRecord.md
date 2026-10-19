@@ -62,3 +62,15 @@ The bounded source capture now supports owner-backed UTF-8, Bytes,
 System TypeIdentifier, DeviceIdentifier and the added exact one-byte
 FieldIdentifier private source kind. It does not confuse semantic
 FieldIdentifier with a generic U8 argument or public wire tag.
+
+
+## 2026-10-19 — approved G4 child-field wire
+
+Field 11 is an ordered two-element pair of EDP-Clock owner enums,
+`ClockCorrelationProjectionStatus` and `TemporalQualityAssessment`.
+Field 14 is exactly one uint8 whose only supported v1 value is zero;
+nonzero and unknown enum values fail closed. The approved
+[G4 child wire reference](../docs/G4-APPROVED-FIELD-WIRE.MD) uses
+EDP-Serialisation rather than a Logging-local codec. GCC/Clang and
+fresh three-run real ESP32 WROOM qualification passed. These proofs
+do **not** establish the complete Typed Envelope or persistent durability.

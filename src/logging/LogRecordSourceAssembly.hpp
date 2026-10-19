@@ -107,8 +107,11 @@ namespace ESPressio::Logging {
     /// FieldIdentifier and DeviceIdentifier via existing owner-backed capture
     /// facilities. Other strong types remain compile-time rejected until
     /// a semantically exact owned capture adapter is added.
-    /// Fields 11 and 14 remain UNISSUED source-only zero placeholders;
-    /// successfully preparing this struct NEVER authorises wire emission.
+    /// Fields 11/14 have approved child vocabularies. This operation
+    /// conservatively initializes Clock provenance as CorrelationUnavailable
+    /// and Unreliable, and V1 record facts as zero; it does not manufacture
+    /// a Clock projection or quality assessment. Full canonical record wire
+    /// emission remains gated on a complete owner-qualified serializer.
     ///
     /// @tparam TMessageSchema The generated declared source-message schema,
     ///         including its same-family owning diagnostic fingerprint.

@@ -151,14 +151,14 @@ int main() {
 
     // Unknown source fact bits must never become certified persistent
     // semantics merely because the containing FieldIdentifiers are issued.
-    record.Provenance.OpaqueSourceFacts=1U;
+    record.Provenance.Projection=static_cast<ESPressio::Clock::ClockCorrelationProjectionStatus>(255U);
     assert(L::ValidateLogRecord(record)==
-           L::LogRecordValidation::UnapprovedTemporalProvenance);
-    record.Provenance.OpaqueSourceFacts=0U;
-    record.Facts.OpaqueSourceFacts=1U;
+           L::LogRecordValidation::InvalidTemporalProvenance);
+    record.Provenance.Projection={};
+    record.Facts.Value=1U;
     assert(L::ValidateLogRecord(record)==
-           L::LogRecordValidation::UnapprovedRecordFacts);
-    record.Facts.OpaqueSourceFacts=0U;
+           L::LogRecordValidation::ReservedRecordFacts);
+    record.Facts.Value=0U;
     assert(L::ValidateLogRecord(record)==L::LogRecordValidation::Valid);
 
     // Incoherent/missing synchronized observations MUST retain saturated,

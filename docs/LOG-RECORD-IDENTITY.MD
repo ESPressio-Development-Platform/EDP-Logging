@@ -29,21 +29,21 @@ and byte capacities. `ValidateLogRecord()` rejects invalid source
 or attempt identity, severity, reserved String identifiers, mismatched
 width, or contradictory synchronized-time/era evidence. In particular,
 no synchronized coordinate requires **saturated/unknown upstream Clock
-uncertainty**, and both as-yet-unissued Field 11/14 in-memory
-`OpaqueSourceFacts` placeholders must remain zero. Otherwise validation
-returns dedicated `InvalidSyncEvidence`, `UnapprovedTemporalProvenance`
-or `UnapprovedRecordFacts` outcomes respectively. These checks only
-close a source validation gap; they do **not** allocate any on-wire bits,
-turn `SchemaType` into `SerialisableType`, or certify captured history.
+uncertainty**. Field 11's approved two EDP-Clock enum values must belong
+to the issued numeric domains; Field 14 is exactly a zero-only uint8.
+Their invalidity is diagnosed as `InvalidTemporalProvenance` or
+`ReservedRecordFacts`. These checks do **not** automatically make the
+full `LogRecord` a `SerialisableType` or certify captured history.
 
 **CRITICAL: a `System::SchemaType` is only Type identity and C++
 Field binding; it is NOT automatically `Serialisation::SerialisableType`.**
-Field 11 temporal provenance and Field 14 record-validity-fact bit
-meanings are **not registered**. Their current zero-initialized
-in-memory opaque placeholders make NO claim about approved wire bit
-meaning, width, or historical schema stability. Typed CBOR/JSON
-LogRecord envelope, authenticated schema history, runtime sink and
-task lifetimes remain OPEN. No native C++ object is ever a wire format.
+Field 11's owner-issued Clock enum pair and Field 14's zero-only uint8
+have now been specifically approved for wire v1. These two reversible
+child adapters are independently tested in CBOR and JSON; see
+[G4 field wire definitions](./G4-APPROVED-FIELD-WIRE.MD).
+The **complete** Typed CBOR/JSON LogRecord envelope, authenticated
+schema history, runtime sink and task lifetimes remain OPEN.
+No native C++ object is itself a wire format.
 
 The LogRecord identity is unrelated to the EDP-Localisation
 StringIdentifier used for individual diagnostic messages, and Logging

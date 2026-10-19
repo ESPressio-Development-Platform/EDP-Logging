@@ -604,3 +604,23 @@ memory fixture, **not** a durable EDP-Persistence sink. Accepted Serial
 FIFO bytes are not proof of end-user physical receipt. This one-sink
 change does not complete asynchronous copy/lease/fork-join, governed
 15-field CBOR/JSON or power-interruption durability; issue #1 remains open.
+
+
+## 2026-10-19 — G4 approved child-field fresh physical WROOM proof
+
+Host GCC/Clang canonical CBOR/JSON tests detached
+`20261019T111050-c7675df7` **PASS exit0**. Verified all twelve valid
+owner Clock enum pairs, invalid enum rejection, Field14 zero-only,
+malformed arrays and canonical exact bytes.
+
+Fresh WROOM ESP-IDF build `20261019T111337-b6f06252`
+**PASS exit0**, complete factory image SHA256
+`b7d4403cc6d8a732ff4eae1372f34ad458f38e9529d0a12d9012b325ceaf533c`.
+Real ESP32 flash plus separately verified on-chip digest
+`20261019T112033-d108dcb8` **PASS exit0**. Three independently
+captured real host-reset/NVS-restart UART sessions detached
+`20261019T112128-7c54b6e5` **PASS exit0**, retaining the original
+18/18 functional markers, complete EDLG CRC and resource/G11 checks,
+plus actual G4 CBOR/JSON pair round-trip and zero-only Field14 probe
+inside GOVERNED_LOG_RECORD_VALIDATION. No external power cut, complete
+15-field typed envelope, historical decode, or product budget is claimed.

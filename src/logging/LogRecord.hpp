@@ -7,6 +7,8 @@
 
 #include <ESPressio_System.hpp>
 #include <clock/ClockEra.hpp>
+#include <clock/ClockCorrelationProjectionStatus.hpp>
+#include <clock/TemporalQualityAssessment.hpp>
 #include <clock/MonotonicTimestamp.hpp>
 #include <clock/SynchronizationState.hpp>
 #include <clock/SynchronizationUncertainty.hpp>
@@ -55,32 +57,29 @@ namespace ESPressio::Logging {
     };
 
 
-    /// IN-MEMORY placeholder for unallocated Field 11 provenance sub-vocabulary.
-    /// Neither the field's wire width nor its bit meanings are approved.
+    /// Approved Field 11: two strongly typed EDP-Clock owner statuses.
+    /// V1 wire child pair: [Projection, Quality] as owner enum uint8 values.
     struct LogTemporalProvenance final {
-
-        /// Zero-initialized source bookkeeping only, never an encoded wire flag.
-        std::uint16_t OpaqueSourceFacts{0U};
-
+        Clock::ClockCorrelationProjectionStatus Projection{
+            Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
+        };
+        Clock::TemporalQualityAssessment Quality{
+            Clock::TemporalQualityAssessment::Unreliable
+        };
     };
 
-
-    /// IN-MEMORY placeholder for unallocated Field 14 validity-facts vocabulary.
-    /// The integer is NOT a wire-field bit allocation.
+    /// Approved Field 14: V1 unsigned byte, zero only. All other values
+    /// are reserved and invalid for both encoding and decoding.
     struct LogRecordFacts final {
-
-        /// Zero-initialized source bookkeeping, not a serialised bit set.
-        std::uint8_t OpaqueSourceFacts{0U};
-
+        std::uint8_t Value{0U};
     };
 
 
     /// Structural canonical LogRecord, with finite source-selected capacities.
     ///
     /// This satisfies System::SchemaType and binds all fifteen approved field
-    /// identities. It does NOT implement the canonical typed CBOR/JSON envelope
-    /// or Serialisation::SerialisableType; Field 11 and 14 wire sub-vocabularies
-    /// are still governed but unallocated.
+    /// identities. Fields 11/14 have governed child vocabularies. The
+    /// complete 15-field serialisable envelope is still independently gated.
     ///
     /// @tparam TWidth Bootstrap-selected width of the per-incarnation sequence.
     /// @tparam TMaximumArguments Maximum owned positional argument count.
@@ -143,7 +142,7 @@ namespace ESPressio::Logging {
 
         // Provenance, generated diagnostic schema and record fact fields.
 
-        /// Field 11: opaque in-memory temporal provenance pending wire vocabulary.
+        /// Field 11: two typed EDP-Clock statuses in fixed order.
         LogTemporalProvenance Provenance{};
 
         /// Field 12: independent 16-byte diagnostic schema fingerprint.
@@ -152,7 +151,7 @@ namespace ESPressio::Logging {
         /// Field 13: fully owned, bounded, heterogeneous positional arguments.
         OwnedDiagnosticArguments<TMaximumArguments, TArgumentBytes> Arguments{};
 
-        /// Field 14: opaque in-memory record-validity facts pending wire vocabulary.
+        /// Field 14: zero-only uint8, nonzero values are reserved.
         LogRecordFacts Facts{};
 
 
@@ -201,8 +200,8 @@ namespace ESPressio::Logging {
         InvalidSyncEvidence = 5U,
         InvalidSeverity = 6U,
         InvalidMessage = 7U,
-        UnapprovedTemporalProvenance = 8U,
-        UnapprovedRecordFacts = 9U
+        InvalidTemporalProvenance = 8U,
+        ReservedRecordFacts = 9U
     };
 
 
@@ -270,14 +269,16 @@ namespace ESPressio::Logging {
             return LogRecordValidation::InvalidSyncEvidence;
         }
 
-        // The 11/14 root FieldIdentifiers are approved, but their sub-fact
-        // bit vocabularies have not been issued. Fail closed on any nonzero
-        // temporary in-memory facts rather than silently legitimising them.
-        if (record.Provenance.OpaqueSourceFacts != 0U) {
-            return LogRecordValidation::UnapprovedTemporalProvenance;
+        // Fail closed on unknown EDP-Clock enum values or reserved fact bits.
+        if (static_cast<std::uint8_t>(record.Provenance.Projection) >
+                static_cast<std::uint8_t>(
+                    Clock::ClockCorrelationProjectionStatus::SynchronizedCoordinateOverflow) ||
+            static_cast<std::uint8_t>(record.Provenance.Quality) >
+                static_cast<std::uint8_t>(Clock::TemporalQualityAssessment::Reliable)) {
+            return LogRecordValidation::InvalidTemporalProvenance;
         }
-        if (record.Facts.OpaqueSourceFacts != 0U) {
-            return LogRecordValidation::UnapprovedRecordFacts;
+        if (record.Facts.Value != 0U) {
+            return LogRecordValidation::ReservedRecordFacts;
         }
 
         return LogRecordValidation::Valid;

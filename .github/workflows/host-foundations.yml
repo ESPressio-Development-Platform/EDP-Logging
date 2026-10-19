@@ -110,6 +110,28 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-Serial
           ref: feature/logging-v1
           path: EDP-Serial
+      - name: Checkout Serialisation owner for approved G4 child-field wire
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Serialisation
+          ref: feature/logging-v1
+          path: EDP-Serialisation
+      - name: Checkout BoundedTypes conversion owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTypes
+          ref: main
+          path: EDP-BoundedTypes
+      - name: Checkout Platform-Portable ByteOperations owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform-Portable
+          ref: main
+          path: EDP-Platform-Portable
+      - name: G4 approved Field11 Field14 canonical CBOR JSON regression
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-g4-approved-field-wire-tests.sh
       - name: Run G10 one-sink and two-sink owner-composed lifetime regression
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}

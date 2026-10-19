@@ -22,6 +22,8 @@
 #include <execution/ExecutionContextProvider.hpp>
 #include <synchronization/SpinLockProvider.hpp>
 #include <logging/LogRecord.hpp>
+#include <logging/LogRecordApprovedFieldsSerialisation.hpp>
+#include "g4_approved_field_check.hpp"
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
 #include <serialisation/PositionalValueEncoding.hpp>
@@ -158,16 +160,16 @@ bool TestGovernedLogRecordValidation() noexcept {
     record.Message.String=3U;
     if (!Check(Logging::ValidateLogRecord(record)==
         Logging::LogRecordValidation::Valid,"record-monotonic-only-valid")) return false;
-    record.Provenance.OpaqueSourceFacts=1U;
+    record.Provenance.Projection=static_cast<Clock::ClockCorrelationProjectionStatus>(255U);
     if (!Check(Logging::ValidateLogRecord(record)==
-        Logging::LogRecordValidation::UnapprovedTemporalProvenance,
+        Logging::LogRecordValidation::InvalidTemporalProvenance,
         "record-unissued-provenance-rejected")) return false;
-    record.Provenance.OpaqueSourceFacts=0U;
-    record.Facts.OpaqueSourceFacts=1U;
+    record.Provenance.Projection={};
+    record.Facts.Value=1U;
     if (!Check(Logging::ValidateLogRecord(record)==
-        Logging::LogRecordValidation::UnapprovedRecordFacts,
+        Logging::LogRecordValidation::ReservedRecordFacts,
         "record-unissued-facts-rejected")) return false;
-    record.Facts.OpaqueSourceFacts=0U;
+    record.Facts.Value=0U;
     record.Uncertainty=Clock::SynchronizationUncertainty::Zero();
     if (!Check(Logging::ValidateLogRecord(record)==
         Logging::LogRecordValidation::InvalidSyncEvidence,
@@ -175,6 +177,7 @@ bool TestGovernedLogRecordValidation() noexcept {
     record.Uncertainty=Clock::SynchronizationUncertainty::Maximum();
     if (!Check(Logging::ValidateLogRecord(record)==
         Logging::LogRecordValidation::Valid,"record-unknown-uncertainty-accepted")) return false;
+    if(!Check(CheckG4ApprovedFieldsOnDevice(),"g4-approved-real-codecs")) return false;
     std::printf("EDP_LOGGING_HIL|PASS|GOVERNED_LOG_RECORD_VALIDATION\n");
     return true;
 }
