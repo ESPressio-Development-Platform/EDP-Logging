@@ -893,9 +893,53 @@ bool Run() {
                 "native-encoded-edlg-crc")) return false;
             offset+=frame.Consumed;
         }
-        if(!Check(offset==endpoint.Used &&
-            copiedSerial.Depth()==0U &&
-            encoder.Calls==3U && archiveSink.Calls==3U &&
+        // G10: one-sink output is a genuine application profile; there is no
+        // requirement to allocate a dummy second sink. The same real
+        // EDP-Memory-owned payload is encoded once, copied by its only
+        // consumer, and released before the consumer transmits later.
+        const std::uint32_t oneSerialSource=21U;
+        const auto serialOnly=Logging::EncodeOnceAndSubmitToSinks<
+            Logging::EdlgCodec::Cbor,32U>(
+                encodedPool,encodedLease,oneSerialSource,encoder,serialSink
+            );
+        if(!Check(serialOnly.Status==
+                Logging::OwnedRepresentationStatus::SubmittedAndReleased &&
+                serialOnly.EncoderInvocations==1U &&
+                serialOnly.SinkInvocations==1U &&
+                serialOnly.Accepted==1U &&
+                serialOnly.Submissions[0]==Logging::RecordSinkSubmission::Accepted &&
+                copiedSerial.Depth()==1U && encodedLease.IsEmpty(),
+                "native-g10-single-serial-owned")) return false;
+        const auto lonePumped=copiedSerial.PumpNext(endpoint);
+        if(!Check(lonePumped.Status==
+                ESPressio::Serial::EdlgQueuePumpStatus::Complete &&
+                lonePumped.FrameCompleted && copiedSerial.Depth()==0U,
+                "native-g10-single-serial-transmitted")) return false;
+        Logging::EdlgFrameView loneFrame{};
+        if(!Check(Logging::ReadEdlgFrame(
+                std::span<const std::byte>(endpoint.Bytes).subspan(offset),
+                loneFrame,32U)==Logging::EdlgFrameReadResult::Succeeded &&
+                loneFrame.Codec==Logging::EdlgCodec::Cbor &&
+                loneFrame.Consumed==endpoint.Used-offset &&
+                !loneFrame.Payload.empty(),
+                "native-g10-single-serial-crc")) return false;
+        const auto archiveBefore=archiveSink.Calls;
+        const std::uint32_t oneArchiveSource=22U;
+        const auto archiveOnly=Logging::EncodeOnceAndSubmitToSinks<
+            Logging::EdlgCodec::Cbor,32U>(
+                encodedPool,encodedLease,oneArchiveSource,encoder,archiveSink
+            );
+        if(!Check(archiveOnly.Status==
+                Logging::OwnedRepresentationStatus::SubmittedAndReleased &&
+                archiveOnly.EncoderInvocations==1U &&
+                archiveOnly.SinkInvocations==1U &&
+                archiveOnly.Accepted==1U &&
+                archiveOnly.Submissions[0]==Logging::RecordSinkSubmission::Accepted &&
+                archiveSink.Calls==archiveBefore+1U &&
+                archiveSink.Used==archiveOnly.EncodedBytes &&
+                copiedSerial.Depth()==0U && encodedLease.IsEmpty(),
+                "native-g10-single-archive-owned")) return false;
+        if(!Check(encoder.Calls==5U && archiveSink.Calls==4U &&
             encodedRuntime.TearDown()==Memory::MemoryTopologyTeardownResult::Succeeded,
             "native-encoded-memory-reclaimed")) return false;
         std::printf("EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY\n");

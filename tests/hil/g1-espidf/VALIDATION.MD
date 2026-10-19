@@ -565,3 +565,42 @@ The same new isolated-source Off and Enabled full firmware images were built and
 **Fresh actual ESP32-D0WD/WROOM physical validation**, detached RPI400 run 20261019T090011-c3c4eb91 **PASS exit0**, finished at 09:01:12 CEST: both images independently flashed and verified on-chip before normal boot, then three independent real UART physical captures per mode. Each of all 6 runs passed all 18 historical HIL markers, EDLG binary CRC, resource invariants and two separate (due NVS restart) strict source-site assertions. All three Off runs evaluated Clock/identity/argument zero times per boot; all three Enabled runs evaluated each exactly once per boot. Full-image size delta On−Off remains +128 bytes .text, 0 data, 0 bss. Actual test-only worker high-water stack margin remained 5,036 bytes; observed app_main margin Off 5,064, On 5,048 to 5,064 bytes, free8 before/after/min 290,460/286,940/282,016 bytes. Numbers cannot be generalised into a production resource budget. The run produced six separately retained UART logs and sha256 hashes under RPI400 /srv/espressio/scratch/gpt6-logging-20261019-g11/physical-qualify (NOT committed raw logs or firmware). Latest On test image was left programmed under user's explicit board-disposal permission; no prior-image restoration required.
  
 The first detached two-build runner job 20261019T084501-d1695ba1 **reported FAIL exit2** solely because its own shell script was edited while the job was in progress; **both embedded ESP-IDF firmware builds themselves actually linked successfully**. The Python reconciliation from the stable script subsequently passed separately and produced the exact manifest digest above; this precursor wrapper failure is not misreported as PASS. Avoid edits to an actively executing script in future. No PowerLoss, production pipeline, multi-codec compile-out or G1–G15 final release is claimed.
+
+## 2026-10-19 — G10 one-sink *real ESP32-WROOM* integration
+
+The real ESP-IDF WROOM HIL now exercises two genuinely static G10
+single-sink configurations **in addition to** its existing two-sink fanout:
+an EDP-Memory-owned CBOR buffer accepted by EDP-Serial's bounded
+copy-on-enqueue FIFO then independently transmitted and EDLG CRC-checked
+after the source representation lease has been returned; and a second
+EDP-Memory-owned CBOR buffer accepted by one archive-style synchronous
+copying sink with no dummy Serial consumer. Each case checks exactly one
+encode and one sink call, accepted count 1, empty owner lease, independent
+payload ownership and complete pool teardown. The existing native
+two-sink ordering, rejection, CRC and 18 canonical markers remain intact.
+
+RPI400 real integrated ESP32-D0WD (WROOM) 2026-10-19:
+- Actual PioArduino/ESP-IDF build **20261019T102408-3ed33bde PASS exit0**,
+  source Git blob 41cab54885badfafc3f5d1aa611c58d473e7e630,
+  entire factory image SHA256
+  65e28a05e853f8266390be98948563928fb0aa8096948849efc21d50a40ed146.
+- Physical write from 0x0 and **separate on-chip digest verification**
+  **20261019T103019-e7ce3060 PASS exit0**.
+- Three independent live reset + intentional NVS restart UART sessions
+  **20261019T103056-344072ea PASS exit0**, finish 10:31:06 CEST.
+  Every run 18/18 native functional markers, EDLG CRC, full-test
+  resource checks and both G11 marker observations PASS; the canonical
+  MEMORY_OWNED_ENCODING_SERIAL_COPY gate now also proves both single sinks.
+- The six retained capture files/hashes live privately in
+  /srv/espressio/scratch/gpt6-logging-20261019-g11/g10-one-sink-captures;
+  capture-sha256 manifest digest
+  5f10a96f545f4ac5ce5f410ef31df0b1a0b0f9a37bb64b8d21cc3cc364fc7562.
+- Whole test bundle free8 min 282016 B, dedicated Thread stack remaining
+  5036 B and app_main stack remaining 5048–5064 B. These do **not**
+  constitute a complete Logging product resource budget.
+
+**Limits:** The archival callback is an independently copied bounded
+memory fixture, **not** a durable EDP-Persistence sink. Accepted Serial
+FIFO bytes are not proof of end-user physical receipt. This one-sink
+change does not complete asynchronous copy/lease/fork-join, governed
+15-field CBOR/JSON or power-interruption durability; issue #1 remains open.
