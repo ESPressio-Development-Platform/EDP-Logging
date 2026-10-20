@@ -89,3 +89,16 @@ resurrect its output reservation or retain an object. Full
 UART/NVS restart captures PASS. The exact race where the
 Memory provider grants after deadline but before the consumer
 observes it remains a separate qualification gap.
+
+## G1 2026-10-20: late real Memory grant ownership rollback
+
+Test-only `g1_injected_late_grant.hpp` wraps actual EDP-Memory
+ObjectPool NoWait admission, delays a genuinely successful return
+beyond the Clock deadline, and checks production admission ownership
+rollback. Actual native ESP32 build, flash+independent verification
+and 3/3 real UART/NVS-restart runs PASS, with
+`LateMemoryGrantReturned` / `GrantedAfterDeadline`,
+`ReleasedAndNotified`, successful wake publication, empty lease,
+no reservation, no live records. All earlier 18 markers PASS.
+The delay is deliberate HIL fault injection, not native-pool
+runtime behavior. No new production dependency or task is introduced.

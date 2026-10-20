@@ -125,3 +125,24 @@ This is **not** an assertion that a provider granted capacity
 at the exact deadline or after it already elapsed; that rare
 `GrantedAfterDeadline` interleaving still requires a separately
 controlled stress/fault-injection test.
+
+## 2026-10-20 — G1 late native Memory grant rollback qualification
+
+The native HIL includes `g1_injected_late_grant.hpp`: an opt-in
+test-only decorator that permits **real** EDP-Memory NoWait acquisition
+but delays returning a successful lease until after the Clock deadline.
+Logging must report `LateMemoryGrantReturned`, retain the exact
+Memory `GrantedAfterDeadline` evidence, release the lease through the
+existing lifecycle coordinator, publish capacity and abandon the
+reservation. This tests the production rollback logic without
+introducing an artificial delay into production Memory.
+
+Real ESP32-D0WD WROOM build, physical independently verified flash,
+and three new native UART test cycles PASS. All three captured
+`status=7|memory=1|release=0|wake=1|live=0|valid=1` and
+elapsed 89,032 microseconds against a 40ms deadline, while existing
+18/18 HIL markers remained green. Refer to
+[HIL validation](../tests/hil/g1-espidf/VALIDATION.MD).
+
+This does not prove natural race frequency or comprehensive
+provider-failure/power-loss behaviour; G1/G14/G15 remain open.

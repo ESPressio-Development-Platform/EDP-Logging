@@ -883,3 +883,40 @@ captures remain in `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-grant-bo
 
 No unexpected physical power interruption occurred, and the exact
 sub-tick late-grant-after-deadline interleaving remains open.
+
+## 2026-10-20 — real Memory grant returned after deadline (controlled race)
+
+A new HIL-only `g1_injected_late_grant.hpp` wraps the **real native
+EDP-Memory ObjectPool** with a deliberate FreeRTOS delay *after* a
+successful NoWait grant and before returning the result to Logging.
+The injected 80ms+tick delay exceeds the caller's 40ms absolute
+EDP-Clock deadline, deterministically exercising the rare
+`GrantedAfterDeadline` rollback, without altering production code.
+
+The test requires exactly one actual native Memory acquisition,
+`RecordAdmissionStatus::LateMemoryGrantReturned`,
+`AdmissionWaitResult::GrantedAfterDeadline`,
+`CoordinatedReleaseResult::ReleasedAndNotified`, successful capacity
+wake publication, empty scratch and queue reservation, zero live
+records and zero active admissions. This checks **source ownership
+recovery**; it does not measure the natural frequency of the race.
+
+Full PioArduino ESP-IDF WROOM build detached
+`20261020T065504-1b27bcf4` PASS exit0; complete factory image SHA256
+`39ffb6a9915567c3acf0fe1ffadd60bc349a7f0916b98e9aaf24179ed9739a06`.
+Actual 0x0 flash write and independently matched on-chip digest
+were performed by detached physical job
+`20261020T070038-d3f11092` PASS exit0, finished 07:01:22 CEST.
+Three independent real reset/NVS-restart UART cycles passed with
+18/18 existing functional markers, EDLG CRC, resources and G11 probes.
+Each measured 89,032 microseconds, status=7, memory=1,
+release=0, wake=1, live=0, valid=1.
+Private captures under `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-delayed-grant-captures-20261020`;
+capture manifest SHA256
+`feee38d9301df3cebddc89e18252430d13d85b0885cc59a39444b372735f26bd`.
+No simulated Memory lease or fake production path was substituted.
+
+**Scope:** Delayed Memory-return injection with a genuinely owned lease
+proves an important G1 failure rollback, not random scheduling odds,
+real unexpected power interruption, arbitrary native provider failures
+or complete worst-case application admission timing.

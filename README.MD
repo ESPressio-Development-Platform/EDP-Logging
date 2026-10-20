@@ -441,3 +441,15 @@ no live Record or active admission remains after either case.
 [Evidence and limitations](tests/hil/g1-espidf/VALIDATION.MD).
 Exact near-deadline late-provider-grant interleaving and final G1
 release remain outstanding.
+
+## G1 native late Memory grant recovery (2026-10-20)
+
+The physical ESP32 HIL now injects a deliberate delay *after*
+successful real EDP-Memory NoWait acquisition but before its result
+returns, proving Logging's `GrantedAfterDeadline` error preserves
+and returns the genuine lease through coordinated release.
+The 40ms deadline was crossed; all three real WROOM runs measured
+89.032ms, reclaimed all source/queue ownership, and retained 18/18
+previous HIL markers plus framing CRC. Actual flash/digest verified.
+This is controlled race-injection, not a production Memory delay
+or proof of all G1/G14/G15 limits.
