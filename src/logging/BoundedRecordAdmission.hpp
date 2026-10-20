@@ -254,6 +254,23 @@ namespace ESPressio::Logging {
             return outcome;
         }
 
+        // A native queue mutex can be granted just before its remaining
+        // timeout, but finish moving/unlocking the owned Memory lease after
+        // the caller's canonical Clock deadline. An on-time Memory grant
+        // alone is not permission to admit the record late.
+        const bool stoppedAfterAttach = stopRequested() ||
+            admission.ShutdownRequested();
+        if (stoppedAfterAttach || ESPressio::Clock::MonotonicNow() >= deadline) {
+            outcome.Status = stoppedAfterAttach
+                ? RecordAdmissionStatus::ShutdownRequested
+                : RecordAdmissionStatus::DeadlineElapsed;
+            // Scratch is already empty; the queue Reservation owns the
+            // exact Memory lease now. Abort through the queue's original
+            // lifecycle so release + wake failures remain explicit.
+            abortOutput();
+            return outcome;
+        }
+
         outcome.Status = RecordAdmissionStatus::Admitted;
         return outcome;
     }

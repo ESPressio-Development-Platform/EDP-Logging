@@ -146,3 +146,32 @@ elapsed 89,032 microseconds against a 40ms deadline, while existing
 
 This does not prove natural race frequency or comprehensive
 provider-failure/power-loss behaviour; G1/G14/G15 remain open.
+
+## 2026-10-20 — post-queue-attachment deadline enforcement
+
+`AcquireRecordUntil` now rechecks the same canonical EDP-Clock
+absolute deadline **after** the final `Queue::AttachLease`
+succeeds. An on-time EDP-Memory grant alone is not permission to
+admit a record if the final native mutex operation completes late.
+
+If shutdown or deadline expiry is observed after attachment,
+`output.Abort()` returns the **already transferred** Memory lease
+through the original queue/lifecycle owner, preserves existing
+typed notification-failure evidence, and leaves the producer's
+scratch lease empty. The result reports `ShutdownRequested` or
+`DeadlineElapsed`, not a misleading late-Memory-grant status.
+A failed queue abort is reported rather than falsely reclaimed.
+No new statuses, allocations, Threads, platform concretes or wire
+IDs were added to production Logging.
+
+Reproducible fault injection uses an HIL-only adapter around the
+actual EDP-Threading native mutex, inserting one 80ms+tick delay
+on the final timed lock while the EDP-Memory grant is genuine.
+Host GCC/Clang `20261020T071258-65de05a8` PASS exit0;
+real ESP32 build, on-chip flash verify and 3/3 UART/NVS restart
+captures `20261020T071340-b6adac07` /
+`20261020T071458-cf925ae7` PASS exit0.
+Each cycle reported `locks=2|status=1|memory=0|queue=0|live=0|
+elapsed_us=89623|valid=1`. See HIL VALIDATION.MD.
+This deliberately delayed mutex tests one failure interleaving,
+not the normal mutex latency distribution or complete G1 worst case.

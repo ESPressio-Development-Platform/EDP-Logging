@@ -920,3 +920,31 @@ No simulated Memory lease or fake production path was substituted.
 proves an important G1 failure rollback, not random scheduling odds,
 real unexpected power interruption, arbitrary native provider failures
 or complete worst-case application admission timing.
+
+## 2026-10-20 — native final Queue::AttachLease deadline violation
+
+HIL-only `g1_delayed_attach.hpp` wraps a real EDP-Threading
+OrdinaryMutexProvider; its first timed acquisition reserves a
+queue slot normally and its second succeeds normally but delays
+return by 80ms+FreeRTOS tick while holding the native mutex.
+The **actual** EDP-Memory lease was granted on time, and after
+attachment production `AcquireRecordUntil` MUST return
+`DeadlineElapsed`, not `Admitted`, fully aborting the reservation
+and reclaiming its owned Record.
+
+Independent GCC+Clang owner-composed host regression detached
+`20261020T071258-65de05a8` PASS exit0.
+Authoritative native ESP-IDF WROOM complete factory firmware build
+`20261020T071340-b6adac07` PASS exit0, SHA256
+`b48d5ec3fcf27e4e4cdfd32a2c321fb25d7e8a47679ce4bd13022da17086e446`.
+Actual write 0x0 and separately matched on-chip flash digest,
+followed by three fresh independent UART/NVS-restart cycles in
+`20261020T071458-cf925ae7` PASS exit0 (07:20 CEST).
+All 18/18 existing functional checks, EDLG CRC, resources, G11
+selector and previous G1–G10 gates remained PASS.
+Each run reported native `G1_DELAYED_ATTACH|locks=2|status=1|
+memory=0|queue=0|live=0|elapsed_us=89623|valid=1`.
+Private captures `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-post-attach-captures-20261020`;
+manifest SHA256 `788fa225af05529d6bd21b615fda7a389bbf4105494c8bd710153c623628898a`.
+Fault injection is synthetic; actual physical ownership,
+native lock and cleanup are genuine.

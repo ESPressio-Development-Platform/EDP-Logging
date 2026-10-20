@@ -453,3 +453,15 @@ The 40ms deadline was crossed; all three real WROOM runs measured
 previous HIL markers plus framing CRC. Actual flash/digest verified.
 This is controlled race-injection, not a production Memory delay
 or proof of all G1/G14/G15 limits.
+
+## G1 full transaction deadline after Queue attachment (2026-10-20)
+
+The canonical producer deadline is now checked **after** the final
+Queue::AttachLease, not just before it. Late attachment aborts its
+already-owned EDP-Memory lease through the original queue lifecycle
+and returns DeadlineElapsed rather than reporting a late record as
+Admitted. A synthetic post-acquire delay on an **actual native mutex**
+with an actual Memory-owned lease passed GCC+Clang tests and real
+ESP32 write/verify plus three HIL boots (18/18 each), 89.623ms
+measured under injected delay. See
+[Bounded Admission](docs/BOUNDED-RECORD-ADMISSION.MD).

@@ -308,6 +308,8 @@ namespace {
         assert(held1.Abort() == L::RecordQueueResult::Succeeded);
         assert(runtime.TearDown() == Memory::MemoryTopologyTeardownResult::Succeeded);
     }
+
+#include "G1DelayedAttachHost.hpp"
 }
 
 int main() {
@@ -324,4 +326,5 @@ int main() {
     TestInvalidProducerSlotCannotBorrowDrainSlot();
     TestSuccessfulGrantPreservesFailedWakeEvidence();
     TestFullQueueDeadlineAndCancellation();
+    TestDeadlineCannotBeOverrunByFinalQueueAttachment();
 }

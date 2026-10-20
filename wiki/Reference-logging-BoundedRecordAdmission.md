@@ -102,3 +102,18 @@ and 3/3 real UART/NVS-restart runs PASS, with
 no reservation, no live records. All earlier 18 markers PASS.
 The delay is deliberate HIL fault injection, not native-pool
 runtime behavior. No new production dependency or task is introduced.
+
+## G1 2026-10-20: final queue attachment deadline
+
+A successful native Memory grant does not satisfy an admission
+deadline unless the final queue attachment completes on time.
+`AcquireRecordUntil` now checks EDP-Clock after
+`Queue::AttachLease` and rolls back an attached, real Memory lease
+through Queue::Abort on deadline or shutdown; failure to clean up
+remains an explicit error. A test-only real EDP-Threading mutex
+shim delays the second lock acquisition beyond a 40ms deadline.
+GCC+Clang host tests, ESP32 firmware build, independent flash
+digest and 3/3 real UART runs PASS, each observed 89.623ms,
+no live records, no active reservation, 18/18 prior markers.
+This is controlled late-completion injection, not a product
+latency benchmark.

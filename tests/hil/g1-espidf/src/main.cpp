@@ -578,6 +578,7 @@ bool VerifyShutdownDuringNativeMemoryWait(Pool& pool) noexcept {
 
 #include "g1_memory_grant_boundary.hpp"
 #include "g1_injected_late_grant.hpp"
+#include "g1_delayed_attach.hpp"
 
 bool Run() {
     static Timebase timebase;
@@ -627,6 +628,7 @@ bool Run() {
     if(!VerifyCrossCoreMemoryGrantBoundary(pool,true)) return false;
     if(!VerifyCrossCoreMemoryGrantBoundary(pool,false)) return false;
     if(!VerifyInjectedLateRealMemoryGrantRollback(pool)) return false;
+    if(!VerifyInjectedLateQueueAttachmentRollback(pool)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.
