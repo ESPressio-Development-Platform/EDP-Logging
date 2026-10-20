@@ -629,6 +629,7 @@ bool Run() {
     if(!VerifyCrossCoreMemoryGrantBoundary(pool,false)) return false;
     if(!VerifyInjectedLateRealMemoryGrantRollback(pool)) return false;
     if(!VerifyInjectedLateQueueAttachmentRollback(pool)) return false;
+    if(!VerifyCancellationAtFinalQueueAttachment(pool)) return false;
     // G1: real FreeRTOS + native EDP-Threading deadline, not only a fake
     // host wait. Full queue MUST NOT borrow Memory and MUST return within
     // the caller's one bounded Clock deadline.

@@ -948,3 +948,38 @@ Private captures `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-post-attac
 manifest SHA256 `788fa225af05529d6bd21b615fda7a389bbf4105494c8bd710153c623628898a`.
 Fault injection is synthetic; actual physical ownership,
 native lock and cleanup are genuine.
+
+
+## 2026-10-20 08:38–08:42 CEST — native post-attachment cancellation
+
+After the G1 post-AttachLease canonical deadline fix, a second test
+exercises **cancellation becoming visible during** the final native
+Queue::AttachLease. The HIL-only provider delegates to a *real*
+EDP-Threading mutex and raises a test stop predicate on its second
+successful timed Acquire, then introduces an 80ms + FreeRTOS tick
+post-acquire delay. The actual EDP-Memory lease transfers to the
+Queue and MUST be released by the normal Reservation abort path.
+The expected result is `ShutdownRequested` (2), rather than
+`Admitted`, even while the queue attachment returns Succeeded.
+This is an injected stop predicate, not a claim that real lifecycle
+ShutdownUntil or all inter-core stop races were exhausted.
+
+Host real owner-composed GCC and Clang admission tests detached
+`20261020T083848-50c62356` **PASS exit0**. Actual complete
+PioArduino/ESP-IDF WROOM firmware build detached
+`20261020T083937-a40a64b6` **PASS exit0**, factory SHA256
+`360ef7ad8b732b32510e2f089318950a7a6df4e412b5b265a18da0cb0c7742c3`.
+Real write at 0x0 followed by separately verified on-chip flash
+digest `20261020T084050-323a7b0b` **PASS exit0**.
+Three independent host-triggered native reset/NVS-restart UART cycles
+`20261020T084135-8228e918` **PASS exit0**, each 18/18
+original markers, full EDLG CRC/resource/G11 instrumentation.
+Every cycle emitted `G1_CANCEL_DURING_ATTACH|locks=2|status=2|
+memory=0|queue=0|live=0|elapsed_us=89563–89564|valid=1`;
+no owner lease or admission was retained. Private capture files
+at `/srv/espressio/scratch/gpt6-logging-20261019-g11/g1-final-attach-cancel-captures-20261020`,
+checksum-manifest SHA256
+`1bd6c5bde1d9de5a12e9d7aa72fe8296aa786d120982292d3e626fd183396f24`.
+No arbitrary full-product timing, natural race probability,
+unexpected external power cut or complete Logging release implied.
+

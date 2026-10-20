@@ -327,4 +327,5 @@ int main() {
     TestSuccessfulGrantPreservesFailedWakeEvidence();
     TestFullQueueDeadlineAndCancellation();
     TestDeadlineCannotBeOverrunByFinalQueueAttachment();
+    TestCancellationAtFinalQueueAttachment();
 }
