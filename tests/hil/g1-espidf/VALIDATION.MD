@@ -983,3 +983,48 @@ checksum-manifest SHA256
 No arbitrary full-product timing, natural race probability,
 unexpected external power cut or complete Logging release implied.
 
+
+## Physical qualification — 2026-10-20 G4 core fields
+
+Before this work, `LogRecordCoreFieldSerialisation.hpp` was an
+unpublished incomplete source file last edited 09:04 CEST; the
+EDP-BoundedTypes bidirectional conversion adapter registrations
+were absent. At 09:28:31 CEST the successor agent replaced the old
+stale RPI400 lock with `gpt6-logging-20261020-g4core-r77`.
+The owner mapping and typed conversions were completed in the
+isolated worktree. No new FieldIds/TypeIdentifier or arbitrary wire
+tags were issued.
+
+- **Native strict host GCC and Clang**: full scalar canonical CBOR/JSON
+  round-trip test `20261020T093142-0ab877c4` PASS exit0.
+  Expanded suite with both-codec malformed/reserved message ID and
+  zero attempt-ticket rejection `20261020T093523-3c930b16`
+  PASS exit0. Static core header compile `20261020T093029-536cff12`
+  PASS exit0. No emitted wire is trusted without semantic validation.
+- **Fresh whole ESP32-D0WD/WROOM PioArduino ESP-IDF build**:
+  detached `20261020T093345-92df80fc` PASS exit0,
+  full factory image SHA256
+  `1720fa055c3b3fe21e06d8db9acc8adbf68b4a0a6a2470d2704f33dc4d6f636c`.
+  Actual physical 0x0 image flash plus separate on-chip verify
+  `20261020T094009-6e856c53` PASS exit0.
+  Esptool produced informational crystal-frequency detection warnings
+  during stub interaction but independent on-chip digest verification
+  succeeded and physical native execution was verified separately.
+- **Three new physical UART + intentional NVS-restart boots**:
+  detached `20261020T094056-c9586d7a` PASS exit0
+  (finished 09:41:08 CEST). Every run returned original
+  `markers=18/18|fail=0|binary_edlg_verified=True|`
+  `resource_snapshot_verified=True|g11_site_verified=True`,
+  now including opt-in owner CBOR/JSON core-field verification inside
+  `GOVERNED_LOG_RECORD_VALIDATION`. Private raw captures under
+  `/srv/espressio/scratch/gpt6-logging-20261019-g11/g4-core-field-captures-20261020`;
+  capture SHA manifest digest
+  `d24dc6ecdfd58ef802371b7a4ed4d62404a0080e9553dd950ebc00481b86859e`.
+  Do not publish raw UART captures or proprietary firmware images.
+
+The complete source record still **fails** `SerialisableType` because
+Field13 needs an issued schema-qualified heterogeneous positional
+representation. These tests prove each supported **core child field**
+is portable and reversible through owner codecs, not a complete
+15-parent-field Typed Envelope, historian end-to-end producer identity,
+actual unexpected PowerLoss or completed G1–G15 production gate.

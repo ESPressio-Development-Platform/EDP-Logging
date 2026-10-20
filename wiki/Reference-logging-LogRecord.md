@@ -100,3 +100,18 @@ underflow qualification; reserved/malformed values cannot be quietly
 reinterpreted. Full 34-test host Python suite PASS on RPI400.
 This does not complete the fifteen-field LogRecord encoder or prove
 historical issuer provenance or physical durability.
+
+
+## G4 scalar core fields — approved adapters (2026-10-20)
+
+The separate opt-in
+[core-field adapters](../docs/G4-CORE-FIELD-ADAPTERS.MD)
+provide reversible EDP-Serialisation owner representations for
+message identity, Severity, per-incarnation attempt tickets
+(16/32/64), monotonic/synchronized timestamps, ClockEra,
+synchronization state and uncertainty. Host GCC and Clang
+CBOR/JSON positive/negative checks PASS. No new parent FieldIds,
+TypeIdentifier or source byte tag assignments. Native
+heterogeneous Field13 must still be transformed under the
+generated Localisation schema before a complete record serializer
+may be certified.

@@ -268,3 +268,14 @@ and consumes EDP-Clock owner statuses through LogRecord. These are
 optional application composition edges, not mandatory Logging foundation
 imports. EDP-Serialisation owns both CBOR/JSON codecs, no duplication or
 new Mesh dependencies, package versions remain at 0.1.0.
+
+
+## 2026-10-20 optional G4 core wire adaptation
+
+`logging/LogRecordCoreFieldSerialisation.hpp` is opt-in at
+application composition and imports the existing EDP-System,
+EDP-Clock, EDP-Serialisation and EDP-BoundedTypes abstractions,
+with EDP-Serialisation retaining CBOR/JSON ownership. Neither the
+Logging base umbrella nor dependency direction changed; no direct
+Mesh/Persistence/Serial implementation was added. Enum width
+certification does not bypass full record semantic validation.

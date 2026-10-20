@@ -500,3 +500,18 @@ checksum-manifest SHA256
 No arbitrary full-product timing, natural race probability,
 unexpected external power cut or complete Logging release implied.
 
+
+
+## G4 core field canonical adapters (2026-10-20)
+
+The optional owner-composed
+[canonical core-field adapters](docs/G4-CORE-FIELD-ADAPTERS.MD)
+use EDP-Serialisation and EDP-BoundedTypes for approved scalar
+LogRecord values: generated message identity, Severity, sequence
+tickets in 16/32/64-bit profiles, owner Clock timestamp/state/Era
+and uncertainty. Invalid reserved message IDs and zero attempt tickets
+are rejected on both encode and decode. GCC+Clang strict CBOR/JSON
+round-trip/negative tests PASS (RPI400 detached
+`20261020T093523-3c930b16`); CI now exercises this contract.
+It does **not** allocate Field13 wire tags, finalize the complete
+15-field Typed Envelope, or change package version 0.1.0.
