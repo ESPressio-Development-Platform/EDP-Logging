@@ -101,3 +101,28 @@ release-provider fault injection and safe recovery; establish product
 resource/stack budgets and real physical WROOM execution. A final EDP-Serial
 receipt or cut-power EDP-Persistence durability claim remains separately
 unproven. G1–G15 product release is still open.
+
+
+## 2026-10-22 G10 native EDP-Memory release fault follow-up (#11)
+
+The test fixture additionally uses the **actual EDP-Memory Runtime's**
+Mutex provider `FailNextAcquire()` to force native
+`ObjectPoolLease::Release` to return `ProviderFailure` after the
+Task has reached terminal Completed state. The Task interest is retired,
+but the external Memory lease is still nonempty; admission remains Busy
+and a caller-owned `RetryReclaim()` later releases the exact same
+native claim once its provider is healthy. A second injected failure
+occurs during the rejection-cleanup path after Threading dispatch
+refusal: admission is `ReclaimUnconfirmed` and the same lease remains
+available for explicit recovery. Neither case silently discards
+provider-uncertain ownership.
+
+The deterministic synthetic Task driver now also exercises a
+cancellation request *after* a Task has entered Running state. Such a
+request leaves Task Pending and native Memory owned while the callback
+is still executing; only after its non-acknowledging callback completes
+is the native lease eligible for reclaim. This tests the public Task
+contract, **not a real simultaneous multicore race or underlying
+native worker implementation**. Real EDP-Threading Worker execution,
+provider-accurate cancellation and full product teardown must still
+be qualified independently before #11 is closed.

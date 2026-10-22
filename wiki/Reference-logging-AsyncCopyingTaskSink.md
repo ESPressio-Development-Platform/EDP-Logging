@@ -55,3 +55,14 @@ source mutation, dispatch refusal and valid DedicatedWorkerLease compile
 declaration. Actual EDP-Threading native Worker scheduling, live cancellation
 race/failure, real WROOM execution, and durable sink completion remain open
 under #11. See [normative gate list](../docs/ASYNC-COPYING-TASK-SINK.MD).
+
+## Fault-preservation follow-up
+
+The native test Memory mutex can reject the next real lease Release;
+the adapter reports `ReclaimUnconfirmed`, keeps the stable external
+lease and forbids resubmission. Only a later explicit owner
+`RetryReclaim()`, after Task termination, may complete release.
+The same rule applies to failed Task dispatch followed by failed
+native Memory release. A running Task's cancellation request is not
+terminal and cannot trigger early reclaim. Simulated completion tests
+do not prove a real Worker execution context.

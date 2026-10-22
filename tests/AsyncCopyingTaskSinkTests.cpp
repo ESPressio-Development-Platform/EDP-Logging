@@ -43,6 +43,7 @@ namespace {
             T::TaskState Lifecycle{T::TaskState::Queued};
             L::RecordSinkSubmission Delivered{L::RecordSinkSubmission::ProviderFailure};
             std::size_t Releases{0U};
+            bool CancellationRequested{false};
         } Current{};
 
         /// Deliberately deferred callable, not invoked by Dispatch.
@@ -50,6 +51,9 @@ namespace {
 
         /// Rejection is determined before a Task is admitted.
         bool FailDispatch{false};
+
+        /// Optional native Memory failure injection immediately before a failed dispatch returns.
+        TestSupport::TestMutexProvider* FailReleaseAfterRejectedDispatch{nullptr};
 
         /// Counts Task dispatch requests.
         std::size_t Attempts{0U};
@@ -83,7 +87,12 @@ namespace {
                     s->Lifecycle == T::TaskState::Cancelled) {
                     return T::TaskCancelResult::AlreadyFinished;
                 }
-                s->Lifecycle = T::TaskState::Cancelled;
+                s->CancellationRequested = true;
+                if (s->Lifecycle == T::TaskState::Queued) {
+                    s->Lifecycle = T::TaskState::Cancelled;
+                }
+                // A running Task cannot be declared terminal merely because a
+                // cancellation request was accepted; callback may still run.
                 return T::TaskCancelResult::Accepted;
             },
             [](void* state, std::uint32_t, bool) noexcept {
@@ -112,16 +121,26 @@ namespace {
             assert(policy == T::TaskDispatchPolicy::AbandonImmediately);
             ++Attempts;
             if (FailDispatch) {
+                if (FailReleaseAfterRejectedDispatch != nullptr) {
+                    FailReleaseAfterRejectedDispatch->FailNextAcquire();
+                }
                 return T::TaskDispatchResult<T::Task<L::RecordSinkSubmission>>(
                     T::TaskDispatchStatus::Unavailable
                 );
             }
             assert(!Deferred);
             Current.Lifecycle = T::TaskState::Queued;
+            Current.CancellationRequested = false;
             Deferred = [work]() noexcept { return work(); };
             return T::TaskDispatchResult<T::Task<L::RecordSinkSubmission>>(
                 T::Task<L::RecordSinkSubmission>(&Current, 0U, false, Operations)
             );
+        }
+
+        /// Simulates a Task granted to a Worker but not yet completed.
+        void StartRunning() {
+            assert(Deferred);
+            Current.Lifecycle = T::TaskState::Running;
         }
 
         /// Completes the pending Task only after the original input may be gone.
@@ -272,6 +291,46 @@ namespace {
         assert(cancelled.Status == L::AsyncSinkCompletionStatus::CancelledAndReleased);
         assert(cancelled.Release == M::ObjectPoolLeaseReleaseResult::Released);
         assert(owner.IsEmpty() && !task.has_value());
+        // Real EDP-Memory release-provider failure must remain an explicitly
+        // retained lease; a retry is permitted only after Task is terminal.
+        delivery.Result = L::RecordSinkSubmission::Accepted;
+        assert(sink.Submit(L::EdlgCodec::Cbor, source) ==
+            L::AsyncSinkAdmissionStatus::Queued);
+        executor.Execute();
+        native.FailNextAcquire();
+        const auto uncertain = sink.TryFinalize();
+        assert(uncertain.Status == L::AsyncSinkCompletionStatus::ReclaimUnconfirmed);
+        assert(uncertain.Release == M::ObjectPoolLeaseReleaseResult::ProviderFailure);
+        assert(!task.has_value() && !owner.IsEmpty());
+        assert(sink.Submit(L::EdlgCodec::Cbor, source) ==
+            L::AsyncSinkAdmissionStatus::Busy);
+        assert(sink.RetryReclaim() == M::ObjectPoolLeaseReleaseResult::Released);
+        assert(owner.IsEmpty());
+
+        // A cancellation request made while the Task is Running must not
+        // incorrectly release payload before its nonacknowledging callback ends.
+        assert(sink.Submit(L::EdlgCodec::Cbor, source) ==
+            L::AsyncSinkAdmissionStatus::Queued);
+        executor.StartRunning();
+        assert(sink.RequestCancellation() == T::TaskCancelResult::Accepted);
+        assert(sink.TryFinalize().Status == L::AsyncSinkCompletionStatus::Pending);
+        assert(!owner.IsEmpty());
+        executor.Execute();
+        assert(sink.TryFinalize().Status ==
+            L::AsyncSinkCompletionStatus::AcceptedAndReleased);
+        assert(owner.IsEmpty());
+
+        // Native release failure while a dispatch was rejected is preserved,
+        // rather than falsely returning to the original pool.
+        executor.FailDispatch = true;
+        executor.FailReleaseAfterRejectedDispatch = &native;
+        assert(sink.Submit(L::EdlgCodec::Cbor, source) ==
+            L::AsyncSinkAdmissionStatus::ReclaimUnconfirmed);
+        assert(!owner.IsEmpty() && !task.has_value());
+        assert(sink.RetryReclaim() == M::ObjectPoolLeaseReleaseResult::Released);
+        executor.FailReleaseAfterRejectedDispatch = nullptr;
+        executor.FailDispatch = false;
+
         assert(memory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded);
     }
 
