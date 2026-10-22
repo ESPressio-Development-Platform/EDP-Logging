@@ -1028,3 +1028,34 @@ representation. These tests prove each supported **core child field**
 is portable and reversible through owner codecs, not a complete
 15-parent-field Typed Envelope, historian end-to-end producer identity,
 actual unexpected PowerLoss or completed G1–G15 production gate.
+
+
+## 2026-10-22 — full fifteen-field generated Typed Envelope, physical WROOM
+
+Exact EDP-Localisation-generated RuntimeIncarnationId/ClockEra
+source capture is reconstructed as a `std::tuple` using existing
+EDP-System FieldIds 0–14 and EDP-Serialisation Typed Envelope CBOR/JSON.
+The optional ClockEra diagnostic adapter must be imported explicitly.
+
+Initial image did not compile (missing optional ClockEra import):
+`20261022T102541-0e5f81df` FAIL exit1. Corrected image
+`20261022T104606-13571622` built PASS exit0 but first
+real-device run `20261022T104941-b95bb83d` FAIL exit24:
+after completing the new typed record, an 8 KiB main-task stack
+reached an invalid newlib `_puts_r` dereference (EXCVADDR 0x64).
+This initial physical attempt **does not count as PASS**.
+
+The independent 16 KiB **test-application-only** stack experiment:
+build `20261022T105402-3bbf6da3` PASS exit0;
+factory SHA256 `9ccd3e24db8459393442769f83b653e0a9e1fa4b41c76c02df79fc8b3acff124`;
+on-chip write/verify and 3 independent boot/NVS-restart captures
+`20261022T110006-9f45a8ce` PASS exit0. All existing 18/18
+markers, real Serial/EDLG CRC, resource probes, and new G4
+whole-record CBOR/JSON roundtrips passed. The whole task's minimum
+stack remainder measured 5,560 B, versus 13,256 B before entering
+this G4 procedure, for 10,824 B overall peak consumed (all three
+runs identical). Private capture-manifest SHA256
+`3540448f25bb2e907ba27fe57b3c094a83beb7f2f812cc110f8940feaf63a807`.
+No physical unexpected power cut or product stack budget qualified.
+See [G4 full typed record](../../docs/G4-GENERATED-WHOLE-RECORD.MD).
+

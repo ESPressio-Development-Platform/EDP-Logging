@@ -516,10 +516,16 @@ round-trip/negative tests PASS (RPI400 detached
 It does **not** allocate Field13 wire tags, finalize the complete
 15-field Typed Envelope, or change package version 0.1.0.
 
-## G4 generated strong arguments — System incarnation and Clock Era (October 2026)
 
-Source-owned bounded diagnostic arguments now support System RuntimeIncarnationId and an explicitly opted-in ClockEra, with generated Localisation schema qualification. Their native copied bytes are not wire tags: EDP-Serialisation remains the canonical positional CBOR/JSON owner. GCC and Clang real generated-contract tests exercise zero diagnostic sentinels, input mutation independence, exact byte capacity rejection and golden positional outputs. See [bounded diagnostic arguments](./docs/DIAGNOSTIC-BOUNDED-ARGUMENTS.MD) and [source assembly](./docs/LOG-RECORD-SOURCE-ASSEMBLY.MD). The complete typed LogRecord envelope and release gates remain unfinished.
+## G4 complete generated LogRecord Typed Envelope (2026-10-22)
 
-## G4 source-owned Field 13 canonical positional reconstruction
+Optional `GeneratedLogRecordWireProjection` reconstructs the
+owner-governed, generated-schema positional Field13 as a finite tuple
+while preserving LogRecord TypeIdentifier and fifteen exact System
+FieldIds. Actual EDP-Serialisation CBOR/JSON Typed Envelope roundtrips
+pass GCC, Clang and three newly verified physical ESP32-WROOM runs.
+The real HIL required 16 KiB test-main stack; measured peak task
+usage 10,824 B after an earlier 8 KiB task panic. No universal
+production stack requirement or complete Logging release is claimed.
+See [G4 contract and measured limits](docs/G4-GENERATED-WHOLE-RECORD.MD).
 
-A new opt-in [owned diagnostic positional re-encoding adapter](./docs/OWNED-DIAGNOSTIC-POSITIONAL-REENCODING.MD) rehydrates the finite, privately native source arena through the **actual generated Localisation message schema** and forwards only the owner-typed values to EDP-Serialisation's canonical CBOR/JSON positional writers. The complete fixed scratch tuple is supplied and cleared by the caller; private `OwnedArgumentKind/Offset/Size` values are *never* serialized. GCC/Clang and UBSan real generated-schema fixtures cover owner-backed strong, bounded UTF-8/binary and mixed numeric/DeviceIdentifier values and negative failure semantics. This is an independent **Field 13 payload** milestone, not the full fifteen-field Typed Envelope or final Persistence/Mesh/PowerLoss qualification.

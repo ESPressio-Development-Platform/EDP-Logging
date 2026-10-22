@@ -56,6 +56,23 @@ PY
     -o "$TEMP/contract"
 "$TEMP/contract"
 
+# Legacy scalar-replay entrypoint is now a facade over the one typed
+# source-rehydration owner; preserve original API and failure outcomes.
+"${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+    -I"$ROOT/src" \
+    -I"$TEMP/generated" \
+    -I"$WORKSPACE/EDP-Serialisation/src" \
+    -I"$WORKSPACE/EDP-Localisation/src" \
+    -I"$WORKSPACE/EDP-Clock/src" \
+    -I"$WORKSPACE/EDP-System/src" \
+    -I"$WORKSPACE/EDP-BoundedTypes/src" \
+    -I"$WORKSPACE/EDP-BoundedTopology/src" \
+    -I"$WORKSPACE/EDP-Memory/src" \
+    -I"$WORKSPACE/EDP-Platform/src" \
+    -I"$WORKSPACE/EDP-Platform-Portable/src" \
+    "$ROOT/tests/OwnedDiagnosticReplayTests.cpp" \
+    -o "$TEMP/replay"
+
 # Independently qualify exact owner-backed strong source captures against
 # another REAL generated EDP-Localisation message (RuntimeIncarnationId +
 # opt-in ClockEra), and EDP-Serialisation's canonical positional CBOR/JSON.

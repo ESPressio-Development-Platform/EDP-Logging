@@ -280,10 +280,17 @@ Logging base umbrella nor dependency direction changed; no direct
 Mesh/Persistence/Serial implementation was added. Enum width
 certification does not bypass full record semantic validation.
 
-## Generated strong argument source extension (2026-10-22)
 
-The generic bounded argument arena consumes EDP-System's existing RuntimeIncarnationId without creating a new mandatory Clock dependency. Its optional templated ClockEra capture requires an explicitly owner-certified EDP-Clock Type at the application composition site; only the ClockEra opt-in header brings that owner definition. Positional encoders use the existing EDP-Serialisation owner and generated EDP-Localisation schema, retaining prior dependency direction and no circular edges. No new concrete platform references or unbounded storage operations were added.
+## G4 optional heterogeneous generated Record projection
 
-## Field 13 owner-sourced canonical positional conversion (October 2026)
+`GeneratedLogRecordWireProjection` is an opt-in Logging
+source/Bootstrap-facing adapter that consumes EDP-System SchemaType,
+EDP-Localisation generated message identity and fingerprint,
+EDP-BoundedTypes canonical pairwise conversion and
+EDP-Serialisation's owner-certified fixed heterogeneous Tuple
+Schema Fields. No new Logging-local CBOR/JSON writer, StringIdentifier,
+Clock, owner allocator or Mesh dependency is introduced.
+EDP-Serialisation never imports EDP-Logging; feature branch
+`feature/logging-v1` is required until the owner facility is
+independently released. Library versions remain exactly 0.1.0.
 
-`OwnedDiagnosticPositionalReencoding.hpp` is opt-in. It consumes the existing bounded source arena and EDP-Localisation generated schema through `DiagnosticArgumentEncoding.hpp`, with caller-owned fixed scratch. All canonical CBOR and JSON operations remain in EDP-Serialisation; conversion of bounded String/Bytes remains in EDP-BoundedTypes; strong identity/Clock value meanings remain with System/Clock. This creates no mandatory SDK/platform concrete dependency, Mesh coupling, additional allocator or repository cycle. The Caller/Bootstrap explicitly accounts for the scratch capacity and synchronous lifetime.

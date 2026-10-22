@@ -25,6 +25,7 @@
 #include <logging/LogRecordApprovedFieldsSerialisation.hpp>
 #include "g4_approved_field_check.hpp"
 #include "g4_core_field_check.hpp"
+#include "g4_whole_record_check.hpp"
 #include "g2_clock_owner_check.hpp"
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
@@ -181,6 +182,11 @@ bool TestGovernedLogRecordValidation() noexcept {
         Logging::LogRecordValidation::Valid,"record-unknown-uncertainty-accepted")) return false;
     if(!Check(CheckG4ApprovedFieldsOnDevice(),"g4-approved-real-codecs")) return false;
     if(!Check(EDPLoggingCoreHil::VerifyOnDevice(),"g4-core-field-owner-codecs")) return false;
+    std::printf("EDP_LOGGING_HIL|G4_WHOLE_STACK|before=%u\n",
+                static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    if(!Check(CheckG4CompleteSchemaTypedEnvelopeOnDevice(),"g4-complete-generated-typed-record")) return false;
+    std::printf("EDP_LOGGING_HIL|G4_WHOLE_STACK|after=%u\n",
+                static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
     if(!Check(CheckG2OwnerClockFactsOnDevice(),"g2-clock-owner-coherent-facts")) return false;
     std::printf("EDP_LOGGING_HIL|PASS|GOVERNED_LOG_RECORD_VALIDATION\n");
     return true;

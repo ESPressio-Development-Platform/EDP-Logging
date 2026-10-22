@@ -11,6 +11,7 @@
 #include <logging/DiagnosticClockEraArguments.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
 #include <logging/OwnedDiagnosticPositionalReencoding.hpp>
+#include <logging/GeneratedLogRecordWireProjection.hpp>
 
 using StrongFixture =
     Fixture::Diagnostic::DiagnosticMessageSchema<1U, 0U, 5U>;
@@ -220,6 +221,81 @@ int main() {
         StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
     >(wrongCount,output,scratch);
     assert(count.Status==L::OwnedPositionalReencodingStatus::CountMismatch);
+
+    // Entire permanent LogRecord Typed Envelope, not just a loose Field13
+    // positional fragment. The same fifteen FieldIds and permanent TypeId
+    // are attached to a generated schema-qualified wire projection.
+    using Projected=L::GeneratedLogRecordWireProjection<
+        L::AttemptSequenceWidth::Bits16,
+        S::Identity::RuntimeIncarnationId,C::ClockEra>;
+    static_assert(ESPressio::System::TypeIdentifierOf<Projected> ==
+                  ESPressio::System::TypeIdentifierOf<Source>);
+    static_assert(Projected::Fields::Count==15U);
+    Projected projection{};
+    L::OwnedPositionalScratch<S::Identity::RuntimeIncarnationId,C::ClockEra>
+        projectionScratch{};
+    const auto projected=L::ProjectGeneratedLogRecord<
+        StrongFixture,L::AttemptSequenceWidth::Bits16,
+        S::Identity::RuntimeIncarnationId,C::ClockEra>(
+        record,projection,projectionScratch);
+    assert(projected.IsSuccessful());
+    assert(!std::get<0>(projectionScratch).has_value());
+    assert(!std::get<1>(projectionScratch).has_value());
+    assert(std::get<0>(projection.Arguments)==0x01020304U);
+    assert(std::get<1>(projection.Arguments)==0x0102030405060708ULL);
+
+    std::array<std::byte,512U> rootBytes{};
+    auto rootCbor=ESPressio::Serialisation::Serialise<
+        ESPressio::Serialisation::Cbor,
+        ESPressio::Serialisation::RootProfile::TypedEnvelope>(
+        projection,rootBytes);
+    assert(rootCbor.IsSuccessful());
+    Projected decoded{};
+    const auto decodedCbor=ESPressio::Serialisation::Deserialise<
+        ESPressio::Serialisation::Cbor,
+        ESPressio::Serialisation::RootProfile::TypedEnvelope>(
+        std::span<const std::byte>(rootBytes.data(),rootCbor.BytesWritten),
+        decoded);
+    assert(decodedCbor.IsSuccessful());
+    assert(decoded.Message.String==record.Message.String);
+    assert(decoded.Attempt.Value()==record.Attempt.Value());
+    assert(decoded.SequenceWidth==16U);
+    assert(decoded.DiagnosticSchemaFingerprint ==
+           StrongFixture::OwningContract::DiagnosticSchemaFingerprint);
+    assert(decoded.Arguments==projection.Arguments);
+
+    auto rootJson=ESPressio::Serialisation::Serialise<
+        ESPressio::Serialisation::Json,
+        ESPressio::Serialisation::RootProfile::TypedEnvelope>(
+        projection,rootBytes);
+    assert(rootJson.IsSuccessful());
+    const std::string_view rootText{
+        reinterpret_cast<const char*>(rootBytes.data()),rootJson.BytesWritten};
+    assert(rootText.find("\"13\":[16909060,72623859790382856]") !=
+           std::string_view::npos);
+    assert(rootText.find("0000010000000001") != std::string_view::npos);
+    decoded={};
+    const auto decodedJson=ESPressio::Serialisation::Deserialise<
+        ESPressio::Serialisation::Json,
+        ESPressio::Serialisation::RootProfile::TypedEnvelope>(
+        std::span<const std::byte>(rootBytes.data(),rootJson.BytesWritten),
+        decoded);
+    assert(decodedJson.IsSuccessful());
+    assert(decoded.Arguments==projection.Arguments);
+    assert(decoded.DiagnosticSchemaFingerprint==
+           StrongFixture::OwningContract::DiagnosticSchemaFingerprint);
+    // Refuse a changed historical schema without modifying caller output.
+    auto wrongSchema=record;
+    wrongSchema.DiagnosticSchemaFingerprint[0U] ^= 1U;
+    const auto beforeProjection=projection.Arguments;
+    const auto rejected=L::ProjectGeneratedLogRecord<
+        StrongFixture,L::AttemptSequenceWidth::Bits16,
+        S::Identity::RuntimeIncarnationId,C::ClockEra>(
+        wrongSchema,projection,projectionScratch);
+    assert(rejected.Status==
+           L::GeneratedLogRecordProjectionStatus::DiagnosticFingerprintMismatch);
+    assert(projection.Arguments==beforeProjection);
+    assert(!std::get<0>(projectionScratch).has_value());
 
     using Tiny = L::BasicLogRecord<
         L::AttemptSequenceWidth::Bits16,
