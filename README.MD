@@ -541,3 +541,44 @@ minimum. Cumulative high-water phase probes show the major increment
 at the EDP-Serialisation JSON encoding path. This is not a new
 production stack default; remaining performance and memory budgets
 are open. [Complete evidence](docs/G4-GENERATED-WHOLE-RECORD.MD).
+
+
+## 2026-10-22 — G4 complete record after EDP-Serialisation owner JSON bound
+
+The previous 14 KiB test showed 3,512 bytes of cumulative minimum
+app_main stack remaining after JSON. A separate owner fix
+([EDP-Serialisation #10](https://github.com/ESPressio-Development-Platform/EDP-Serialisation/issues/10),
+commit `08fecdcc74f72c7cc73dc777eb843db727c9827d`) bounds
+compile-time canonical JSON field traversal by the maximum actually
+declared EDP-System FieldIdentifier. The same complete 15-field
+generated LogRecord CBOR/JSON test, with the same **14,336-byte**
+app_main stack, was rebuilt and physically requalified without changing
+Logging root field identity, codec, or Memory ownership.
+
+- New full factory SHA256: `6ab5745e6ffc587c1c5ca6480e27a11447a6ac0bccc72e6baa6c483f3c3ba572`.
+- ESP-IDF build `20261022T120813-3c70bd12`: **PASS exit 0**.
+- On RPI400, the recovered build image hash was independently checked
+  before real ESP32-D0WD flash/write and separate on-chip `verify-flash`.
+  Detached physical job `20261022T122616-a4d5f0a3`: **PASS exit 0**,
+  three distinct UART reset/NVS-restart runs, each 18/18 functional
+  markers, real full G4 CBOR/JSON encode/decode, framing CRC and G11
+  resource markers.
+- Cumulative FreeRTOS stack remaining after source projection:
+  **11,208 B** (unchanged); after CBOR encode/decode:
+  **10,536 B** (unchanged); after JSON encode/decode:
+  **10,472 B** (previously **3,512 B**).
+- Linked whole HIL firmware flash use: **378,789 B** (previously
+  **388,513 B**); statically reported RAM: **21,480 B**, unchanged.
+- Private capture manifest SHA256:
+  `cb39d128a142951efdb8a25954b2acac95c408dab20a2c10ed7f82aac396727b`.
+  Raw evidence remains only under RPI400 path
+  `/srv/espressio/scratch/gpt6-logging-20261022-0919-v4/g4-whole-record-physical-14k-jsonbounded-recovery-20261022`.
+
+The full EDP-Serialisation owner GCC+Clang suite, with restored negative
+enum-certification tests and sparse/255 boundary static assertions,
+also passed `20261022T123157-67f0fdca` exit 0.
+These comparisons describe **whole HIL application** high-water
+measurements on one compiler/board; they do not prove a universal stack
+budget, actual power interruption durability, or completion of the
+remaining G1–G15 release requirements. The earlier 8 KiB physical
+failure remains a genuine historical failure, not rewritten as a pass.
