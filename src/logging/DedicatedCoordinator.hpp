@@ -68,7 +68,7 @@ namespace ESPressio::Logging {
     class DedicatedCoordinator final {
         static_assert(TRecordsPerQuantum > 0U);
         static_assert(TIdleWaitNanoseconds > 0);
-        static_assert(sizeof...(TSinks) >= 2U && sizeof...(TSinks) <= 8U);
+        static_assert(sizeof...(TSinks) >= 1U && sizeof...(TSinks) <= 8U);
         TQueue* _queue;
         std::tuple<TSinks*...> _sinks;
         DedicatedCoordinatorReport* _report;

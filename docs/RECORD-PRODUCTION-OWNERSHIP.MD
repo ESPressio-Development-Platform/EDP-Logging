@@ -90,7 +90,7 @@ New opt-in `logging/CoordinatorQuantum.hpp` composes the already-proven
 `DrainOneRecordToSinks` primitive into a bounded, static
 `DrainCoordinatorQuantum<MaximumRecords>(queue, claim, sinks...)`.
 It cannot process more than the compile-time work budget and invokes
-each of 2..8 statically selected synchronous sinks at most once per
+each of 1..8 statically selected synchronous sinks at most once per
 source record, outside queue locks. It reports records drained,
 all-accepted results, failed-submission records, per-sink accepted/
 unaccepted counts and native release-notification failure separately.
@@ -109,3 +109,16 @@ I/O duration is made. Regression in `RecordProductionTests.cpp`
 proves multiple records across quanta, static two-sink fanout,
 rejections without retry, empty polling, exact-budget stop and
 previous-claim safety. This adds no native platform SDK dependency.
+
+## Single-sink coordinator contract (2026-10-22, #10)
+
+The record fanout, bounded quantum and EDP-Threading dedicated coordinator
+accept **1–8** statically selected synchronous copying/consuming sink
+callbacks, consistently with the existing G10 representation fanout.
+Zero sinks remain a compile-time error. Exactly one sink requires no
+dummy second sink, introduces no additional worker, queue, memory owner
+or asynchronous borrowed lifetime, and retains the same per-sink
+Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
+reclamation contract. Host coverage uses one sole sink across direct
+drain, finite quantum and DedicatedCoordinator stop/wake. No durability
+or physical-transport claim follows from sink acceptance.

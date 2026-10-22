@@ -25,7 +25,7 @@ and tests/hil/g1-espidf/VALIDATION.MD.
 
 ## Bounded fanout — DrainOneRecordToSinks
 
-Drains one native Memory-owned source to 2..8 application-supplied
+Drains one native Memory-owned source to 1..8 application-supplied
 noexcept synchronous sinks in argument order and returns
 RecordFanoutOutcome<TResultCount>. Source is the underlying
 RecordDrainOutcome; Submissions is a fixed array of native sink
@@ -55,7 +55,7 @@ G1 producer still requires full application Bootstrap composition.
 
 `logging/CoordinatorQuantum.hpp` provides
 `DrainCoordinatorQuantum<N>(queue, callerOwnedClaim, sinks...)` for
-2..8 statically composed synchronous sinks and at most `N` records.
+1..8 statically composed synchronous sinks and at most `N` records.
 Typed `CoordinatorQuantumStatus` discriminates empty, consumed
 budget, claim failure, uncertain reclaim and an unresolved prior claim.
 It preserves per-sink accepted/rejected counts and release-notification
@@ -89,3 +89,16 @@ unknown EDP-Memory release leaves the caller's lease explicit.
 This is not a shared asynchronous borrowed buffer or a final
 15-field TypedEnvelope writer. See
 [Owned Representation Fanout](../docs/OWNED-REPRESENTATION-FANOUT.MD).
+
+## Single-sink coordinator contract (2026-10-22, #10)
+
+The record fanout, bounded quantum and EDP-Threading dedicated coordinator
+accept **1–8** statically selected synchronous copying/consuming sink
+callbacks, consistently with the existing G10 representation fanout.
+Zero sinks remain a compile-time error. Exactly one sink requires no
+dummy second sink, introduces no additional worker, queue, memory owner
+or asynchronous borrowed lifetime, and retains the same per-sink
+Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
+reclamation contract. Host coverage uses one sole sink across direct
+drain, finite quantum and DedicatedCoordinator stop/wake. No durability
+or physical-transport claim follows from sink acceptance.

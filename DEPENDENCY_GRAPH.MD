@@ -214,6 +214,9 @@ EDP-Memory/Threading/BoundedTopology queue composition.
 No new edges, platform concrete import, or additional scheduler.
 The Dedicated Thread and latched wake provider are still
 application Bootstrap obligations, not provided here.
+The #10 correction admits 1..8 static sink callbacks (rather than 2..8)
+through direct drain, bounded quantum and dedicated coordinator without
+changing any dependency, ownership, queue, signal or worker edge.
 
 ## 2026-10-17 opt-in EDP-Threading Dedicated Coordinator
 

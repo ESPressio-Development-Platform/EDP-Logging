@@ -180,9 +180,13 @@ EDP-Logging itself imports neither Serial nor either concrete provider.
 ## Optional multi-sink fanout and read-only EDLS inspection
 
 [Record production ownership](docs/RECORD-PRODUCTION-OWNERSHIP.MD)
-documents the bounded two-to-eight sink call interface, which reuses
+documents the bounded one-to-eight sink call interface, which reuses
 one EDP-Memory claim and records each sink outcome without pretending
-acceptance equals durability. [EDLS archive inspection](docs/EDLS-ARCHIVE-INSPECTION.MD)
+acceptance equals durability. G10 sink-count parity now extends through
+record drain, coordinator quantum and topology-owned DedicatedCoordinator
+(see #10): single-sink Serial-only and archive-only profiles are valid,
+while zero sinks remain rejected at compile time.
+[EDLS archive inspection](docs/EDLS-ARCHIVE-INSPECTION.MD)
 is a bounded, read-only EDP-Persistence::FileStorage adapter using existing
 canonical EDLS/EDLG CRC readers; it is **not** the rolling writer.
 

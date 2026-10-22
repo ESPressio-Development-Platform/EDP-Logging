@@ -21,7 +21,7 @@ The selected record queue remains an EDP-Memory
 `TransactionalRecordQueue` over EDP-BoundedTopology; the
 coordinator MUST NOT allocate a competing task queue, work pool,
 timer, mutex, signal or execution context. Its object holds pointers to
-the already-constructed Queue, 2..8 synchronous static sink objects,
+the already-constructed Queue, 1..8 synchronous static sink objects,
 and a caller-owned atomic `DedicatedCoordinatorReport`. Bootstrap
 must retain them **through successful stopped execution and final
 release of any active ConsumerClaim**, before tearing down the
@@ -107,3 +107,16 @@ Bootstrap**, and final native shutdown to succeed. A positive
 Threading context; it must never be asserted from `app_main`. Merely building this harness does NOT provide
 physical proof; separate UART captures and original-flash restoration
 are mandatory before reporting that gate closed.
+
+## Single-sink coordinator contract (2026-10-22, #10)
+
+The record fanout, bounded quantum and EDP-Threading dedicated coordinator
+accept **1–8** statically selected synchronous copying/consuming sink
+callbacks, consistently with the existing G10 representation fanout.
+Zero sinks remain a compile-time error. Exactly one sink requires no
+dummy second sink, introduces no additional worker, queue, memory owner
+or asynchronous borrowed lifetime, and retains the same per-sink
+Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
+reclamation contract. Host coverage uses one sole sink across direct
+drain, finite quantum and DedicatedCoordinator stop/wake. No durability
+or physical-transport claim follows from sink acceptance.

@@ -428,5 +428,103 @@ void TestDedicatedCoordinatorCallable() {
   L::AdmissionShutdownStatus::Quiescent);
  assert(runtime2.TearDown()==M::MemoryTopologyTeardownResult::Succeeded);
 }
+
+void TestSingleSinkCoordinatorPipeline() {
+    Resource resource;
+    TestSupport::TestMutexProvider native;
+    MemoryComposition::Select<
+        M::SharedReserveAllocationRequirement,
+        ESPressio::System::CompositionFramework::SelectUnique
+    > allocator;
+    Runtime2 runtime(native, allocator, resource);
+    M::MemoryTopologyInitializationFailure failure{};
+    assert(runtime.Initialize(failure) == M::MemoryTopologyInitializationResult::Succeeded);
+
+    Wake wake;
+    Life life(wake);
+    Mutex mutex;
+    Queue queue(mutex, life);
+    Sequencer sequencer;
+    L::AttemptSequenceCounter<> sequence;
+    Temporal time;
+    auto& pool = runtime.ObjectPoolFor<Rec>();
+    const auto running = []() noexcept -> bool { return false; };
+    const auto produce = [&](int value) {
+        Lease scratch;
+        Queue::Reservation reservation;
+        const auto result = L::ProduceRecordUntil<
+            L::AttemptSequenceWidth::Bits32, 4U, 4U
+        >(
+            sequence, sequencer, time, queue, life, wake, 0U, pool,
+            scratch, reservation,
+            DeadlineAfter(std::chrono::milliseconds(200)), running, value
+        );
+        assert(result.Status == L::RecordProductionStatus::Published);
+        assert(scratch.IsEmpty() && !reservation.IsActive());
+    };
+
+    int observed = 0;
+    auto soleSink = [&](const Rec& record) noexcept -> L::RecordSinkSubmission {
+        assert(record.Value == observed + 1);
+        ++observed;
+        return (record.Value % 2) == 0
+            ? L::RecordSinkSubmission::Rejected
+            : L::RecordSinkSubmission::Accepted;
+    };
+
+    Queue::ConsumerClaim claim;
+    const auto empty = L::DrainOneRecordToSinks(queue, claim, soleSink);
+    assert(empty.Source.Status == L::RecordDrainStatus::Empty);
+    assert(empty.Attempted == 0U && observed == 0);
+
+    produce(1);
+    const auto first = L::DrainOneRecordToSinks(queue, claim, soleSink);
+    assert(first.FullySubmittedAndReclaimed());
+    assert(first.Attempted == 1U && first.Accepted == 1U);
+    assert(first.Submissions[0] == L::RecordSinkSubmission::Accepted);
+    assert(!claim.IsActive() && Rec::Live.load() == 0);
+
+    produce(2);
+    const auto rejected = L::DrainCoordinatorQuantum<1U>(queue, claim, soleSink);
+    assert(rejected.Status == L::CoordinatorQuantumStatus::BudgetConsumed);
+    assert(rejected.Processed == 1U && rejected.AcceptedByAll == 0U);
+    assert(rejected.FailedSubmissionRecords == 1U);
+    assert(rejected.PerSinkAccepted[0] == 0U && rejected.PerSinkUnaccepted[0] == 1U);
+    assert(!claim.IsActive() && Rec::Live.load() == 0);
+    assert(L::DrainCoordinatorQuantum<1U>(queue, claim, soleSink).Status ==
+        L::CoordinatorQuantumStatus::QueueEmpty);
+
+    produce(3);
+    produce(4);
+    L::DedicatedCoordinatorReport report;
+    using Callable = L::DedicatedCoordinator<
+        1U, 5'000'000LL, Queue, decltype(soleSink)
+    >;
+    static_assert(std::is_move_constructible_v<Callable>);
+    struct SingleSinkDedicatedIdentity final {};
+    static_assert(std::is_same_v<
+        decltype(T::BindDedicatedThread<SingleSinkDedicatedIdentity>(
+            std::declval<Callable>())),
+        T::DedicatedThreadBinding<SingleSinkDedicatedIdentity, Callable>
+    >);
+    Callable worker(queue, report, soleSink);
+    CoordinatorContextState state{};
+    state.RecordsSeenBeforeIdle = 3;
+    T::ThreadContext context(&state, TestContextOps);
+    worker(context);
+    assert(state.Waits == 1 && state.Stop);
+    assert(observed == 4 && Rec::Live.load() == 0);
+    assert(report.Exit.load() == L::DedicatedCoordinatorExit::CooperativeStop);
+    assert(report.RecordsRetired.load() == 2U);
+    assert(report.AllSinksAccepted.load() == 1U);
+    assert(report.PartialSubmissions.load() == 1U);
+    assert(report.IdleTimeouts.load() == 1U);
+    assert(report.NotificationFailures.load() == 0U);
+    assert(life.ShutdownUntil<8U>(
+        DeadlineAfter(std::chrono::milliseconds(300))
+    ).Status == L::AdmissionShutdownStatus::Quiescent);
+    assert(runtime.TearDown() == M::MemoryTopologyTeardownResult::Succeeded);
 }
-int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();TestDedicatedCoordinatorCallable();}
+
+}
+int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();TestDedicatedCoordinatorCallable();TestSingleSinkCoordinatorPipeline();}

@@ -22,7 +22,7 @@ namespace ESPressio::Logging {
     /// No Accepted result here denotes Persistence durability or Serial receipt.
     template<std::size_t TSinkCount>
     struct CoordinatorQuantumOutcome final {
-        static_assert(TSinkCount >= 2U && TSinkCount <= 8U);
+        static_assert(TSinkCount >= 1U && TSinkCount <= 8U);
         CoordinatorQuantumStatus Status{CoordinatorQuantumStatus::QueueEmpty};
         std::size_t Processed{0U};
         std::size_t AcceptedByAll{0U};
@@ -32,7 +32,7 @@ namespace ESPressio::Logging {
         std::array<std::size_t, TSinkCount> PerSinkUnaccepted{};
     };
 
-    /// Drain at most TMaximumRecords immutable queue records to 2..8 sinks.
+    /// Drain at most TMaximumRecords immutable queue records to 1..8 sinks.
     ///
     /// Uses the existing single owner-composed queue/Memory reclaim and
     /// exactly-once per-sink fanout. No lock is held during sink callback.
@@ -56,8 +56,8 @@ namespace ESPressio::Logging {
         constexpr std::size_t Count=sizeof...(TSinks);
         static_assert(TMaximumRecords>=1U,
             "Coordinator drain quantum must have positive finite budget");
-        static_assert(Count>=2U && Count<=8U,
-            "The multi-sink coordinator requires 2..8 static sink callbacks");
+        static_assert(Count>=1U && Count<=8U,
+            "The coordinator requires 1..8 static sink callbacks");
 
         CoordinatorQuantumOutcome<Count> result{};
         if (claim.IsActive()) {

@@ -237,6 +237,8 @@ namespace ESPressio::Logging {
     /// TResultCount is the count of caller-composed independent delivery sinks.
     template<std::size_t TResultCount>
     struct RecordFanoutOutcome final {
+        static_assert(TResultCount >= 1U && TResultCount <= 8U,
+            "Record fanout requires 1..8 sinks");
 
         /// Source lease ownership, sink aggregate, and native reclamation evidence.
         RecordDrainOutcome Source{};
@@ -261,7 +263,7 @@ namespace ESPressio::Logging {
 
     };
 
-    /// Deliver one source-owned record to 2..8 independently chosen sinks.
+    /// Deliver one source-owned record to 1..8 independently chosen sinks.
     ///
     /// Calls each sink once in provided order while ONE EDP-Memory claim exists.
     /// Reuses DrainOneRecord for actual native claim/lease lifecycle.
@@ -281,8 +283,8 @@ namespace ESPressio::Logging {
         TSinks&&... sinks
     ) noexcept {
         constexpr std::size_t SinkCount = sizeof...(TSinks);
-        static_assert(SinkCount >= 2U && SinkCount <= 8U,
-            "Multi-sink fanout requires 2 to 8 bounded sink callbacks");
+        static_assert(SinkCount >= 1U && SinkCount <= 8U,
+            "Record fanout requires 1 to 8 bounded sink callbacks");
         RecordFanoutOutcome<SinkCount> result{};
         result.Submissions.fill(RecordSinkSubmission::ProviderFailure);
         const auto aggregate = [&](const auto& record) noexcept -> RecordSinkSubmission {
