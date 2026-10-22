@@ -94,3 +94,7 @@ are required. The script also preserves its existing negative
 compile-fail test for a mismatched generated positional schema.
 A successful host test does not qualify full physical G4 wire
 serialization or true coherent Clock publisher.
+
+## 2026-10-22 — generated strong source arguments
+
+The generated-message source assembler accepts two additional owner-certified argument Types: EDP-System RuntimeIncarnationId and the **opt-in** EDP-Clock ClockEra. It delegates immediate private byte ownership to OwnedDiagnosticArguments, rejects capacity failures transactionally before a LogRecord becomes ready, and still requires exact generated Localisation parameter kinds and counts. Diagnostic zero sentinels remain valid observations even when root record identity rules reject them for the *emitter*. The owner-provided EDP-Serialisation positional writers create canonical CBOR and JSON from the original strongly typed values; the stored native byte arena itself is **not** a wire representation. Complete archival field13 re-encoding from the owned source, historical generation/schema correspondence and the full typed root remain open.

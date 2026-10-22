@@ -279,3 +279,7 @@ with EDP-Serialisation retaining CBOR/JSON ownership. Neither the
 Logging base umbrella nor dependency direction changed; no direct
 Mesh/Persistence/Serial implementation was added. Enum width
 certification does not bypass full record semantic validation.
+
+## Generated strong argument source extension (2026-10-22)
+
+The generic bounded argument arena consumes EDP-System's existing RuntimeIncarnationId without creating a new mandatory Clock dependency. Its optional templated ClockEra capture requires an explicitly owner-certified EDP-Clock Type at the application composition site; only the ClockEra opt-in header brings that owner definition. Positional encoders use the existing EDP-Serialisation owner and generated EDP-Localisation schema, retaining prior dependency direction and no circular edges. No new concrete platform references or unbounded storage operations were added.

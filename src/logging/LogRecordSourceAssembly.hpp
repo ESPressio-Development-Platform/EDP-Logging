@@ -35,7 +35,9 @@ namespace ESPressio::Logging {
                 IsBoundedDiagnosticBytes<Value>::value ||
                 std::is_same_v<Value, System::TypeIdentifier> ||
                 std::is_same_v<Value, System::FieldIdentifier> ||
-                std::is_same_v<Value, System::Identity::DeviceIdentifier>;
+                std::is_same_v<Value, System::Identity::DeviceIdentifier> ||
+                std::is_same_v<Value, System::Identity::RuntimeIncarnationId> ||
+                IsCertifiedDiagnosticClockEra<Value>::value;
         }
 
         /// Copies one exact generated-kind value via its existing owned arena.
@@ -69,6 +71,14 @@ namespace ESPressio::Logging {
                 std::is_same_v<Value, System::Identity::DeviceIdentifier>
             ) {
                 return owned.AddDeviceIdentifier(value);
+            } else if constexpr (
+                std::is_same_v<Value, System::Identity::RuntimeIncarnationId>
+            ) {
+                return owned.AddRuntimeIncarnationId(value);
+            } else if constexpr (
+                IsCertifiedDiagnosticClockEra<Value>::value
+            ) {
+                return owned.AddClockEra(value);
             } else {
                 return owned.AddScalar(value);
             }
@@ -104,7 +114,8 @@ namespace ESPressio::Logging {
     /// allocator, codec or platform provider is introduced.
     ///
     /// Supports exact-width arithmetic, bounded Utf8/Bytes, TypeIdentifier,
-    /// FieldIdentifier and DeviceIdentifier via existing owner-backed capture
+    /// FieldIdentifier, DeviceIdentifier, RuntimeIncarnationId and the
+    /// explicitly opted-in ClockEra via existing owner-backed capture
     /// facilities. Other strong types remain compile-time rejected until
     /// a semantically exact owned capture adapter is added.
     /// Fields 11/14 have approved child vocabularies. This operation

@@ -28,3 +28,7 @@ unsupported here until their source storage is owner-certified.
 Documentation: [LogRecord Source Assembly](../docs/LOG-RECORD-SOURCE-ASSEMBLY.MD).
 Validation: `tests/run-diagnostic-generated-contract-tests.sh`,
 real generated Localisation schema, GCC and Clang.
+
+## Owner-certified strong positional argument source (2026-10-22)
+
+`AssembleLogRecordSource` now admits an exact generated Localisation schema position of System RuntimeIncarnationId or opted-in ClockEra, capturing their native values into source-owned fixed capacity. The source record remains unchanged after a count/byte failure. Root incarnation and Era validation is separate from the possibility of recording zero sentinels as diagnostic facts. Neither native storage nor `OwnedArgumentKind` numbers have a published wire meaning; the typed EDP-Serialisation positional encoders own CBOR and JSON. Native GCC/Clang generated-schema tests and compile-fail contract tests exercise these distinctions; complete live emitter-to-archive re-encoding remains unqualified.

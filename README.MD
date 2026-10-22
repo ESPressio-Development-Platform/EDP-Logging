@@ -515,3 +515,7 @@ round-trip/negative tests PASS (RPI400 detached
 `20261020T093523-3c930b16`); CI now exercises this contract.
 It does **not** allocate Field13 wire tags, finalize the complete
 15-field Typed Envelope, or change package version 0.1.0.
+
+## G4 generated strong arguments — System incarnation and Clock Era (October 2026)
+
+Source-owned bounded diagnostic arguments now support System RuntimeIncarnationId and an explicitly opted-in ClockEra, with generated Localisation schema qualification. Their native copied bytes are not wire tags: EDP-Serialisation remains the canonical positional CBOR/JSON owner. GCC and Clang real generated-contract tests exercise zero diagnostic sentinels, input mutation independence, exact byte capacity rejection and golden positional outputs. See [bounded diagnostic arguments](./docs/DIAGNOSTIC-BOUNDED-ARGUMENTS.MD) and [source assembly](./docs/LOG-RECORD-SOURCE-ASSEMBLY.MD). The complete typed LogRecord envelope and release gates remain unfinished.

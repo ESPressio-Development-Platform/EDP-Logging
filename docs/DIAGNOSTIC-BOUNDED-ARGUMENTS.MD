@@ -37,3 +37,9 @@ Regression: generated four-parameter bounded/strong fixture in
 UBSan. It verifies byte-ownership persistence after the source
 Bounded::String/Bytes changes, finite-capacity rollback, invalid
 strong identity rejection and exact FieldIdentifier source kind.
+
+## 2026-10-22 — owned source capture of generated strong values
+
+The bounded private argument arena now admits **System::Identity::RuntimeIncarnationId** as exactly one copied native 32-bit value, and an explicitly **opted-in EDP-Clock ClockEra** as an exact copied native 64-bit value. Both capture operations are typed and transactional: if argument count or bytes would overflow the application-selected static capacity, no descriptor or count is committed. A zero incarnation/era can be a diagnostic *observation* but is not made valid as the emitting LogRecord's root identity. Neither representation is an EDLG tag or network byte order: they are **in-memory owned source bytes**, not a canonical wire format. An EDP-Clock header and owner-certified schema trait are required only at the opt-in ClockEra composition boundary.
+
+The generated Localisation message binds these Types at compile time. Positional CBOR/JSON is emitted from typed values by EDP-Serialisation, never by copying this private source arena directly. GCC/Clang tests verify unchanged captured values after original source mutation, exact native sizes, negative schema mismatches, bounded failure preservation, zero-sentinel diagnostic observations and exact canonical CBOR/JSON outputs. This adds two source Types but **does not** implement replay of arbitrary heterogeneous stored arenas to the writer, a complete fifteen-field LogRecord, or a durable sink.

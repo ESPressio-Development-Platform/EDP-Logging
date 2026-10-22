@@ -9,7 +9,12 @@
 #include <type_traits>
 
 #include <identity/DeviceIdentifier.hpp>
+#include <identity/RuntimeIncarnationId.hpp>
 #include <types/TypeIdentifier.hpp>
+
+namespace ESPressio::Clock {
+    class ClockEra;
+}
 
 namespace ESPressio::Logging {
 
@@ -30,7 +35,9 @@ namespace ESPressio::Logging {
         Bytes = 12U,
         TypeIdentifier = 13U,
         DeviceIdentifier = 14U,
-        FieldIdentifier = 15U
+        FieldIdentifier = 15U,
+        RuntimeIncarnationId = 16U,
+        ClockEra = 17U
     };
 
 
@@ -405,6 +412,55 @@ namespace ESPressio::Logging {
             }
 
             return Store(OwnedArgumentKind::DeviceIdentifier, copy);
+        }
+
+
+        /// Captures an exact 32-bit EDP-System incarnation identity as source-only bytes.
+        /// The zero sentinel remains representable for diagnostic observations:
+        /// this does NOT make it a valid emitting LogRecord root incarnation.
+        /// @param identifier Owner-issued semantic incarnation value.
+        /// @returns Added or a typed finite-capacity refusal.
+        [[nodiscard]] constexpr OwnedArgumentResult AddRuntimeIncarnationId(
+            const System::Identity::RuntimeIncarnationId& identifier
+        ) noexcept {
+            const std::uint32_t value = identifier.Value();
+            const auto bytes =
+                std::bit_cast<std::array<std::byte, sizeof(value)>>(value);
+
+            return Store(
+                OwnedArgumentKind::RuntimeIncarnationId,
+                bytes
+            );
+        }
+
+
+        /// Captures an exact 64-bit EDP-Clock era identity as source-only bytes.
+        /// This overload is instantiated only when the optional ClockEra owner
+        /// is explicitly selected; no Clock header is imported by the base arena.
+        /// The zero/unavailable era remains a representable diagnostic value.
+        /// @tparam TEra Exact owning EDP-Clock ClockEra strong value Type.
+        /// @param era Coordinator-issued or zero/unavailable era value.
+        /// @returns Added or a typed finite-capacity refusal.
+        template<class TEra>
+        [[nodiscard]] constexpr OwnedArgumentResult AddClockEra(
+            const TEra& era
+        ) noexcept {
+            static_assert(
+                std::is_same_v<
+                    std::remove_cv_t<TEra>,
+                    ESPressio::Clock::ClockEra
+                >,
+                "Only the existing owner-issued EDP-Clock ClockEra is allowed"
+            );
+
+            const std::uint64_t value = era.Value();
+            const auto bytes =
+                std::bit_cast<std::array<std::byte, sizeof(value)>>(value);
+
+            return Store(
+                OwnedArgumentKind::ClockEra,
+                bytes
+            );
         }
 
     };
