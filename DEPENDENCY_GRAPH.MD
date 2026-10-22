@@ -307,3 +307,20 @@ This fixture-only change adds FreeRTOS task-stack telemetry inside
 14 KiB. It adds **no** new mandatory or optional production EDP-Logging
 dependencies, and the original EDP-Serialisation owner remains the
 only CBOR/JSON writer. No reusable memory provider was introduced.
+
+## 2026-10-22 optional G10 async copying Task callback (#11, partial)
+
+`logging/AsyncCopyingTaskSink.hpp` adds **no new mandatory** dependency.
+Opt-in applications consume exactly the existing abstract EDP-Memory,
+EDP-Threading and EDP-Platform paths already present in G1/G10 source.
+All bounded payload acquisition and explicit release use
+EDP-Memory::ObjectPoolLease; payload copying uses the composable
+EDP-Memory::ByteOperations capability, with a portable provider selected
+by the application (the native host fixture uses EDP-Platform-Portable).
+All async dispatch, Task handle, cancellation and terminal completion
+remain in EDP-Threading's preexisting `Task` and bounded
+`DedicatedWorkerLease`/TaskExecutionFacility design. No Logging-owned
+Task worker, native mutex/signal, internal queue, elapsed-time source,
+platform concrete, Serial/Persistence concrete or reverse EDP dependency
+is introduced. Owner-cancellation/reclaim remains an explicit Bootstrap
+lifecycle duty until product HIL/reliability tests complete.

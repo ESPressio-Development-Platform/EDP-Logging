@@ -40,3 +40,5 @@
 
 - [LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md)
 - [Complete G4 generated Typed Envelope (optional)](Reference-logging-GeneratedLogRecordWireProjection.md)
+
+- [Async copied Task sink (#11)](Reference-logging-AsyncCopyingTaskSink)

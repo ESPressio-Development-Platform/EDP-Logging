@@ -146,6 +146,10 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-diagnostic-generated-contract-tests.sh
+      - name: G10 copied asynchronous Task owner, terminal reclaim and backpressure
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-async-copying-sink-tests.sh ${{ matrix.compiler }}
       - name: Run G10 one-sink and two-sink owner-composed lifetime regression
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}

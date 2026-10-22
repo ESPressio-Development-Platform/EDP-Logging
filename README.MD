@@ -601,3 +601,20 @@ RPI400 authoritative evidence from 22 October 2026:
 - Raw captures and flash/verify logs remain on RPI400 in `/srv/espressio/scratch/gpt6-logging-20261022-0919-v4/g4-g10-owned-full-root-physical-20261022`, manifest SHA256 `a239f8fae1fd0d0e3ed3844059db5b7c134f289a2ff87af7b37afc454cd3c17c`. Do not commit private captures, firmware binary or log dumps.
 
 The physical main.cpp was compared line-for-line against the exact remote branch blob `31bc06e1aed37f9381396752c47de25ab74c7be4`; it differs **only** by the new test header import and single call to the new test. No other HIL source code was replaced.
+
+
+## 2026-10-22 — optional G10 copied asynchronous Task-owner adapter (#11, partial)
+
+`logging/AsyncCopyingTaskSink.hpp` composes the **existing** EDP-Memory
+ObjectPoolLease, ByteOperations and EDP-Threading Task dispatch/completion
+contracts to allow a source-independent *one-in-flight-per-sink* copy into
+bounded Memory before accepting asynchronous Task admission. This is a
+separately-owned, opt-in callback for the existing G10 1–8 sink fanout.
+Final sink outcomes (including cancel/provider failure) remain distinct
+from admission, and Memory release is deferred until the Task is terminal.
+No Mesh dependency, additional thread/queue/allocator or version mutation.
+Only a deterministic synthetic-deferred Task owner and native Memory pool
+have been host validated so far, **not** an actual worker execution on
+ESP32 or persistence durability. See [full contract and remaining tests](
+./docs/ASYNC-COPYING-TASK-SINK.MD) and [developer Wiki](
+./wiki/Reference-logging-AsyncCopyingTaskSink.md).
