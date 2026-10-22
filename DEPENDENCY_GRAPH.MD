@@ -294,3 +294,13 @@ EDP-Serialisation never imports EDP-Logging; feature branch
 `feature/logging-v1` is required until the owner facility is
 independently released. Library versions remain exactly 0.1.0.
 
+
+
+### 2026-10-22 G4 whole-record stack-qualification dependency review
+
+This fixture-only change adds FreeRTOS task-stack telemetry inside
+`tests/hil/g1-espidf/src/g4_whole_record_check.hpp` and reduces the
+**application HIL-only** app_main stack configuration from 16 KiB to
+14 KiB. It adds **no** new mandatory or optional production EDP-Logging
+dependencies, and the original EDP-Serialisation owner remains the
+only CBOR/JSON writer. No reusable memory provider was introduced.

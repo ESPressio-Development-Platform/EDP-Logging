@@ -4,11 +4,19 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <cstdio>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <GeneratedLocalisationContract.hpp>
 #include <logging/DiagnosticClockEraArguments.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
 #include <logging/GeneratedLogRecordWireProjection.hpp>
+
+inline void ReportG4TestStack(const char* phase) noexcept {
+    std::printf("EDP_LOGGING_HIL|G4_STACK_PHASE|%s|minimum_remaining_bytes=%u\n",
+                phase, static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+}
 
 inline bool CheckG4CompleteSchemaTypedEnvelopeOnDevice() noexcept {
     namespace L=ESPressio::Logging;
@@ -59,15 +67,18 @@ inline bool CheckG4CompleteSchemaTypedEnvelopeOnDevice() noexcept {
        return false;
     if(std::get<0>(scratch).has_value() || std::get<1>(scratch).has_value())
        return false;
+    ReportG4TestStack("projection");
     std::array<std::byte,1024U> bytes{};
     const auto cb=Serializer::Serialise<
         Serializer::Cbor,Serializer::RootProfile::TypedEnvelope>(
         projection,bytes);
+    ReportG4TestStack("cbor_encode");
     if(!cb.IsSuccessful() || cb.BytesWritten==0U) return false;
     Root decoded{};
     const auto cbDecoded=Serializer::Deserialise<
         Serializer::Cbor,Serializer::RootProfile::TypedEnvelope>(
         std::span<const std::byte>(bytes.data(),cb.BytesWritten),decoded);
+    ReportG4TestStack("cbor_decode");
     if(!cbDecoded.IsSuccessful() || decoded.Arguments!=projection.Arguments ||
        decoded.DiagnosticSchemaFingerprint!=source.DiagnosticSchemaFingerprint ||
        decoded.Message.String!=source.Message.String)
@@ -75,6 +86,7 @@ inline bool CheckG4CompleteSchemaTypedEnvelopeOnDevice() noexcept {
     const auto js=Serializer::Serialise<
         Serializer::Json,Serializer::RootProfile::TypedEnvelope>(
         projection,bytes);
+    ReportG4TestStack("json_encode");
     if(!js.IsSuccessful() || js.BytesWritten==0U) return false;
     const std::string_view view{
         reinterpret_cast<const char*>(bytes.data()),js.BytesWritten};
@@ -86,6 +98,7 @@ inline bool CheckG4CompleteSchemaTypedEnvelopeOnDevice() noexcept {
     const auto jsDecoded=Serializer::Deserialise<
         Serializer::Json,Serializer::RootProfile::TypedEnvelope>(
         std::span<const std::byte>(bytes.data(),js.BytesWritten),decoded);
+    ReportG4TestStack("json_decode");
     if(!jsDecoded.IsSuccessful() || decoded.Arguments!=projection.Arguments ||
        decoded.Attempt.Value()!=source.Attempt.Value()) return false;
     // Schema fingerprint is the historical position interpretation key.

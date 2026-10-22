@@ -529,3 +529,15 @@ usage 10,824 B after an earlier 8 KiB task panic. No universal
 production stack requirement or complete Logging release is claimed.
 See [G4 contract and measured limits](docs/G4-GENERATED-WHOLE-RECORD.MD).
 
+
+
+## Complete G4 root WROOM HIL — 14 KiB requalification (2026-10-22)
+
+The **test application** now qualifies the full schema-generated
+15-field CBOR/JSON Typed Envelope using a 14,336-byte app_main stack,
+down from the 16,384-byte diagnostic fixture. Three physical ESP32
+runs passed 18/18 functional markers; app_main retained 3,512 bytes
+minimum. Cumulative high-water phase probes show the major increment
+at the EDP-Serialisation JSON encoding path. This is not a new
+production stack default; remaining performance and memory budgets
+are open. [Complete evidence](docs/G4-GENERATED-WHOLE-RECORD.MD).

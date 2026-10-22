@@ -93,3 +93,67 @@ synchronised true cross-device Clock source, authenticated
 historical schema provenance, full source-to-sink coordinator
 lifetime including asynchronous retention, true power interruption,
 rolling archival safety and remaining G1–G15 tests.
+
+
+## 2026-10-22 — requalified fourteen-KiB whole-record HIL stack with phase measurements
+
+The initial complete generated fifteen-field G4 Typed Envelope had a
+**test-application-only 16 KiB app_main stack** following the decoded
+8 KiB overflow. A fresh physical test reduced this HIL-only stack
+to **14,336 bytes (14 KiB)** without adding a heap allocation or
+changing any production codec/record/owner interfaces. The fixture
+`tests/hil/g1-espidf/sdkconfig.defaults` now declares 14,336 B;
+product applications must still determine their own budgets.
+
+A test-only diagnostic `ReportG4TestStack` records actual FreeRTOS
+cumulative minimum remaining stack at five boundaries. Three distinct
+ESP32-D0WD/WROOM-32 reset and NVS-restart cycles reported identically:
+
+| Phase | Minimum app_main stack remaining |
+| --- | ---: |
+| Source projection | 11,208 B |
+| CBOR encode | 10,536 B |
+| CBOR decode | 10,536 B |
+| JSON encode | 3,512 B |
+| JSON decode | 3,512 B |
+
+**JSON encoding is the observed pressure point:** it decreased
+remaining stack by **7,024 B** after CBOR decode; CBOR's earlier
+increment was 672 B. These are *cumulative high-water* observations,
+not instantaneous stack frame sizes or exclusive per-operation cost.
+Full-test peak stack use is 14,336 − 3,512 = **10,824 B**.
+A future optimisation should review the **EDP-Serialisation owner**
+JSON TypedEnvelope writer/tuple path, not duplicate a Logging codec
+or silently expand platform-wide stack defaults.
+
+- 14 KiB PioArduino ESP-IDF build detached
+  `20261022T114529-e070ff5c`: **PASS exit 0**. The generated
+  config header explicitly defines 14,336.
+- Complete factory binary SHA256:
+  `acb6aeee53f64852f2c467abc95b4fc19d05f93785369a8908089efceb8c3f56`.
+- Actual hardware flash from address 0x0 and **independent on-chip
+  digest verification**, plus three real UART/NVS restart HIL
+  executions in detached run `20261022T115119-c3346488`:
+  **PASS exit 0, 3/3**. Each retains all canonical **18/18**
+  functional markers, EDLG CRC, G11 resource source evidence,
+  and the complete G4 generated CBOR/JSON roundtrip.
+- Private capture sha256 manifest digest:
+  `aa90b39888ab953db70c72a04952b372912e27d968bc4f0d707380304f0ccb1e`.
+  Retained exclusively under
+  `/srv/espressio/scratch/gpt6-logging-20261022-0919-v4/g4-whole-record-physical-14k-phases-20261022`.
+- Actual final resource high-water: app_main 3,512 B remaining;
+  dedicated worker 5,036 B remaining; whole HIL free 8-bit heap
+  before/after/min = 284,316 / 280,796 / 275,872 B. These are
+  **whole-application** figures, not isolated Logging library costs.
+- The test-only `verify-g4-stack-phases.py` rejects missing/reordered,
+  duplicate, non-monotonic or below-2,048-B margin observations.
+  Three real traces and synthetic negative cases independently passed
+  detached `20261022T115404-f750b36c` (exit 0).
+
+**Limitations:** No full product resource budget, multiple concurrent
+large-schema JSON encodes, full strict worst-case stack bound,
+uncontrolled real power cut, or end-to-end durable coordinator
+is established. The 8 KiB root HIL remains physically **failed**,
+and the earlier 16 KiB physical profile remains a valid baseline;
+do not replace historical failure claims with this improvement.
+

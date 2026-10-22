@@ -2,6 +2,10 @@
 # Evidence 2026-10-18: at ESP-IDF's 3584-byte default the test's app_main
 # measured only 448 bytes stack high-water margin after NVS/SPIFFS, Memory,
 # dual-core producer, EDP-Threading coordinator, Serial and frame validation.
-# Provide an explicit 8192-byte fixture stack to keep this test safe.
+# That earlier G11-only fixture used 8192 B; the later complete G4
+# Typed Envelope was observed exceeding 8192 B and needs its own budget.
+# 2026-10-22: full 15-field G4 whole-record JSON/CBOR application HIL
+# requalified with 14336 bytes and 3512 bytes high-water minimum remaining.
+# This fixture stack is NOT a Logging library default or production minimum.
 # A production application's Bootstrap must independently set its own budget.
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=14336
