@@ -9,3 +9,7 @@
 ## Exact generated strong owner types (2026-10-22)
 
 The generated signature now accepts `RuntimeIncarnationId` and explicitly certified ClockEra without casting either to primitive integer call-site arguments. `EncodeDiagnosticArgumentsCbor` and `EncodeDiagnosticArgumentsJson` delegate to EDP-Serialisation, enforcing the generated Localisation argument-kind list at compile time. Source capture uses a separate bounded native arena whose descriptors must never be treated as wire tag numbers. Real owner-generated fixtures with both strong values, golden CBOR/JSON positionals and GCC/Clang negative type mismatch tests pass. No current full 15-field LogRecord wire result is inferred.
+
+## Source-owned values to canonical writer
+
+The optional `OwnedDiagnosticPositionalReencoding.hpp` bridges fixed source-native descriptors to this module's generated-message-qualified `EncodeDiagnosticArgumentsCbor/Json` APIs. The caller provides a bounded scratch tuple of exact semantic Types; private `OwnedArgumentKind` numbers are not CBOR tags. Owner string, bytes and strong identity constraints remain active, and first-refusal results preserve typed reasons. See [Owned positional re-encoding reference](Reference-logging-OwnedDiagnosticPositionalReencoding.md).

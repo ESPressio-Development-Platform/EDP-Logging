@@ -39,3 +39,5 @@
 - [LogRecord identity](Reference-logging-LogRecord.md)
 
 - [LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md)
+
+- [Owned diagnostic positional re-encoding](Reference-logging-OwnedDiagnosticPositionalReencoding.md) — generated schema, owner scratch, source lifetime and canonical positional encoders

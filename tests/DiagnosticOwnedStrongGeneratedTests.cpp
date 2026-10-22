@@ -10,6 +10,7 @@
 #include <GeneratedLocalisationContract.hpp>
 #include <logging/DiagnosticClockEraArguments.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
+#include <logging/OwnedDiagnosticPositionalReencoding.hpp>
 
 using StrongFixture =
     Fixture::Diagnostic::DiagnosticMessageSchema<1U, 0U, 5U>;
@@ -162,6 +163,63 @@ int main() {
             json.BytesWritten
         ) == "[16909060,72623859790382856]"
     );
+
+    // Source values were mutated above; re-encode ONLY the internally owned
+    // bytes using the exact generated schema and owner strong Types.
+    L::OwnedPositionalScratch<
+        S::Identity::RuntimeIncarnationId,C::ClockEra> scratch{};
+    auto ownedCbor = L::EncodeOwnedDiagnosticArgumentsCbor<
+        StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
+    >(record.Arguments,output,scratch);
+    assert(ownedCbor.IsSuccessful());
+    assert(ownedCbor.Encoding.BytesWritten==canonical.size());
+    for (std::size_t i=0U;i<canonical.size();++i)
+        assert(std::to_integer<std::uint8_t>(output[i])==canonical[i]);
+    assert(!std::get<0>(scratch).has_value());
+    assert(!std::get<1>(scratch).has_value());
+
+    const auto ownedJson=L::EncodeOwnedDiagnosticArgumentsJson<
+        StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
+    >(record.Arguments,output,scratch);
+    assert(ownedJson.IsSuccessful());
+    assert(std::string_view(
+        reinterpret_cast<const char*>(output.data()),
+        ownedJson.Encoding.BytesWritten) ==
+        "[16909060,72623859790382856]");
+    assert(!std::get<0>(scratch).has_value());
+    assert(!std::get<1>(scratch).has_value());
+
+    // The native kind alone cannot be used as a wire tag: the generated
+    // schema must match, despite the same private scalar byte width.
+    L::OwnedDiagnosticArguments<2U,12U> wrongKind{};
+    assert(wrongKind.AddScalar(std::uint32_t{0x01020304U}) ==
+        L::OwnedArgumentResult::Added);
+    assert(wrongKind.AddClockEra(eraWire) ==
+        L::OwnedArgumentResult::Added);
+    for(auto& byte:output) byte=std::byte{0xCCU};
+    const auto wrong=L::EncodeOwnedDiagnosticArgumentsCbor<
+        StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
+    >(wrongKind,output,scratch);
+    assert(wrong.Status==L::OwnedPositionalReencodingStatus::KindMismatch);
+    assert(wrong.FirstFailedArgument==0U);
+    assert(output[0]==std::byte{0xCCU});
+    assert(!std::get<0>(scratch).has_value());
+    assert(!std::get<1>(scratch).has_value());
+
+    const auto overflow=L::EncodeOwnedDiagnosticArgumentsCbor<
+        StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
+    >(record.Arguments,std::span<std::byte>(output).first(2U),scratch);
+    assert(overflow.Status==L::OwnedPositionalReencodingStatus::EncoderRejected);
+    assert(overflow.Encoding.BytesWritten==0U);
+    assert(output[0]==std::byte{0xCCU});
+    assert(!std::get<0>(scratch).has_value());
+    assert(!std::get<1>(scratch).has_value());
+
+    L::OwnedDiagnosticArguments<2U,12U> wrongCount{};
+    const auto count=L::EncodeOwnedDiagnosticArgumentsJson<
+        StrongFixture,S::Identity::RuntimeIncarnationId,C::ClockEra
+    >(wrongCount,output,scratch);
+    assert(count.Status==L::OwnedPositionalReencodingStatus::CountMismatch);
 
     using Tiny = L::BasicLogRecord<
         L::AttemptSequenceWidth::Bits16,

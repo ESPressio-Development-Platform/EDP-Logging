@@ -8,6 +8,7 @@
 #include <GeneratedLocalisationContract.hpp>
 #include <logging/DiagnosticArgumentEncoding.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
+#include <logging/OwnedDiagnosticPositionalReencoding.hpp>
 
 using Schema = Fixture::Diagnostic::DiagnosticMessageSchema<1U,0U,3U>;
 using Text = ESPressio::Bounded::String<16U>;
@@ -62,6 +63,8 @@ int main() {
     assert(cbor.BytesWritten != 0U);
     // Four separately typed positional elements in a definite CBOR array.
     assert(destination[0U] == std::byte{0x84U});
+    const auto expectedCbor=destination;
+    const auto cborSize=cbor.BytesWritten;
 
     const auto json =
         ESPressio::Logging::EncodeDiagnosticArgumentsJson<Schema>(
@@ -74,6 +77,8 @@ int main() {
     };
     assert(result.starts_with("[\"Hi\","));
     assert(result.ends_with("]"));
+    const auto expectedJson=destination;
+    const auto jsonSize=json.BytesWritten;
 
     // Real generated source schema: all four heterogeneous types remain
     // fully owned and correctly kind-tagged in the PRIVATE source arena.
@@ -128,6 +133,29 @@ int main() {
     assert(record.Arguments.GetArgumentBytes(1U, copied) ==
         L::OwnedArgumentAccessResult::Available);
     assert(copied.size() == 2U && copied[0U] == std::byte{0xA0U});
+
+    // The source's private bounded text/bytes must rehydrate into owner
+    // Types and produce identical CBOR/JSON even after input mutation.
+    L::OwnedPositionalScratch<Text,Bytes,TypeId,FieldId> ownedScratch{};
+    const auto rebuiltCbor=L::EncodeOwnedDiagnosticArgumentsCbor<
+        Schema,Text,Bytes,TypeId,FieldId
+    >(record.Arguments,destination,ownedScratch);
+    assert(rebuiltCbor.IsSuccessful() &&
+           rebuiltCbor.Encoding.BytesWritten==cborSize);
+    for (std::size_t i=0U;i<cborSize;++i)
+        assert(destination[i]==expectedCbor[i]);
+    assert(!std::get<0>(ownedScratch).has_value());
+    assert(!std::get<3>(ownedScratch).has_value());
+
+    const auto rebuiltJson=L::EncodeOwnedDiagnosticArgumentsJson<
+        Schema,Text,Bytes,TypeId,FieldId
+    >(record.Arguments,destination,ownedScratch);
+    assert(rebuiltJson.IsSuccessful() &&
+           rebuiltJson.Encoding.BytesWritten==jsonSize);
+    for (std::size_t i=0U;i<jsonSize;++i)
+        assert(destination[i]==expectedJson[i]);
+    assert(!std::get<0>(ownedScratch).has_value());
+    assert(!std::get<3>(ownedScratch).has_value());
 
     L::BasicLogRecord<L::AttemptSequenceWidth::Bits32, 4U, 12U> insufficient{};
     assert((L::AssembleLogRecordSource<Schema>(

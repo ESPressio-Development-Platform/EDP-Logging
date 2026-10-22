@@ -29,6 +29,13 @@ catalogue['domains'][0]['subDomains'][0]['strings'][2]['parameters']=[
     {'index':0,'status':'active','type':'runtime-incarnation-id','symbol':'Incarnation'},
     {'index':1,'status':'active','type':'clock-era','symbol':'Era'},
 ]
+catalogue['domains'][0]['subDomains'][0]['strings'][1]['parameters']=[
+    {'index':0,'status':'active','type':'device-identifier','symbol':'Device'},
+    {'index':1,'status':'active','type':'bool','symbol':'Active'},
+    {'index':2,'status':'active','type':'u16','symbol':'Count'},
+    {'index':3,'status':'active','type':'f32','symbol':'Sample'},
+    {'index':4,'status':'active','type':'f64','symbol':'Reading'},
+]
 write_json(catalogue_path,catalogue)
 compile_generated_set(source,platform,[inventory],tmp/'generated','Fixture::Diagnostic')
 PY
@@ -67,6 +74,23 @@ PY
     "$ROOT/tests/DiagnosticOwnedStrongGeneratedTests.cpp" \
     -o "$TEMP/strong"
 "$TEMP/strong"
+
+# Independently validate numeric, floating and DeviceIdentifier owner source
+# extraction through the same generated positional writer.
+"${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+    -I"$ROOT/src" \
+    -I"$TEMP/generated" \
+    -I"$WORKSPACE/EDP-Serialisation/src" \
+    -I"$WORKSPACE/EDP-Localisation/src" \
+    -I"$WORKSPACE/EDP-Clock/src" \
+    -I"$WORKSPACE/EDP-System/src" \
+    -I"$WORKSPACE/EDP-BoundedTypes/src" \
+    -I"$WORKSPACE/EDP-BoundedTopology/src" \
+    -I"$WORKSPACE/EDP-Memory/src" \
+    -I"$WORKSPACE/EDP-Platform/src" \
+    -I"$WORKSPACE/EDP-Platform-Portable/src" \
+    "$ROOT/tests/DiagnosticOwnedMixedGeneratedTests.cpp" \
+    -o "$TEMP/mixed"
 
 # Negative generated-schema mismatch must be rejected by the Logging owner
 # static_assert itself, rather than failing for a missing dependency.

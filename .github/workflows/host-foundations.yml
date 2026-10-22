@@ -136,6 +136,11 @@ jobs:
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-g4-core-field-wire-tests.sh
+      - name: G4 source-owned bounded positional CBOR JSON re-encoding
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-diagnostic-bounded-generated-tests.sh
       - name: G4 generated strong argument source ownership and canonical positionals
         env:
           CXX: ${{ matrix.compiler }}
