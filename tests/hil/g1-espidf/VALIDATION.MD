@@ -1172,7 +1172,7 @@ This is not a durable EDP-Persistence archive, async reference-counted lifetime,
 
 RPI400 authoritative evidence from 22 October 2026:
 
-- Entire PioArduino/ESP-IDF WROOM image build **20261022T124919-34c6630c PASS exit0**, source main blob `0090c59e73fe40dff0c7f6cc6c1ca8dd92367f1a`, new test header blob `996eb9f7cda61a1f52099d0b7c8cd2621eb284ed`, factory image SHA256 `21f423be8a9fac6e70ea0dc0d837367581e4f7d5beadd2dab03292f0f667beb4`.
+- Entire PioArduino/ESP-IDF WROOM image build **20261022T124919-346c630c PASS exit0**, source main blob `0090c59e73fe40dff0c7f6cc6c1ca8dd92367f1a`, new test header blob `996eb9f7cda61a1f52099d0b7c8cd2621eb284ed`, factory image SHA256 `21f423be8a9fac6e70ea0dc0d837367581e4f7d5beadd2dab03292f0f667beb4`.
 - Physical write at address 0x0 and separate independent flash verification, followed by **three** actual reset + NVS-restart UART test captures in detached run **20261022T125506-8e81073b PASS exit0**, completed **12:55:43 CEST**.
 - Each run achieved 18/18 native functional markers, EDLG CRC, resource and G11 instrumentation checks, complete CBOR/JSON record encode/decode and both independent copying-sink paths. Per-phase WROOM stack minimum margin was **10,472 bytes** over these three executions. This is measured test-task margin only, not Logging product worst-case budget.
 - Raw captures and flash/verify logs remain on RPI400 in `/srv/espressio/scratch/gpt6-logging-20261022-0919-v4/g4-g10-owned-full-root-physical-20261022`, manifest SHA256 `a239f8fae1fd0d0e3ed3844059db5b7c134f289a2ff87af7b37afc454cd3c17c`. Do not commit private captures, firmware binary or log dumps.
