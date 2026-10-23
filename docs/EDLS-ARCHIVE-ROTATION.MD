@@ -164,3 +164,24 @@ correctly advertises `FileInterruptionAtomicity::None`,
 The previously hardware-blocked part of #12 is now resolved, but
 permanent PowerLoss-product assurance requires further rollover-cut and
 provider-contract qualification.
+
+## 2026-10-23 — second physical relay-cut: torn EDLS successor
+
+The first GPIO17 power-cut HIL established prior-generation retention
+during a separate native SPIFFS replacement. A **distinct** second
+fixture, `tests/hil/g7-torn-slot-espidf`, then simulated a torn EDLS
+oldest-slot successor: a valid generation-3 header followed by only
+8 bytes of an incomplete EDLG frame. The file write returned before
+the host cut physical ESP32 power for 2.3925 seconds. On restored power
+ESP-IDF reported `ESP_RST_POWERON` (1); physical readback classified
+the generation-3 slot `DamagedTail`, retained generation 2 as clean
+with one checksum-valid frame, and the real
+`PublishEdlsOldestEligibleSuccessor` refused to rotate that ambiguous
+topology, leaving the protected slot unchanged. RPI400 durable test
+`20261023T113223-4de652e4` **PASS exit0** with raw private evidence.
+
+The cut occurred **after** the incomplete ReplaceFile returned and
+before any subsequent publication. Do not claim this proves interrupted
+ReplaceFile atomicity, universal recovery or a power-loss-safe VFS
+capability. See the fixture README for the exact phase boundary.
+All version identifiers remain `0.1.0`.

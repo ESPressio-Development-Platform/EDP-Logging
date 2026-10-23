@@ -58,3 +58,15 @@ new provider-level interruption-atomic contract.** Remaining G7/#12
 work includes torn EDLS slot and rollover-cut failure cases. Full
 fixture and repeatability instructions:
 `tests/hil/g7-power-cut-espidf/README.MD`.
+
+## Real relay power cut with partial successor — 2026-10-23
+
+An additional dedicated ESP-IDF fixture now covers crash recovery
+after deliberately publishing a torn oldest-slot successor and then
+electrically cutting RPI400-integrated ESP32 power using relay GPIO17.
+Run `20261023T113223-4de652e4` PASS: the protected generation 2
+remained valid, generation 3 was `DamagedTail`, and rotation failed
+closed. The cut was between separate logical writes, **not inside**
+the partial native ReplaceFile; the VFS/FileStorage interruption
+capabilities remain conservative and unchanged. See
+`tests/hil/g7-torn-slot-espidf/README.MD`.

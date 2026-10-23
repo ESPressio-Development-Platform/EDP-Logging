@@ -690,3 +690,17 @@ The native FileStorage capability **remains** Restart-only /
 promoted to a general PowerLoss guarantee. See the test README and
 `docs/EDLS-ARCHIVE-ROTATION.MD`; issue #12 tracks the remaining stronger
 durability design.
+
+## 2026-10-23 — separate real-power EDLS torn-slot recovery HIL
+
+The additional dedicated `tests/hil/g7-torn-slot-espidf/` fixture
+reuses independently verified generation-1 and generation-2 records from
+the GPIO17 relay test. It publishes a deliberately incomplete generation-3
+oldest-slot file, cuts real ESP32 power after this partial native write,
+and on a new physical power-on reboot verifies that the previously committed
+generation-2 slot remains CRC-clean while the generation-3 candidate has
+a damaged/incomplete frame tail. The real oldest-eligible rollover API
+refuses ambiguous archive mutation. Physical run
+`20261023T113223-4de652e4` **PASS exit 0**. This is a cut **between**
+logical writes, not proof of atomicity inside a write; the SPIFFS
+VFS provider remains `InterruptionAtomicity::None`.
