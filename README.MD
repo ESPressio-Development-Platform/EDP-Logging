@@ -674,3 +674,19 @@ RPI400 WROOM-32 (detached `20261023T083422-cc50dcba`, PASS exit0).
 This qualifies bounded oldest-clean selection, readback and damaged-tail
 refusal on real VFS/flash in controlled operation only, not external
 power-interruption durability.
+
+## 2026-10-23 — genuine relay-interrupted FileStorage test (G7 / #12)
+
+The dedicated `tests/hil/g7-power-cut-espidf` fixture is qualified for the
+RPI400-integrated WROOM, using the GPIO17 switched-supply relay introduced
+in Policy V2. The user confirmed this wiring prevents back-powering. The
+first real test **PASS** under RPI400 detached receipt
+`20261023T110910-d66bc60e`: two independently verified EDLS generations
+survived interruption of a separate 96 KiB native FileStorage replacement,
+followed by true ESP32 power-on reset and read-only archive recovery.
+The full previous 2 MiB device image was backed up before flashing.
+The native FileStorage capability **remains** Restart-only /
+`InterruptionAtomicity::None`; isolated empirical survival must never be
+promoted to a general PowerLoss guarantee. See the test README and
+`docs/EDLS-ARCHIVE-ROTATION.MD`; issue #12 tracks the remaining stronger
+durability design.

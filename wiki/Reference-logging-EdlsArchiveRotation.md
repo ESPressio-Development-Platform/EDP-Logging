@@ -43,3 +43,18 @@ Detached physical run `20261023T083422-cc50dcba` PASS exit0, exact
 factory image SHA256
 `354e98347121bbce2a4c006b50b6ca1cab342547b9770eb4110b263d8ea155b8`.
 No power-cut result or production retention guarantee follows.
+
+## Physical power-loss HIL (2026-10-23)
+
+The RPI400-integrated ESP32 now has a genuine switched 3.3V feed via
+GPIO17 relay; the user confirmed that its wiring prevents signal
+back-powering. The first destructive hardware campaign is tracked by
+`20261023T110910-d66bc60e`: 2 independently verified EDLS generations
+survived an actual power interruption of a concurrent SPIFFS
+FileStorage::ReplaceFile, recovered after an `ESP_RST_POWERON` reset.
+The test uses a private two-MiB flash partition map and retains full
+pre-flash backup/evidence. **This is a measured retention result, not a
+new provider-level interruption-atomic contract.** Remaining G7/#12
+work includes torn EDLS slot and rollover-cut failure cases. Full
+fixture and repeatability instructions:
+`tests/hil/g7-power-cut-espidf/README.MD`.

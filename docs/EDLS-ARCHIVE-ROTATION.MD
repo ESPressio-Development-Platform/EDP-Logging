@@ -135,3 +135,32 @@ recovery evidence**, **not** uncontrolled external power-cut durability.
 No original pre-test firmware backup or restoration was performed in
 this G6/G7 campaign: the integrated device was already dedicated to
 Logging HIL firmware before it started.
+
+## 2026-10-23 — physical GPIO17 power-loss evidence (bounded #12 gate)
+
+RPI400 now uses its V2-authorised relay to switch the integrated WROOM's
+3.3V supply. The user explicitly confirmed no parasitic back-powering
+through other connections. This qualifies the OFF/ON operation as a true
+electrical power interruption, unlike `esp_restart()` or reset-only HIL.
+The dedicated `tests/hil/g7-power-cut-espidf` fixture uses a corrected
+2 MiB flash partition topology, genuine
+`EDP-Persistence-ESP-IDF::VfsFileStorage` (SPIFFS), two fully committed
+EDLS segments, a separate 96 KiB interrupted native replacement, and a
+strictly nonformatting read-only restart inspection. It retains an exact
+full-device pretest flash backup.
+
+RPI400 detached physical receipt `20261023T110910-d66bc60e` is
+**PASS exit 0**: image write/independent verify; relay OFF after
+`REPLACE_ENTER`; 2.37s off; power ON; `ESP_RST_POWERON`; EDLS slot0
+clean generation 1 and slot1 clean generation 2; archive unambiguous;
+the interrupted separate file reported zero bytes; no
+`REPLACE_RETURN` marker before/after the cut. The relay was left OFF.
+
+This demonstrates **prior committed EDLS retention in that actual cut**.
+It does not make `VfsFileStorage` interruption-atomic, nor prove all
+timings or interrupted writes to the EDLS slot itself. The provider still
+correctly advertises `FileInterruptionAtomicity::None`,
+`AppendInterruptionAtomicity::None` and `FailurePreservation::MayModify`.
+The previously hardware-blocked part of #12 is now resolved, but
+permanent PowerLoss-product assurance requires further rollover-cut and
+provider-contract qualification.
