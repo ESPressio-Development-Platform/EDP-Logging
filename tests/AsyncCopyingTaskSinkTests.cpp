@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <new>
 #include <optional>
 #include <span>
@@ -467,8 +468,171 @@ namespace {
             M::MemoryTopologyTeardownResult::Succeeded);
     }
 
+
+    /// The maximum contract width, eight independent sink owners, reused for
+    /// 96 full source/Task/lease cycles. No adapter performs dynamic growth:
+    /// host-only unique_ptr stores nonmovable Bootstrap-composed fixtures.
+    void TestEightSinkRepeatedIndependentOwnership() {
+        using EightTopology = M::MemoryTopology<
+            Resource,
+            M::SharedReserve<0U, Resource>,
+            M::ObjectPoolSpec<Buffer, M::DedicatedInstances<9U>>
+        >;
+        using EightRuntime = M::MemoryRuntime<
+            EightTopology,
+            MemoryComposition,
+            TestSupport::TestMutexProvider,
+            TestSupport::TestSignalProvider
+        >;
+        Resource resource;
+        TestSupport::TestMutexProvider mutex;
+        MemoryComposition::Select<
+            M::SharedReserveAllocationRequirement,
+            ESPressio::System::CompositionFramework::SelectUnique
+        > allocator;
+        EightRuntime memory(mutex, allocator, resource);
+        M::MemoryTopologyInitializationFailure fail{};
+        assert(memory.Initialize(fail) ==
+            M::MemoryTopologyInitializationResult::Succeeded);
+
+        auto& pool = memory.ObjectPoolFor<Buffer>();
+        using Pool = std::remove_reference_t<decltype(pool)>;
+        using Lease = Pool::LeaseType;
+        Lease sourceLease;
+        std::array<Lease, 8U> owned{};
+        std::array<std::optional<T::Task<L::RecordSinkSubmission>>, 8U> tasks{};
+        std::array<DeferredTaskExecutor, 8U> executors{};
+        std::array<Delivery, 8U> deliveries{};
+        PortableBytes bytes;
+        using Sink = L::AsyncCopyingTaskSink<
+            L::EdlgCodec::Cbor, 32U,
+            Pool, PortableBytes, DeferredTaskExecutor, Delivery
+        >;
+        std::array<std::unique_ptr<Sink>, 8U> sinks{};
+        const std::array<L::RecordSinkSubmission, 4U> results{
+            L::RecordSinkSubmission::Accepted,
+            L::RecordSinkSubmission::Rejected,
+            L::RecordSinkSubmission::Partial,
+            L::RecordSinkSubmission::ProviderFailure
+        };
+        for (std::size_t i = 0U; i < sinks.size(); ++i) {
+            deliveries[i].Result = results[i % results.size()];
+            sinks[i] = std::make_unique<Sink>(
+                pool, owned[i], tasks[i], bytes, executors[i], deliveries[i]
+            );
+        }
+
+        struct Record final {
+            std::uint8_t Id;
+        } original{};
+        struct Encoder final {
+            std::size_t Calls{0U};
+            L::RepresentationEncodeResult operator()(
+                const Record& data,
+                std::span<std::byte> output
+            ) noexcept {
+                ++Calls;
+                output[0] = std::byte{0x82U};
+                output[1] = std::byte{data.Id};
+                output[2] = std::byte{0x45U};
+                return {L::RepresentationEncodeStatus::Succeeded, 3U};
+            }
+        } encoder;
+
+        std::size_t processed = 0U;
+        std::size_t cancelled = 0U;
+        std::size_t admissionRejected = 0U;
+        for (std::uint32_t cycle = 0U; cycle < 96U; ++cycle) {
+            original.Id = static_cast<std::uint8_t>(cycle + 1U);
+            const auto expected = original.Id;
+            const bool forceOneDispatchFailure = (cycle % 7U == 0U);
+            executors[7U].FailDispatch = forceOneDispatchFailure;
+
+            const auto fanout = L::EncodeOnceAndSubmitToSinks<
+                L::EdlgCodec::Cbor, 32U
+            >(
+                pool, sourceLease, original, encoder,
+                *sinks[0], *sinks[1], *sinks[2], *sinks[3],
+                *sinks[4], *sinks[5], *sinks[6], *sinks[7]
+            );
+            assert(fanout.EncoderInvocations == 1U);
+            assert(sourceLease.IsEmpty());
+            assert(fanout.SinkInvocations == 8U);
+            assert(fanout.Accepted == (forceOneDispatchFailure ? 7U : 8U));
+            assert(
+                fanout.Status ==
+                (forceOneDispatchFailure
+                    ? L::OwnedRepresentationStatus::SubmissionNotAccepted
+                    : L::OwnedRepresentationStatus::SubmittedAndReleased)
+            );
+
+            original.Id = 0xFFU;
+            const auto bytesBefore = deliveries[0U].Calls;
+            assert(sinks[0U]->Submit(
+                L::EdlgCodec::Cbor,
+                std::span<const std::byte>(
+                    reinterpret_cast<const std::byte*>(&original.Id), 1U
+                )
+            ) == L::AsyncSinkAdmissionStatus::Busy);
+            assert(deliveries[0U].Calls == bytesBefore);
+
+            // Completing in inverse order validates truly independent leases.
+            for (std::size_t backwards = 8U; backwards > 0U; --backwards) {
+                const auto i = backwards - 1U;
+                if (i == 7U && forceOneDispatchFailure) {
+                    assert(!tasks[i].has_value());
+                    assert(owned[i].IsEmpty());
+                    ++admissionRejected;
+                    continue;
+                }
+                assert(tasks[i].has_value());
+                assert(!owned[i].IsEmpty());
+                assert(
+                    sinks[i]->TryFinalize().Status ==
+                    L::AsyncSinkCompletionStatus::Pending
+                );
+                if ((cycle + i) % 5U == 0U) {
+                    assert(
+                        sinks[i]->RequestCancellation() ==
+                        T::TaskCancelResult::Accepted
+                    );
+                    executors[i].DropCancelled();
+                    const auto done = sinks[i]->TryFinalize();
+                    assert(
+                        done.Status ==
+                        L::AsyncSinkCompletionStatus::CancelledAndReleased
+                    );
+                    ++cancelled;
+                } else {
+                    const auto previous = deliveries[i].Calls;
+                    executors[i].Execute();
+                    const auto done = sinks[i]->TryFinalize();
+                    assert(done.Delivery == results[i % results.size()]);
+                    assert(done.Release ==
+                        M::ObjectPoolLeaseReleaseResult::Released);
+                    assert(deliveries[i].Calls == previous + 1U);
+                    assert(deliveries[i].Bytes[1U] == std::byte{expected});
+                    ++processed;
+                }
+                assert(owned[i].IsEmpty());
+                assert(!tasks[i].has_value());
+            }
+            assert(sourceLease.IsEmpty());
+            for (const auto& lease : owned) {
+                assert(lease.IsEmpty());
+            }
+        }
+        assert(encoder.Calls == 96U);
+        assert(processed > 500U && cancelled > 100U);
+        assert(admissionRejected > 10U);
+        // All provider-owned memory and Threading Task handles have returned.
+        assert(memory.TearDown() ==
+            M::MemoryTopologyTeardownResult::Succeeded);
+    }
+
 }
 int main() {
     TestIndependentCopyCompletion();
     TestTwoIndependentAsyncSinks();
+    TestEightSinkRepeatedIndependentOwnership();
 }

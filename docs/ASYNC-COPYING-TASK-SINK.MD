@@ -152,3 +152,47 @@ host-only qualification statement **for these specific native paths**;
 queued-task cancellation, concurrent shutdown races, forced physical
 Memory provider release failure, durable Persistence and release-wide
 stress/resource qualification are still unproven.
+
+
+## 2026-10-23 G10 eight-sink repeated finite lifecycle stress (#11)
+
+The optional source-owned callback is now verified at its maximum approved
+static width (8 distinct sinks) for **96 consecutive independent record
+lifecycles**. The host fixture uses a real EDP-Memory nine-slot object
+pool (one transient encoded source and eight distinct downstream leases)
+and eight independent instances of the public Task API's deterministic
+completion driver. It never extends the borrowed source beyond the
+synchronous callback. The test deliberately mutates that source, completes
+children in reverse order, exercises mixed Accepted/Rejected/Partial/
+ProviderFailure final statuses, cancels some queued children before
+delivery, injects bounded Task admission rejection every seventh cycle,
+and attempts premature per-owner resubmission while busy. Each admitted
+Task keeps precisely its own native lease until its terminal result;
+every cancelled/rejected owner independently reclaims or preserves its
+claim, and the native MemoryRuntime successfully tears down at the end.
+This is **simulated Task scheduling using the actual EDP-Threading public
+Task handle contract and real EDP-Memory allocation/release**, not eight
+physically concurrent ESP32 workers.
+
+The exact pinned-source RPI400 host matrix includes GCC
+`20261023T075856-840410f0` PASS exit0, Clang
+`20261023T075948-2b0906cc` PASS exit0, Clang UBSan
+`20261023T075949-f3bd4d7c` PASS exit0 and prior G10 fanout
+GCC `20261023T075949-31a04a6a` PASS exit0. One initial
+compilation failed (`20261023T075833-330e2808`) because the new
+test erroneously used `Attempted` rather than the public
+`OwnedRepresentationOutcome::SinkInvocations` member; this was fixed
+before the passing matrix.
+
+**ASan limitation recorded without a false PASS:** Clang ASan host run
+`20261023T075949-fe4092fe` failed at the sanitizer allocator's
+initialisation without executing the tests. Independently compiled and
+executed **trivial** GCC and Clang ASan smoke binaries on the same RPI400,
+runs `20261023T080056-db8dcd7a` and
+`20261023T080056-b18b4fec`, and both failed at the same
+`sanitizer_allocator_primary64.h` `kSpaceBeg` check. GCC ASan
+on the real test `20261023T080107-ab8523ba` also failed on this
+same runtime check. None emitted an application memory diagnostic.
+Therefore UBSan is executable evidence, but **ASan remains unavailable
+on this appliance and must be repeated on an authorised ASan-capable
+execution environment before claiming ASan qualification**.

@@ -633,3 +633,15 @@ G4 fixture is required before HIL build. Test evidence, exact source
 and limits: `tests/hil/g1-espidf/VALIDATION.MD`. The full #11 async
 stress/queued-cancel/persistence-release gates and parent Logging #1
 remain open, version stays 0.1.0.
+
+## Eight-sink repeated G10 lifecycle stress (2026-10-23)
+
+G10's maximum 8-sink async composition was exercised through 96
+repeated native EDP-Memory allocations/reclaims with eight independent
+simulated EDP-Threading public Task completions, including mixed
+rejections, cancellations, task backpressure and source mutation.
+RPI400 GCC/Clang/Clang UBSan pass with native Memory teardown.
+This is host fixture evidence, **not** an eight-worker physical
+execution. ASan cannot initialize on this RPI400, even for a trivial
+smoke binary; its coverage remains outstanding rather than passed.
+See `docs/ASYNC-COPYING-TASK-SINK.MD`.

@@ -78,3 +78,14 @@ running-cancel-request work keeps the first lease until genuinely terminal.
 Subsequent dispatch and final Rejected delivery are tested. Firmware,
 capture IDs, provenance and remaining gaps are detailed in the HIL
 VALIDATION.MD. No durable archive or complete Logging release is claimed.
+
+## Repeated eight-sink source/Task stress
+
+A new host test uses a native nine-slot EDP-Memory pool for one transient
+source plus eight independent downstream leases; 96 source cycles verify
+one encode per representation, mixed downstream status, inverse Task
+completion, queued cancellation, admission rejection and exact native
+Memory reclamation. GCC, Clang and Clang UBSan passed on pinned RPI400.
+Host ASan cannot start on this RPI400 even for a trivial binary;
+ASan remains an unfulfilled release check, not a source failure.
+See the normative async copying Task document for detached run IDs.
