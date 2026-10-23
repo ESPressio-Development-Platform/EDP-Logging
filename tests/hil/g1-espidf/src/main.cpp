@@ -27,6 +27,7 @@
 #include "g4_core_field_check.hpp"
 #include "g4_whole_record_check.hpp"
 #include "g4_root_owned_fanout_check.hpp"
+#include "g10_async_owned_worker_check.hpp"
 #include "g2_clock_owner_check.hpp"
 #include <logging/EdlgFrame.hpp>
 #include <logging/EdlgFrameReader.hpp>
@@ -1170,6 +1171,14 @@ bool Run() {
     if(!Check(CheckG4OwnedRootFanoutOnDevice<
         Resource,Mutex,Signal,Allocator,Composition,SerialMutex>(),
         "g4-full-root-owned-memory-serial-copy-archive")) return false;
+    if (!Check(
+        CheckG10AsyncOwnedWorkerOnDevice<
+            Resource, Mutex, Signal, Allocator, Composition
+        >(),
+        "g10-async-owned-real-dedicated-worker"
+    )) {
+        return false;
+    }
     // 4. Real task is blocked for queue capacity when shutdown starts.
     // ShutdownUntil must wait for this producer to retire, not report false
     // quiescence while it still owns an EDP-Threading wake slot.

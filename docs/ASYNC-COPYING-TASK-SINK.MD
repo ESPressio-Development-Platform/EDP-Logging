@@ -126,3 +126,29 @@ contract, **not a real simultaneous multicore race or underlying
 native worker implementation**. Real EDP-Threading Worker execution,
 provider-accurate cancellation and full product teardown must still
 be qualified independently before #11 is closed.
+
+
+## 2026-10-23 physical native Task qualification (bounded scope)
+
+The real RPI400-integrated ESP32-D0WD HIL now binds the published
+`AsyncOwnedDeliveryWork` to an actual topology-owned EDP-Threading
+`DedicatedWorkerLease` and uses real Memory pools and callbacks.
+The nonwaiting `AbandonImmediately` policy explicitly refuses a second
+Task while the sole Worker executes a slow first Task. Its rejected
+admission reclaims its own lease immediately and leaves the first lease
+held. A running-Task cancellation request does not release bytes before
+the still-running callback completes, and the payload remains correct
+after parent source mutation. A subsequent Task is admitted after the
+Worker becomes available and reports its final native Rejected result
+distinct from admission.
+
+Real PioArduino ESP-IDF build and three on-device reset/UART cycles pass
+**19/19** mandatory markers each. Physical evidence run:
+`20261023T065718-c2eb8268` (PASS, exit 0). Exact firmware factory SHA:
+`26ba1e46da43d43596ded351e428d3247e61a54d0d5d8867fa60ef9e853c9765`.
+See `tests/hil/g1-espidf/VALIDATION.MD` for the earlier failed run,
+build/generator provenance and limitations. This supersedes the earlier
+host-only qualification statement **for these specific native paths**;
+queued-task cancellation, concurrent shutdown races, forced physical
+Memory provider release failure, durable Persistence and release-wide
+stress/resource qualification are still unproven.

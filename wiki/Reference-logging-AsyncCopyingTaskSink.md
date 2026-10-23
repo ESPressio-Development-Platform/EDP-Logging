@@ -66,3 +66,15 @@ The same rule applies to failed Task dispatch followed by failed
 native Memory release. A running Task's cancellation request is not
 terminal and cannot trigger early reclaim. Simulated completion tests
 do not prove a real Worker execution context.
+
+## 2026-10-23 ESP32 native Worker subset
+An actual ESP-IDF topology-owned EDP-Threading DedicatedWorkerLease now
+executes the public AsyncOwnedDeliveryWork on the RPI400-integrated WROOM.
+It passed three native 19/19 cycles after correcting the HIL's mistaken
+assumption that AbandonImmediately queues work. The policy returns
+Unavailable while the Worker is busy; no implicit queue or wait was added.
+The rejected second Task's independent Memory lease is reclaimed, while
+running-cancel-request work keeps the first lease until genuinely terminal.
+Subsequent dispatch and final Rejected delivery are tested. Firmware,
+capture IDs, provenance and remaining gaps are detailed in the HIL
+VALIDATION.MD. No durable archive or complete Logging release is claimed.

@@ -618,3 +618,18 @@ have been host validated so far, **not** an actual worker execution on
 ESP32 or persistence durability. See [full contract and remaining tests](
 ./docs/ASYNC-COPYING-TASK-SINK.MD) and [developer Wiki](
 ./wiki/Reference-logging-AsyncCopyingTaskSink.md).
+
+## 2026-10-23 native G10 Task worker (#11 partial)
+
+The optional independent-copying Task adapter was exercised through a
+**real ESP32 ESP-IDF EDP-Threading DedicatedWorkerLease** with EDP-Memory.
+Three physical RPI400 reset runs passed 19/19 HIL markers each after a
+failed initial run exposed that `TaskDispatchPolicy::AbandonImmediately`
+rejects when the Worker is occupied; it does **not** queue behind a
+running Task. The actual device test verifies no-wait rejection/reclaim,
+running cancel-request ownership, payload survival after source mutation,
+and eventual independent final sink rejection. A canonical owner-generated
+G4 fixture is required before HIL build. Test evidence, exact source
+and limits: `tests/hil/g1-espidf/VALIDATION.MD`. The full #11 async
+stress/queued-cancel/persistence-release gates and parent Logging #1
+remain open, version stays 0.1.0.

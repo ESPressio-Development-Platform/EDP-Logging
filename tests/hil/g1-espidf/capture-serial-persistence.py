@@ -22,6 +22,7 @@ expected=(
     "EDP_LOGGING_HIL|PASS|BOUNDED_COORDINATOR_QUANTUM",
     "EDP_LOGGING_HIL|PASS|EDP_THREADING_DEDICATED_COORDINATOR",
     "EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY",
+    "EDP_LOGGING_HIL|PASS|G10_ASYNC_TASK_OWNED_WORKER",
     "EDP_LOGGING_HIL|PASS|WROOM_WHOLE_APP_RESOURCE_SNAPSHOT",
     "EDP_LOGGING_HIL|PASS|FIFO_MEMORY_OWNERSHIP",
     "EDP_LOGGING_HIL|PASS|DUAL_CORE_PRODUCER_WAKE",
@@ -95,7 +96,7 @@ if len(resource_lines)==1:
     except (KeyError, ValueError):
         resource_valid=False
 # The G11 test-site assertion is deliberately separate from the existing
-# eighteen canonical functional HIL assertions, and must occur exactly once.
+# nineteen canonical functional HIL assertions, and must occur exactly once.
 site_mode=os.environ.get("EDP_LOGGING_G11_APP_SITE_ENABLED","0")
 site_verified=(
     site_mode in ("0","1")

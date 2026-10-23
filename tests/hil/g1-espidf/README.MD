@@ -123,3 +123,75 @@ final canonical LogRecord certification.
 ## G11 compiled-out source site test
 
 The new test-only EDP_LOGGING_G11_APP_SITE_ENABLED switch is 0 by default and 1 for an enabled Info source site. Build with [dual-image comparator](../../run-g11-whole-firmware-comparison.sh) using pinned EDP_LOGGING_DEPENDENCY_ROOT and a fresh G11_REPORT_DIR; optional EDP_LOGGING_G11_PIO_BIN, EDP_LOGGING_G11_SIZE_BIN and EDP_LOGGING_G11_PLATFORMIO_CORE_DIR select installed tools. This builds and hashes linked images; it does not flash. The actual UART capture sets EDP_LOGGING_G11_APP_SITE_ENABLED=0/1 in its **host** environment and requires two correctly selected site observations, one on each side of the expected NVS restart, in addition to the unchanged 18 functional markers. See [historical HIL record](VALIDATION.MD).
+
+
+## 2026-10-23 — real EDP-Threading G10 async owner (#11 partial)
+
+The optional `logging/AsyncCopyingTaskSink.hpp` is now exercised by a
+**genuine ESP32-D0WD ESP-IDF EDP-Threading DedicatedWorkerLease**, not just
+the synthetic host Task. App Bootstrap composes EDP-Memory's two-slot
+`OwnedEncodedPayload<32>` pool and Platform-Portable ByteOperations with
+a bounded Threading `DedicatedWorkerLease`, one managed Worker, two Task
+records and the public `AsyncOwnedDeliveryWork` callable identity. A real
+slow callback leaves its Memory lease owned while executing. A second
+submission to the same busy Worker returns promptly with
+`DispatchRejected` and explicitly reclaims the second Memory lease:
+**`TaskDispatchPolicy::AbandonImmediately` is NOT a queued-admission
+policy**. Its Queue variant can block if Task capacity is exhausted and
+is not silently substituted here. A cancellation request to the running
+Task cannot cause its Memory payload to be released before the callback
+finishes; the original source is mutated, but the callback still sees the
+independently copied bytes. A later Task dispatch succeeds after the
+Worker becomes available, and its eventual Rejected sink delivery remains
+distinct from Threading admission.
+
+The canonical capture script now includes
+`EDP_LOGGING_HIL|PASS|G10_ASYNC_TASK_OWNED_WORKER` and demands **19/19**
+functional markers, binary EDLG CRC, G11 site evidence and the existing
+whole-HIL resource conditions. This is separate from the archive/Persistence
+power-cut requirement: neither native Callback::Accepted nor UART bytes
+certifies durable storage.
+
+**Required reproducible HIL fixture preparation before building** (the
+unmodified application source does not check in generated identifiers):
+
+```sh
+export EDP_LOGGING_DEPENDENCY_ROOT=/absolute/path/to/pinned/EDP-sibling-repos
+cd EDP-Logging/tests/hil/g1-espidf
+python3 generate_g4_root_fixture.py   "${EDP_LOGGING_DEPENDENCY_ROOT}/EDP-Localisation"   "$PWD/src/generated"
+pio run -e esp32dev
+```
+
+Run the generator in a clean scratch HIL directory; it deliberately refuses
+an already-existing intermediate fixture directory. The generated contract
+is verified against the owner-produced fixture, SHA-256
+`a6d9e92714f4e4e74ba77771deac19c35c2e5377795136acc643d8226a45a9f6`.
+`platformio.ini` includes `-Isrc/generated`; both generated output and
+intermediate generator scratch are ignored by Git.
+
+**Actual RPI400 outcomes:** initial source build failed
+`20261022T150311-4c7157d7` because the generator was not invoked.
+After fixture regeneration, firmware build
+`20261023T064755-32234bf9` PASS. First physical run
+`20261023T065351-971c4f64` *failed as expected* at the mistaken
+queued-behind-running assertion; this revealed the actual EDP-Threading
+nonwaiting dispatch policy. The corrected firmware build
+`20261023T065607-17d61561` PASS, followed by independent
+flash/write+verify and three native reset/capture cycles in detached run
+**`20261023T065718-c2eb8268`, PASS exit0**, each **19/19** with zero
+functional failures, UART CRC and G11/resource validation. Factory-image
+SHA-256 `26ba1e46da43d43596ded351e428d3247e61a54d0d5d8867fa60ef9e853c9765`
+(size **464,976 bytes**). All full binary and Serial traces are retained
+only on the authorised RPI400 in an excluded scratch evidence directory;
+they were not committed. The dedicated test ESP32 was already running
+Logging test firmware before this tranche; no original-firmware backup
+or restore was created in this recovery run. Do not claim recovery of a
+pre-Logging user image.
+
+**Release limitations:** native Task ownership under this selected
+single-Worker nonwaiting profile is now physically proven for the tested
+accepted, rejected and running-cancel-request paths. Queue-policy
+queued-task cancellation, concurrency stress, provider-release failure
+under physical fault injection, whole product ceilings, externally
+interrupted Persistence and other G1–G15 gates remain open. This is
+a bounded incremental #11 test result, not a 0.1.0 release.

@@ -4,3 +4,5 @@
 /sdkconfig.*
 /build/
 /managed_components/
+/src/generated/
+/src/_g4_generated_input/
