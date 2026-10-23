@@ -645,3 +645,12 @@ This is host fixture evidence, **not** an eight-worker physical
 execution. ASan cannot initialize on this RPI400, even for a trivial
 smoke binary; its coverage remains outstanding rather than passed.
 See `docs/ASYNC-COPYING-TASK-SINK.MD`.
+
+## 2026-10-23 G3/G5 generated-replay coverage
+
+The generated diagnostic-contract runner now executes the restored
+`OwnedDiagnosticReplayTests.cpp` source-compatible facade fixture
+and the existing mixed DeviceIdentifier/float source-rehydration
+fixture. This repairs a real missing-file test failure and a previous
+compile-only coverage gap without changing the core reencoding ABI.
+See `docs/OWNED-DIAGNOSTIC-POSITIONAL-REENCODING.MD`.

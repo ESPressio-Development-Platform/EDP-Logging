@@ -17,3 +17,28 @@ Supported existing owner Types include exact-width scalar bool/integer/floating 
 ## Qualification and limits
 
 On RPI400, generated Localisation fixtures exercise the source-to-typed-to-canonical path with (a) RuntimeIncarnationId and optional ClockEra, (b) bounded UTF-8, binary bytes, TypeIdentifier and FieldIdentifier, and (c) DeviceIdentifier, bool, u16, f32, f64. Host GCC and Clang tests check identical CBOR and JSON outputs before/after original caller inputs are modified, empty scratch on every path, strict kind/count/size, transactional source capacity failure, destination rejection, compile-time schema mismatches, and zero diagnostic sentinels. The separate UBSan runs use both compilers. The root fifteen-field LogRecord Typed Envelope is **not yet emitted** by this adapter, and it is not a substitute for physical WROOM, G1/G10 queue/sink-lifetime or EDLS PowerLoss tests.
+
+## 2026-10-23 — G3/G5 generated owner replay runner repair
+
+The generated Localisation diagnostic integration runner previously
+referenced `tests/OwnedDiagnosticReplayTests.cpp`, which did **not**
+exist in the checked-in source. This meant one required build/test
+surface failed before exercising the source-compatible
+`logging/OwnedDiagnosticReplay.hpp` facade. The runner also compiled,
+but did not execute, its heterogeneous generated DeviceIdentifier /
+bool / u16 / f32 / f64 source-to-CBOR/JSON rehydration test.
+
+The newly checked-in `OwnedDiagnosticReplayTests.cpp` uses the real
+EDP-Localisation fixture's generated message schema (1/0/3), stores
+owned u16/bool arguments, and verifies canonical CBOR and JSON
+positional output, count mismatch, descriptor-kind mismatch and
+bounded encoder refusal through the public compatibility facade.
+The runner now **executes** both this replay test and the existing
+heterogeneous generated owner-reencoding test, in addition to its
+existing direct generated-contract, strong Clock/System arguments,
+and compile-fail width-mismatch checks.
+
+These tests verify owner-qualified source rehydration and canonical
+representation only. They do **not** issue new wire field identities,
+change D1–D13, establish historical schema authenticity, or prove
+product Persistence durability. All versions stay 0.1.0.

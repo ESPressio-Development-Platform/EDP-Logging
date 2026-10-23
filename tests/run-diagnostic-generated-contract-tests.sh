@@ -72,6 +72,7 @@ PY
     -I"$WORKSPACE/EDP-Platform-Portable/src" \
     "$ROOT/tests/OwnedDiagnosticReplayTests.cpp" \
     -o "$TEMP/replay"
+"$TEMP/replay"
 
 # Independently qualify exact owner-backed strong source captures against
 # another REAL generated EDP-Localisation message (RuntimeIncarnationId +
@@ -108,6 +109,7 @@ PY
     -I"$WORKSPACE/EDP-Platform-Portable/src" \
     "$ROOT/tests/DiagnosticOwnedMixedGeneratedTests.cpp" \
     -o "$TEMP/mixed"
+"$TEMP/mixed"
 
 # Negative generated-schema mismatch must be rejected by the Logging owner
 # static_assert itself, rather than failing for a missing dependency.
