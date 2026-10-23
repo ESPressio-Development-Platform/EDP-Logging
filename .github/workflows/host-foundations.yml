@@ -202,6 +202,10 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-Platform
           ref: main
           path: EDP-Platform
+      - name: Run PowerLoss key-value EDLS snapshot owner tests
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-powerloss-edls-snapshots-tests.sh ${{ matrix.compiler }}
       - name: Run bounded malformed/truncated/provider-fault checkpoints
         env:
           CXX: ${{ matrix.compiler }}

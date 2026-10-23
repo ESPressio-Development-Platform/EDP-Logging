@@ -335,3 +335,16 @@ plus the existing guarded Empty-slot successor helper. Application Bootstrap
 continues to select ESP-IDF/host concrete VFS and to hold the unique
 mutation lock. No direct ESP-IDF include or EDP-Mesh coupling occurs in
 Logging. Rotation cannot strengthen a provider's weak PowerLoss guarantees.
+
+
+## 2026-10-23 — optional PowerLoss EDLS snapshots
+
+`logging/PowerLossEdlsSnapshots.hpp` consumes ONLY the existing
+abstract `EDP-Persistence::KeyValueStorage` and canonical existing
+Logging EDLG/EDLS formatters. A compile-time guarantee gate prevents
+instantiation with Restart-only/None-interruption-atomic providers.
+The application Bootstrap chooses EDP-Persistence-ESP-IDF NVS or
+another qualified provider; no concrete SDK import, second allocator,
+queue, worker, clock or reverse dependency is introduced. This
+latest-generation profile is not the multi-record EDLS FileStorage
+archive; the non-atomic VFS profile remains unchanged.

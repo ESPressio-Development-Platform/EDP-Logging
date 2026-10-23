@@ -43,3 +43,5 @@
 - [Complete G4 generated Typed Envelope (optional)](Reference-logging-GeneratedLogRecordWireProjection.md)
 
 - [Async copied Task sink (#11)](Reference-logging-AsyncCopyingTaskSink)
+
+- [PowerLoss EDLS snapshot reference](Reference-logging-PowerLossEdlsSnapshots)

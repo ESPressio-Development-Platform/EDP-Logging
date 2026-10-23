@@ -704,3 +704,18 @@ refuses ambiguous archive mutation. Physical run
 `20261023T113223-4de652e4` **PASS exit 0**. This is a cut **between**
 logical writes, not proof of atomicity inside a write; the SPIFFS
 VFS provider remains `InterruptionAtomicity::None`.
+
+
+## 2026-10-23 — opt-in power-loss-atomic small EDLS snapshot profile
+
+New `logging/PowerLossEdlsSnapshots.hpp` composes the existing
+EDP-Persistence KeyValueStorage API, statically demands PowerLoss
+retention **and** per-key interruption atomicity, and retains the
+latest acknowledged, checksum-valid EDLS generation in bounded
+independent key slots. On ESP32, EDP-Persistence-ESP-IDF's NVS provider
+provides the advertised atomic key-write capability, with a 512-byte
+per-value limit. This is a small-record *latest-generation* retention
+profile, **not** an unbounded archival or universal SPIFFS atomicity
+claim. See `docs/POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD`; broader G7
+journal, NVS physical hard-cut tests and G1–G15 production release
+remain separate gates. All component versions stay 0.1.0.
