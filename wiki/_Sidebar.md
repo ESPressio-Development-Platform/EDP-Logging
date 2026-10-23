@@ -45,3 +45,4 @@
 - [Async copied Task sink (#11)](Reference-logging-AsyncCopyingTaskSink)
 
 - [PowerLoss EDLS snapshot reference](Reference-logging-PowerLossEdlsSnapshots)
+- [PowerLoss EDLS historical journal](Reference-logging-PowerLossEdlsJournal)

@@ -1,0 +1,7 @@
+# Dedicated 2 MB physical RPI400 integrated ESP32 test partition layout.
+# No partition lies at/above 0x200000; app and SPIFFS each <= available flash.
+# Name, Type, SubType, Offset, Size, Flags
+nvs,      data, nvs,    0x9000,   0x6000,
+phy_init, data, phy,    0xf000,   0x1000,
+factory,  app,  factory,0x10000,  0xF0000,
+edpfs,    data, spiffs, 0x100000, 0x100000,

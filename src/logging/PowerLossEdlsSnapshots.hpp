@@ -40,6 +40,17 @@ namespace ESPressio::Logging {
         std::uint64_t Generation{0U};
     };
 
+    /// Exact bounded retrieval of one physically present, CRC-valid generation.
+    /// This reports only verified frame bytes, not any durability acknowledgement.
+    struct DurableEdlsFrameReadOutcome final {
+        /// Whether the requested generation was recovered and checked.
+        DurableEdlsStatus Status{DurableEdlsStatus::ProviderFailure};
+
+        /// Number of validated EDLG bytes written to caller storage.
+        std::size_t FrameBytes{0U};
+    };
+
+
     /// One immutable generation with ONE EDLG frame per value.
     /// The policy intentionally retires the previous acknowledged generation
     /// once a newer generation has been acknowledged. One outstanding
@@ -186,10 +197,18 @@ namespace ESPressio::Logging {
                 if (slot.Status==DurableEdlsStatus::Empty) continue;
                 if (result.NewestSlot!=TSlots) {
                     if (slot.Header.DeviceIdentifier!=result.Identity ||
-                        slot.Header.Generation==result.Generation ||
                         slot.Header.Generation==0U) {
                         result.Status=DurableEdlsStatus::Ambiguous;
                         return result;
+                    }
+                    // A generation duplicate can be in ANY older key, not
+                    // necessarily the previously scanned newest key.
+                    for (std::size_t prior=0U;prior<i;++prior) {
+                        if (result.SlotStatus[prior]==DurableEdlsStatus::Clean &&
+                            result.SlotGenerations[prior]==slot.Header.Generation) {
+                            result.Status=DurableEdlsStatus::Ambiguous;
+                            return result;
+                        }
                     }
                 } else {
                     result.Identity=slot.Header.DeviceIdentifier;
@@ -239,6 +258,54 @@ namespace ESPressio::Logging {
                 destination[i]=bytes[EdlsHeaderBytes+i];
             }
             return outcome;
+        }
+
+        /// Recover a specific physical EDLS generation through the existing
+        /// bounded slot parser. Caller chooses which generations remain in its
+        /// retention policy; this method never implies historic entitlement.
+        /// The destination is not published unless all bytes were reverified.
+        [[nodiscard]] DurableEdlsFrameReadOutcome RecoverGeneration(
+            std::uint64_t generation,
+            std::span<std::byte> destination
+        ) const noexcept {
+            DurableEdlsFrameReadOutcome result{};
+            const auto observation=Inspect();
+            result.Status=observation.Status;
+            if (observation.Status!=DurableEdlsStatus::Clean &&
+                observation.Status!=DurableEdlsStatus::Degraded) {
+                return result;
+            }
+            if (generation==0U) {
+                result.Status=DurableEdlsStatus::InvalidRecord;
+                return result;
+            }
+            for (std::size_t index=0U;index<TSlots;++index) {
+                if (observation.SlotStatus[index]!=DurableEdlsStatus::Clean ||
+                    observation.SlotGenerations[index]!=generation) {
+                    continue;
+                }
+                std::array<std::byte,TMaximumValueBytes> bytes{};
+                const auto slot=ReadSlot(
+                    index,
+                    bytes
+                );
+                if (slot.Status!=DurableEdlsStatus::Clean ||
+                    slot.Header.Generation!=generation ||
+                    slot.Header.DeviceIdentifier!=observation.Identity ||
+                    slot.TotalBytes<EdlsHeaderBytes ||
+                    slot.TotalBytes-EdlsHeaderBytes>destination.size()) {
+                    result.Status=DurableEdlsStatus::ReadbackUnconfirmed;
+                    return result;
+                }
+                result.FrameBytes=slot.TotalBytes-EdlsHeaderBytes;
+                for (std::size_t i=0U;i<result.FrameBytes;++i) {
+                    destination[i]=bytes[EdlsHeaderBytes+i];
+                }
+                result.Status=DurableEdlsStatus::Clean;
+                return result;
+            }
+            result.Status=DurableEdlsStatus::InvalidRecord;
+            return result;
         }
 
         /// Writes exactly one new complete, checksummed EDLS snapshot into an

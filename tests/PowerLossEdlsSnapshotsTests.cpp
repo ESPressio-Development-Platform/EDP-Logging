@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <logging/PowerLossEdlsSnapshots.hpp>
+#include <logging/PowerLossEdlsJournal.hpp>
 #include <logging/EdlgFrame.hpp>
 
 namespace {
@@ -38,15 +39,15 @@ namespace {
         F::PropertyValue<P::KeyValueInterruptionAtomicity,TestedAtomicity>
     >;
     struct FakeStorage final : F::Provider<P::Domain,F::Offers<Offer>> {
-        std::array<std::array<std::byte,512U>,2U> bytes{};
-        std::array<std::size_t,2U> sizes{};
+        std::array<std::array<std::byte,512U>,8U> bytes{};
+        std::array<std::size_t,8U> sizes{};
         bool failStore{false};
         bool failRead{false};
         bool tornValue{false};
         std::size_t stores{0U};
         [[nodiscard]] bool IsKeyValueStorageReady() const noexcept {return true;}
         [[nodiscard]] std::size_t Which(P::KeyView key) const noexcept {
-            return key.Data()[0]=='a' ? 0U : 1U;
+            return static_cast<std::size_t>(key.Data()[0]-'a');
         }
         [[nodiscard]] P::KeyValueSizeResult GetValueSize(P::KeyView key) const noexcept {
             const auto i=Which(key);
@@ -159,5 +160,191 @@ namespace {
         assert(state.Status==L::DurableEdlsStatus::ProviderFailure);
         storage.failRead=false;
     }
+    /// Tests a strict N+1-key journal with two protected historical records
+    /// and a sacrificial slot across both successful and torn appends.
+    void RunJournal() {
+        constexpr auto A=P::KeyView::Validate("a");
+        constexpr auto B=P::KeyView::Validate("b");
+        constexpr auto C=P::KeyView::Validate("c");
+        static_assert(A.IsValuePresent && B.IsValuePresent && C.IsValuePresent);
+        using Journal=L::PowerLossEdlsJournal<3U,256U,64U,FakeStorage>;
+        FakeStorage provider{};
+        Journal journal(provider,{{A.Value,B.Value,C.Value}});
+        auto current=journal.Inspect();
+        assert(current.Status==L::DurableEdlsStatus::Empty);
+        assert(current.RetainedCount==0U);
+        std::array<std::byte,16U> identity{};
+        identity.fill(std::byte{0xB2U});
+        std::array<std::byte,64U> framed{};
+        std::array<std::byte,100U> destination{};
+        for(std::uint32_t generation=1U;generation<=5U;++generation) {
+            const std::array<std::byte,3U> payload{
+                std::byte{0x83U},
+                std::byte{0x02U},
+                std::byte{static_cast<std::uint8_t>(generation)}
+            };
+            std::size_t used{};
+            assert(L::WriteEdlgFrame(
+                L::EdlgCodec::Cbor,
+                payload,
+                framed,
+                used,
+                64U
+            )==L::EdlgFrameWriteResult::Succeeded);
+            const auto committed=journal.Append(
+                identity,
+                generation,
+                std::span<const std::byte>(framed.data(),used)
+            );
+            assert(committed.Status==L::DurableEdlsStatus::Committed);
+            assert(committed.Generation==generation);
+            current=journal.Inspect();
+            assert(current.Status==L::DurableEdlsStatus::Clean);
+            assert(current.Newest==generation);
+            const auto count=(generation<2U)
+                ? static_cast<std::size_t>(generation)
+                : 2U;
+            assert(current.RetainedCount==count);
+            assert(current.OldestRetained==generation-count+1U);
+            // Every still-retained generation remains separately replayable,
+            // including across replacement of the sacrificial oldest slot.
+            for(std::uint64_t gen=current.OldestRetained;
+                gen<=current.Newest;++gen) {
+                const auto recovered=journal.RecoverRetained(
+                    gen,
+                    destination
+                );
+                assert(recovered.Status==L::DurableEdlsStatus::Clean);
+                L::EdlgFrameView frame{};
+                assert(L::ReadEdlgFrame(
+                    std::span<const std::byte>(
+                        destination.data(),
+                        recovered.FrameBytes
+                    ),
+                    frame,
+                    64U
+                )==L::EdlgFrameReadResult::Succeeded);
+                assert(frame.Payload[2U]==std::byte{
+                    static_cast<std::uint8_t>(gen)
+                });
+            }
+        }
+        assert(current.OldestRetained==4U&&current.Newest==5U);
+        const auto retired=journal.RecoverRetained(3U,destination);
+        assert(retired.Status==L::DurableEdlsStatus::InvalidRecord);
+        assert(retired.FrameBytes==0U);
+
+        const auto beforeFailedWrite=provider.stores;
+        provider.failStore=true;
+        provider.tornValue=true;
+        const auto rejected=journal.Append(
+            identity,
+            6U,
+            std::span<const std::byte>(framed.data(),23U)
+        );
+        assert(rejected.Status==L::DurableEdlsStatus::StorageRejected);
+        assert(provider.stores==beforeFailedWrite+1U);
+        current=journal.Inspect();
+        assert(current.Status==L::DurableEdlsStatus::Degraded);
+        assert(current.OldestRetained==4U&&current.Newest==5U);
+        assert(current.RetainedCount==2U);
+        // A damaged sacrificial slot must NOT make its two protected records
+        // unrecoverable, but it must preclude any further archive mutation.
+        for(std::uint64_t gen=4U;gen<=5U;++gen) {
+            const auto retained=journal.RecoverRetained(gen,destination);
+            assert(retained.Status==L::DurableEdlsStatus::Clean);
+            assert(retained.FrameBytes==23U);
+        }
+        provider.failStore=false;
+        const auto storesAtFailure=provider.stores;
+        const auto blocked=journal.Append(
+            identity,
+            6U,
+            std::span<const std::byte>(framed.data(),23U)
+        );
+        assert(blocked.Status==L::DurableEdlsStatus::Degraded);
+        assert(provider.stores==storesAtFailure);
+
+        // The same canonical EDLS format also detects duplicate generations
+        // in non-newest keys; checking only newest would miss this corruption.
+        FakeStorage collisionProvider{};
+        Journal collision(collisionProvider,{{A.Value,B.Value,C.Value}});
+        for(std::uint32_t g=1U;g<=3U;++g) {
+            const auto ok=collision.Append(
+                identity,
+                g,
+                std::span<const std::byte>(framed.data(),23U)
+            );
+            assert(ok.Status==L::DurableEdlsStatus::Committed);
+        }
+        L::EdlsHeader duplicate{};
+        duplicate.Slot=0U;
+        duplicate.Generation=2U;
+        duplicate.DeviceIdentifier=identity;
+        duplicate.RuntimeIncarnation=1U;
+        assert(L::WriteEdlsHeader(
+            duplicate,
+            std::span<std::byte>(
+                collisionProvider.bytes[0U].data(),
+                L::EdlsHeaderBytes
+            )
+        )==L::EdlsHeaderStatus::Succeeded);
+        assert(collision.Inspect().Status==L::DurableEdlsStatus::Ambiguous);
+
+        Journal aliases(collisionProvider,{{A.Value,A.Value,C.Value}});
+        assert(aliases.Inspect().Status==L::DurableEdlsStatus::Ambiguous);
+
+        // Maximum current NVS reference capacity: eight physical slots
+        // protect seven simultaneously replayable, independent records.
+        constexpr auto D=P::KeyView::Validate("d");
+        constexpr auto E=P::KeyView::Validate("e");
+        constexpr auto FKey=P::KeyView::Validate("f");
+        constexpr auto G=P::KeyView::Validate("g");
+        constexpr auto H=P::KeyView::Validate("h");
+        static_assert(D.IsValuePresent && E.IsValuePresent &&
+            FKey.IsValuePresent && G.IsValuePresent && H.IsValuePresent);
+        FakeStorage largeProvider{};
+        using Larger=L::PowerLossEdlsJournal<8U,256U,64U,FakeStorage>;
+        Larger larger(largeProvider,{{
+            A.Value,B.Value,C.Value,D.Value,E.Value,FKey.Value,
+            G.Value,H.Value
+        }});
+        for(std::uint32_t gen=1U;gen<=18U;++gen) {
+            const std::array<std::byte,3U> payload{
+                std::byte{0x83U},std::byte{0x01U},
+                std::byte{static_cast<std::uint8_t>(gen)}
+            };
+            std::size_t len{};
+            assert(L::WriteEdlgFrame(
+                L::EdlgCodec::Cbor,payload,framed,len,64U
+            )==L::EdlgFrameWriteResult::Succeeded);
+            assert(larger.Append(
+                identity,gen,
+                std::span<const std::byte>(framed.data(),len)
+            ).Status==L::DurableEdlsStatus::Committed);
+            const auto scanned=larger.Inspect();
+            assert(scanned.Status==L::DurableEdlsStatus::Clean);
+            const auto n=gen<7U ? static_cast<std::size_t>(gen) : 7U;
+            assert(scanned.RetainedCount==n);
+            assert(scanned.Newest==gen);
+            assert(scanned.OldestRetained==gen-n+1U);
+        }
+        const auto retained=larger.Inspect();
+        assert(retained.OldestRetained==12U&&retained.Newest==18U);
+        for(std::uint64_t gen=12U;gen<=18U;++gen) {
+            const auto replay=larger.RecoverRetained(gen,destination);
+            assert(replay.Status==L::DurableEdlsStatus::Clean);
+            L::EdlgFrameView decoded{};
+            assert(L::ReadEdlgFrame(
+                std::span<const std::byte>(destination.data(),replay.FrameBytes),
+                decoded,64U
+            )==L::EdlgFrameReadResult::Succeeded);
+            assert(decoded.Payload[2U]==std::byte{
+                static_cast<std::uint8_t>(gen)
+            });
+        }
+        assert(larger.RecoverRetained(11U,destination).Status==
+            L::DurableEdlsStatus::InvalidRecord);
+    }
 }
-int main(){Run();}
+int main(){Run();RunJournal();}

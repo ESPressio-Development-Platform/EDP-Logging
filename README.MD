@@ -735,3 +735,14 @@ See `tests/hil/g7-nvs-powerloss-espidf/README.MD` and
 `docs/POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD`. This qualifies the
 bounded latest-only NVS profile for the tested cut, **not** universal
 provider atomicity of SPIFFS or a historical archive release.
+
+
+## 2026-10-23 — bounded PowerLoss historical EDLS journal
+
+The optional [PowerLossEdlsJournal](src/logging/PowerLossEdlsJournal.hpp) composes the existing atomic NVS KeyValueStorage-backed EDLS snapshot engine to retain N individual complete records using N+1 independently atomic physical slots (currently maximum 7 retained records). During append, no still-retained record is overwritten. Retired generations are not replayable even if physically present. CRC, cyclic slot ordering and continuity are checked; failed writes into sacrificial space fail closed while protected records remain readable. The complete specification, limits and wear caveats are in [docs/POWERLOSS-EDLS-JOURNAL.MD](docs/POWERLOSS-EDLS-JOURNAL.MD). This is a bounded history reference, not a large-capacity production EDLS archive. All versions remain 0.1.0.
+
+Physical RPI400 ESP32 GPIO17 hard-power-cut journal HIL
+20261023T125615-eded7957 PASS: ESP_RST_POWERON, both retained
+generations 18 and 19 independently CRC-verified after power
+restoration, with bounded two-record history. See normative
+docs/POWERLOSS-EDLS-JOURNAL.MD for precise limitations.

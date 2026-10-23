@@ -348,3 +348,8 @@ another qualified provider; no concrete SDK import, second allocator,
 queue, worker, clock or reverse dependency is introduced. This
 latest-generation profile is not the multi-record EDLS FileStorage
 archive; the non-atomic VFS profile remains unchanged.
+
+
+## 2026-10-23 — optional strict historical EDLS journal
+
+Optional logging/PowerLossEdlsJournal.hpp adds **no new repository dependency**: it composes the existing PowerLossEdlsSnapshots owner and the same optional abstract EDP-Persistence::KeyValueStorage contract, EDP-System composition requirements and existing EDLG/EDLS encoding. Application Bootstrap selects the already-existing PowerLoss-atomic ESP-IDF NVS provider. No new raw flash driver, worker, queue, mutex, allocator, Clock, Mesh or reverse dependency. No change to SPIFFS FileStorage guarantees or versions 0.1.0.
