@@ -654,3 +654,23 @@ and the existing mixed DeviceIdentifier/float source-rehydration
 fixture. This repairs a real missing-file test failure and a previous
 compile-only coverage gap without changing the core reencoding ABI.
 See `docs/OWNED-DIAGNOSTIC-POSITIONAL-REENCODING.MD`.
+
+
+## Finite oldest-eligible EDLS rolling generations (2026-10-23)
+
+Opt-in `logging/EdlsArchiveRotation.hpp` implements normal-provider
+readback-qualified bounded **oldest-clean** replacement when all EDLS slots
+are occupied. It composes existing EDP-Persistence/FileStorage, EDLS
+checksum inspection and EDLG writer, protects the newest certified
+generation and fails closed on ambiguity, torn tails, generation conflicts
+and provider/refreshed-readback uncertainty. Does not claim power-loss
+atomicity or committed durability. Existing empty-slot-only successor remains
+available unchanged. See [rotation contract](docs/EDLS-ARCHIVE-ROTATION.MD)
+and [Wiki reference](wiki/Reference-logging-EdlsArchiveRotation.md).
+
+
+The **20/20 live SPIFFS rolling** checks passed three times on the
+RPI400 WROOM-32 (detached `20261023T083422-cc50dcba`, PASS exit0).
+This qualifies bounded oldest-clean selection, readback and damaged-tail
+refusal on real VFS/flash in controlled operation only, not external
+power-interruption durability.

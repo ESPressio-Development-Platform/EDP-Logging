@@ -6,6 +6,7 @@
 #include <logging/EdlsArchiveInspection.hpp>
 #include <logging/EdlsArchiveAppend.hpp>
 #include <logging/EdlsArchiveSuccessor.hpp>
+#include <logging/EdlsArchiveRotation.hpp>
 namespace {
 namespace L=ESPressio::Logging;
 namespace P=ESPressio::Persistence;
@@ -221,4 +222,109 @@ int main(){
   exhausted,paths,identity,2U,exact);
  assert(publish.Status==L::EdlsSuccessorStatus::ArchiveAmbiguous &&
         exhausted.replaceCount==0U);
+
+ // Strict latest-protected, bounded oldest-eligible rotation is an explicit
+ // opt-in over the original no-overwrite successor. No external power-loss
+ // guarantee is inferred from any native ReplaceFile success.
+ Storage rotating{};
+ auto advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,1U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::PublishedInEmptySlot);
+ assert(advanced.Slot==0U && advanced.Generation==1U);
+ assert(advanced.ProtectedNewestSlot==2U && !advanced.PriorNewestVerified);
+ auto initialSlot0=rotating.bytes[0U];
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,2U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::PublishedInEmptySlot &&
+        advanced.Slot==1U && advanced.Generation==2U &&
+        advanced.ProtectedNewestSlot==0U && advanced.PriorNewestVerified);
+ assert(rotating.bytes[0U]==initialSlot0);
+ const auto originalNewest=rotating.bytes[1U];
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,3U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::PublishedAfterOldestReclaim);
+ assert(advanced.Slot==0U && advanced.ProtectedNewestSlot==1U &&
+        advanced.Generation==3U && advanced.PriorNewestVerified);
+ assert(rotating.bytes[1U]==originalNewest);
+ auto all=L::InspectEdlsArchive<2U,16U>(rotating,paths);
+ assert(all.Condition==L::EdlsArchiveCondition::Unambiguous);
+ assert(all.NewestSlot==0U && all.NextGeneration==4U);
+ assert(all.Slots[1U].Header.Generation==2U &&
+        all.Slots[1U].Condition==L::EdlsSlotCondition::Clean);
+ for (std::uint32_t next=4U; next<=64U; ++next) {
+  const auto prior=all.NewestSlot;
+  const auto retained=rotating.bytes[prior];
+  advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+   rotating,paths,identity,next,exact);
+  assert(advanced.Status==L::EdlsRollingStatus::PublishedAfterOldestReclaim);
+  assert(advanced.Slot!=prior && advanced.ProtectedNewestSlot==prior &&
+         advanced.PriorNewestVerified && advanced.Generation==next);
+  assert(rotating.bytes[prior]==retained);
+  all=L::InspectEdlsArchive<2U,16U>(rotating,paths);
+  assert(all.Condition==L::EdlsArchiveCondition::Unambiguous &&
+         all.NextGeneration==next+1U &&
+         all.NewestSlot==advanced.Slot);
+ }
+ // Even though all slots are full, a mismatching identity or bad CRC
+ // cannot cause ANY destructive mutation.
+ auto beforeCount=rotating.replaceCount;
+ auto wrong=identity;
+ wrong.fill(std::byte{4U});
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,wrong,1U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::InvalidIdentityOrFrame);
+ assert(rotating.replaceCount==beforeCount);
+ encoded[16U]^=std::byte{0x01U};
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,1U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::InvalidIdentityOrFrame);
+ assert(rotating.replaceCount==beforeCount);
+ encoded[16U]^=std::byte{0x01U};
+
+ // An actual provider refusal preserves the prior verified newest slot
+ // and never invents a successful rotation/durability acknowledgement.
+ const auto newestBeforeFailure=all.NewestSlot;
+ const auto intactNewest=rotating.bytes[newestBeforeFailure];
+ rotating.failReplace=true;
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,65U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::ProviderRejected &&
+        advanced.Native==P::FileReplaceStatus::IoFailure &&
+        advanced.PriorNewestVerified &&
+        advanced.ProtectedNewestSlot==newestBeforeFailure);
+ assert(rotating.bytes[newestBeforeFailure]==intactNewest);
+ rotating.failReplace=false;
+
+ // A partially written replacement is unconfirmed even though the
+ // separate previously newest generation was CRC-valid after mutation.
+ rotating.tornReplace=true;
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,65U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::ReadbackUnconfirmed &&
+        advanced.PriorNewestVerified);
+ assert(rotating.bytes[newestBeforeFailure]==intactNewest);
+ // The damaged old slot demands explicit recovery; no automatic
+ // destructive retry when archive history is now ambiguous.
+ rotating.tornReplace=false;
+ beforeCount=rotating.replaceCount;
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  rotating,paths,identity,65U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::ArchiveAmbiguous &&
+        rotating.replaceCount==beforeCount);
+
+ Storage exhaustedRotation{};
+ exhaustedRotation.header(0U,UINT64_MAX);
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  exhaustedRotation,paths,identity,1U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::ArchiveAmbiguous &&
+        exhaustedRotation.replaceCount==0U);
+ Storage corruptRotation{};
+ corruptRotation.header(0U,1U);corruptRotation.frame(0U);
+ corruptRotation.header(1U,2U);corruptRotation.frame(1U);
+ corruptRotation.badReadback=true;
+ advanced=L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  corruptRotation,paths,identity,3U,exact);
+ assert(advanced.Status==L::EdlsRollingStatus::ReadbackUnconfirmed &&
+        advanced.PriorNewestVerified);
+
 }

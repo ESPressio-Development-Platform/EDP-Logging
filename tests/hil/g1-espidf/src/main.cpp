@@ -34,6 +34,7 @@
 #include <serialisation/PositionalValueEncoding.hpp>
 #include <logging/EdlgCheckpoint.hpp>
 #include <logging/EdlsArchiveSuccessor.hpp>
+#include <logging/EdlsArchiveRotation.hpp>
 #include <VfsFileStorage.hpp>
 #include <esp_spiffs.h>
 #include <cstring>
@@ -309,6 +310,38 @@ bool TestConcreteEdlsVfsSuccessor() noexcept {
  );
  if(!Check(full.Status==Logging::EdlsSuccessorStatus::NoEmptySlot,
            "edls-vfs-no-destructive-rotation"))return false;
+
+ // The optional G6/G7 rolling lifecycle must NOT mutate the newest
+ // verified generation when rotating oldest clean, independently owned
+ // physical SPIFFS files. Reopen a native provider for each readback.
+ for(std::uint32_t generation=3U;generation<=5U;++generation) {
+  const auto before=Logging::InspectEdlsArchive<2U,32U>(opened,paths);
+  const auto protectedSlot=before.NewestSlot;
+  if(!Check(before.Condition==Logging::EdlsArchiveCondition::Unambiguous &&
+             protectedSlot<paths.size(),
+             "edls-vfs-rolling-preflight"))return false;
+  const auto protectedGeneration=before.Slots[protectedSlot].Header.Generation;
+  const auto rolled=Logging::PublishEdlsOldestEligibleSuccessor<2U,32U,1024U>(
+   opened,paths,identity,generation,frame
+  );
+  if(!Check(
+   rolled.Status==Logging::EdlsRollingStatus::PublishedAfterOldestReclaim &&
+   rolled.Generation==generation && rolled.PriorNewestVerified &&
+   rolled.Slot!=protectedSlot,
+   "edls-vfs-oldest-rotation"))return false;
+  ArchiveNativeVfs independentlyReopened("/edpfs",bytes);
+  const auto checked=Logging::InspectEdlsArchive<2U,32U>(
+   independentlyReopened,paths);
+  if(!Check(
+   checked.Condition==Logging::EdlsArchiveCondition::Unambiguous &&
+   checked.NewestSlot==rolled.Slot && checked.NextGeneration==generation+1U &&
+   checked.Slots[protectedSlot].Condition==
+       Logging::EdlsSlotCondition::Clean &&
+   checked.Slots[protectedSlot].Header.Generation==protectedGeneration,
+   "edls-vfs-newest-generation-preserved"))return false;
+ }
+ std::printf("EDP_LOGGING_HIL|PASS|NATIVE_EDLS_VFS_ROLLING_GUARD\n");
+
  // Controlled test-only direct corruption through native VFS, never called
  // by Logging source, and never presented as an external power-cut test.
  auto* tamper=std::fopen("/edpfs/slot1","r+b");
@@ -325,6 +358,10 @@ bool TestConcreteEdlsVfsSuccessor() noexcept {
            broken.Slots[1U].Condition==Logging::EdlsSlotCondition::DamagedTail &&
            broken.Slots[0U].VerifiedFrames==1U,
            "edls-vfs-prefix-failure-isolation"))return false;
+ const auto refused=Logging::PublishEdlsOldestEligibleSuccessor<2U,32U,1024U>(
+  opened,paths,identity,6U,frame);
+ if(!Check(refused.Status==Logging::EdlsRollingStatus::ArchiveAmbiguous,
+           "edls-vfs-rolling-damaged-tail-refused"))return false;
  if(!Check(opened.RemoveFile(path0.Value)==P::FileRemoveStatus::Succeeded &&
            opened.RemoveFile(path1.Value)==P::FileRemoveStatus::Succeeded,
            "edls-vfs-test-cleanup"))return false;

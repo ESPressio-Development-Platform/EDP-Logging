@@ -10,6 +10,7 @@
 #include <memory/ByteOperationsProvider.hpp>
 #include <VfsFileStorage.hpp>
 #include <logging/EdlsArchiveSuccessor.hpp>
+#include <logging/EdlsArchiveRotation.hpp>
 
 namespace {
 namespace L=ESPressio::Logging;
@@ -61,6 +62,27 @@ void Run() {
  auto full=L::PublishEdlsSuccessorIntoEmptySlot<2U,32U,512U>(
   reopened,paths,id,3U,encoded);
  assert(full.Status==L::EdlsSuccessorStatus::NoEmptySlot);
+ // The optional approved oldest-eligible rolling path may now reclaim
+ // ONLY the clean oldest slot; each existing newest generation survives.
+ for(std::uint32_t next=3U;next<=12U;++next) {
+  const auto before=L::InspectEdlsArchive<2U,32U>(reopened,paths);
+  const auto protectedSlot=before.NewestSlot;
+  const auto retainedGeneration=before.Slots[protectedSlot].Header.Generation;
+  const auto published=L::PublishEdlsOldestEligibleSuccessor<2U,32U,512U>(
+   reopened,paths,id,next,encoded);
+  assert(published.Status==L::EdlsRollingStatus::PublishedAfterOldestReclaim &&
+         published.Generation==next && published.PriorNewestVerified &&
+         published.Slot!=protectedSlot);
+  // A brand-new native provider owner re-opens both actual OS files.
+  Store independentlyReopened(root,bytes);
+  const auto after=L::InspectEdlsArchive<2U,32U>(
+   independentlyReopened,paths);
+  assert(after.Condition==L::EdlsArchiveCondition::Unambiguous &&
+         after.NewestSlot==published.Slot &&
+         after.NextGeneration==next+1U &&
+         after.Slots[protectedSlot].Condition==L::EdlsSlotCondition::Clean &&
+         after.Slots[protectedSlot].Header.Generation==retainedGeneration);
+ }
  observation=L::InspectEdlsArchive<2U,32U>(reopened,paths);
  assert(observation.Slots[0].VerifiedFrames==1U &&
         observation.Slots[1].VerifiedFrames==1U);
@@ -77,9 +99,13 @@ void Run() {
  observation=L::InspectEdlsArchive<2U,32U>(reopened,paths);
  assert(observation.Slots[1].Condition==L::EdlsSlotCondition::DamagedTail);
  assert(observation.Slots[0].Condition==L::EdlsSlotCondition::Clean);
- const auto blocked=L::PublishEdlsSuccessorIntoEmptySlot<2U,32U,512U>(
-  reopened,paths,id,3U,encoded);
- assert(blocked.Status==L::EdlsSuccessorStatus::NoEmptySlot);
+ // Recovery MUST NOT automatically erase the damaged older slot.
+ const auto blocked=L::PublishEdlsOldestEligibleSuccessor<2U,32U,512U>(
+  reopened,paths,id,13U,encoded);
+ assert(blocked.Status==L::EdlsRollingStatus::ArchiveAmbiguous);
+ const auto priorGuard=L::PublishEdlsSuccessorIntoEmptySlot<2U,32U,512U>(
+  reopened,paths,id,13U,encoded);
+ assert(priorGuard.Status==L::EdlsSuccessorStatus::NoEmptySlot);
  char file0[256]{};
  assert(std::snprintf(file0,sizeof(file0),"%s/slot0",root)>0);
  assert(::unlink(file0)==0 && ::unlink(file1)==0);

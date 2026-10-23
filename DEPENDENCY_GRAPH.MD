@@ -324,3 +324,14 @@ Task worker, native mutex/signal, internal queue, elapsed-time source,
 platform concrete, Serial/Persistence concrete or reverse EDP dependency
 is introduced. Owner-cancellation/reclaim remains an explicit Bootstrap
 lifecycle duty until product HIL/reliability tests complete.
+
+
+## 2026-10-23 optional EDLS oldest-eligible rotation
+
+`EdlsArchiveRotation.hpp` adds **no new mandatory or optional repository**
+dependencies. It consumes the already-selected abstract EDP-Persistence
+FileStorage contract, canonical EDLG writer/reader and EDLS inspector,
+plus the existing guarded Empty-slot successor helper. Application Bootstrap
+continues to select ESP-IDF/host concrete VFS and to hold the unique
+mutation lock. No direct ESP-IDF include or EDP-Mesh coupling occurs in
+Logging. Rotation cannot strengthen a provider's weak PowerLoss guarantees.

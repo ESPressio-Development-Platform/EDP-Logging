@@ -1250,3 +1250,59 @@ queued-task cancellation, concurrency stress, provider-release failure
 under physical fault injection, whole product ceilings, externally
 interrupted Persistence and other G1–G15 gates remain open. This is
 a bounded incremental #11 test result, not a 0.1.0 release.
+
+
+## Oldest-eligible EDLS SPIFFS rotation (2026-10-23)
+
+The existing physical VFS test now checks three explicit real
+`EDP-Persistence-ESP-IDF::VfsFileStorage` oldest-clean replacements
+after its first two Empty-slot generations. A newly created VFS provider
+reopens the files after each generation, independently certifies that
+the predecessor newest remains complete/clean, then the deliberate
+tampered-tail test verifies the new rotation API refuses automatic
+destructive retry. The capture script requires the new
+`NATIVE_EDLS_VFS_ROLLING_GUARD` marker, increasing mandatory markers
+from 19 to **20**. No device success is claimed until exact physical
+run ID, independently verified flash image and captured actual
+serial output are recorded.
+
+Controlled reset and a native ReplaceFile/CRC readback are NOT equivalent
+to physically cutting power during a write; that is still a separate
+G6/G7/G15 release blocker requiring suitable power-control equipment.
+
+
+## 2026-10-23 native SPIFFS EDLS rolling qualification
+
+Real integrated RPI400 ESP32-WROOM-32 PIOArduino/ESP-IDF firmware built
+successfully under detached run `20261023T082753-c258aae5` (**PASS, exit0**),
+after owner-generated Localisation schema fixture
+`20261023T082731-6210621f` (**PASS, exit0**). Exact combined
+`firmware.factory.bin` **467,200 bytes**, SHA-256
+`354e98347121bbce2a4c006b50b6ca1cab342547b9770eb4110b263d8ea155b8`.
+
+RPI400 detached integrated-device campaign
+**`20261023T083422-cc50dcba` PASS exit0**: performed actual
+`esp32-integrated bootloader`, `esptool write-flash 0x0` and a **separate**
+`esptool verify-flash` with matching digest, followed by **three
+independent reset/UART full HIL cycles**. Every cycle reported
+`EDP_LOGGING_NATIVE_HIL_SUMMARY|markers=20/20|fail=0|binary_edlg_verified=True|resource_snapshot_verified=True|g11_site_verified=True`.
+The new mandatory `NATIVE_EDLS_VFS_ROLLING_GUARD` passed in every
+cycle, as did the previous native EDLS successor, G10 real asynchronous
+Threading worker, binary EDLG CRC and shutdown/teardown markers.
+
+**Actual measured whole-test** free8 heap before/after/min:
+277,100 / 273,580 / 268,656 bytes; app-main stack margin:
+7,544 bytes; existing DedicatedCoordinator stack margin:
+5,036 bytes. These are **not** isolated Logging/rotation stack or
+product-worst-case budgets. The raw serial trace/firmware binary,
+flash/verify log and SHA manifests remain only on the private RPI400
+under `/srv/espressio/scratch/gpt6-logging-20261023-0755-gates/edls-rolling-physical-20261023`,
+with durable detached run history under
+`/srv/espressio/runs/20261023T083422-cc50dcba/`.
+They must not be committed/published.
+
+All controlled resets and on-device readbacks are **normal-operation
+recovery evidence**, **not** uncontrolled external power-cut durability.
+No original pre-test firmware backup or restoration was performed in
+this G6/G7 campaign: the integrated device was already dedicated to
+Logging HIL firmware before it started.

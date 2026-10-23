@@ -195,3 +195,16 @@ queued-task cancellation, concurrency stress, provider-release failure
 under physical fault injection, whole product ceilings, externally
 interrupted Persistence and other G1–G15 gates remain open. This is
 a bounded incremental #11 test result, not a 0.1.0 release.
+
+
+## Oldest-eligible EDLS SPIFFS rotation (2026-10-23)
+
+The existing disposable SPIFFS test now rotates the oldest of two
+CRC-clean EDLS generations three times through the real ESP-IDF
+VFS FileStorage owner. Each new VFS owner reopens prior history and
+validates the protected newest generation. Post-write corrupt-tail
+handling refuses a destructive retry. The UART capture requires
+`EDP_LOGGING_HIL|PASS|NATIVE_EDLS_VFS_ROLLING_GUARD`
+as the twentieth mandatory result, alongside all preexisting markers.
+Physical validation must be checked separately from build results;
+this is not a true independent power-off/crash-consistency proof.
