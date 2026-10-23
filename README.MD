@@ -719,3 +719,19 @@ profile, **not** an unbounded archival or universal SPIFFS atomicity
 claim. See `docs/POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD`; broader G7
 journal, NVS physical hard-cut tests and G1–G15 production release
 remain separate gates. All component versions stay 0.1.0.
+
+
+## 2026-10-23 — physical NVS strict snapshot test
+
+The opt-in bounded `PowerLossEdlsSnapshots` adapter was exercised with
+the *real* ESP-IDF NVS KeyValueStorage provider on the RPI400 ESP32,
+not just the mocked host provider. Genuine GPIO17 power removal during
+an NVS commit campaign resulted in hardware power-on reset and
+recovery of a CRC-valid generation 29, newer than the host's last
+pre-cut observed acknowledged generation 5. Detached receipt
+`20261023T122318-b1b4e020` PASS exit0. The test firmware image and
+full 2 MiB pretest flash backup are retained on RPI400 only.
+See `tests/hil/g7-nvs-powerloss-espidf/README.MD` and
+`docs/POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD`. This qualifies the
+bounded latest-only NVS profile for the tested cut, **not** universal
+provider atomicity of SPIFFS or a historical archive release.

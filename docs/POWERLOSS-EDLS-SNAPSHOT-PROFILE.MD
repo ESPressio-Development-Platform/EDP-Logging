@@ -69,3 +69,32 @@ NVS driver). This establishes bounded logic, **not yet native NVS cut
 during key commit**. Genuine hard-power tests must run on GPIO17
 user-qualified relay fixture and verify the specific NVS provider's
 acknowledged-generation retention and real `ESP_RST_POWERON`.
+
+
+## 2026-10-23 actual ESP-IDF NVS PowerLoss qualification (one campaign)
+
+The dedicated `tests/hil/g7-nvs-powerloss-espidf` application composes
+`PowerLossEdlsSnapshots<2,256,64,NvsKeyValueStorage<...>>` with
+actual ESP-IDF NVS under a private namespace, protected by the existing
+EDP-Persistence `PowerLoss` static properties. A real 2 MiB ESP32
+factory image was independently flash-verified after a full backup, then
+the user-qualified GPIO17 relay disconnected MCU VDD in an active NVS
+commit campaign. RPI400 run `20261023T122318-b1b4e020` PASS exit0:
+host-observed previous ACK gen5, ESP_RST_POWERON, CRC-verified newest
+gen29 recovered. Power remained OFF afterward. Exact private image
+SHA256 `c92eb3ac95a0ecb1f39f5ce175feb47efeb2e6d465ede79f65059b2793c1a4f6`.
+This does not constitute exhaustive in-instruction `nvs_commit`
+interruption coverage or native wear/endurance certification.
+
+In addition to prior initial host GCC, Clang and Clang UBSan PASS, the
+host suite now verifies that duplicate application-supplied key names
+are rejected **before any provider call**, preventing an aliased key
+from defeating protected/inactive slot separation. Compile-fail
+fixtures with weaker Restart retention and non-PowerLoss atomicity
+must emit the strict compile-time diagnostics; they PASS GCC and Clang.
+The new HIL and alias/weak-provider hardening are a separate source
+checkpoint from the initial profile commit.
+
+**Release boundary unchanged:** latest acknowledged generation only,
+<=512 bytes per key. Full historical EDLS records and production wear
+budget require separately qualified transactional storage and tests.

@@ -10,9 +10,21 @@ namespace {
     namespace L=ESPressio::Logging;
     namespace P=ESPressio::Persistence;
     namespace F=ESPressio::Persistence::Composition;
+    // Invalid provider configurations are compiled by the negative-test
+    // driver and must be rejected by the production template itself.
+#if defined(EDP_TEST_WEAK_RETENTION)
+    constexpr auto TestedRetention=P::RetentionLevel::Restart;
+    constexpr auto TestedAtomicity=P::InterruptionAtomicity::Restart;
+#elif defined(EDP_TEST_WEAK_ATOMICITY)
+    constexpr auto TestedRetention=P::RetentionLevel::PowerLoss;
+    constexpr auto TestedAtomicity=P::InterruptionAtomicity::Restart;
+#else
+    constexpr auto TestedRetention=P::RetentionLevel::PowerLoss;
+    constexpr auto TestedAtomicity=P::InterruptionAtomicity::PowerLoss;
+#endif
     using Offer=F::Offer<P::KeyValueStorage,
         F::PropertyValue<P::KeyValueAccessMode,P::AccessMode::ReadWrite>,
-        F::PropertyValue<P::KeyValueRetention,P::RetentionLevel::PowerLoss>,
+        F::PropertyValue<P::KeyValueRetention,TestedRetention>,
         F::PropertyValue<P::KeyCaseSensitivity,P::TextCaseSensitivity::CaseSensitive>,
         F::PropertyValue<P::KeyValueMediaRemovability,P::MediaRemovability::Fixed>,
         F::PropertyValue<P::MaximumKeyBytes,std::size_t{15U}>,
@@ -23,7 +35,7 @@ namespace {
         F::PropertyValue<P::KeyValueCapacityReportingSupport,P::Support::Unsupported>,
         F::PropertyValue<P::KeyValueInvocationConcurrency,P::InvocationConcurrency::CallerSerialized>,
         F::PropertyValue<P::KeyValueFailurePreservation,P::FailurePreservation::MayModify>,
-        F::PropertyValue<P::KeyValueInterruptionAtomicity,P::InterruptionAtomicity::PowerLoss>
+        F::PropertyValue<P::KeyValueInterruptionAtomicity,TestedAtomicity>
     >;
     struct FakeStorage final : F::Provider<P::Domain,F::Offers<Offer>> {
         std::array<std::array<std::byte,512U>,2U> bytes{};
@@ -85,6 +97,8 @@ namespace {
         static_assert(a.IsValuePresent && b.IsValuePresent);
         FakeStorage storage;
         using Archive=L::PowerLossEdlsSnapshots<2U,256U,64U,FakeStorage>;
+        Archive alias(storage,{{a.Value,a.Value}});
+        assert(alias.Inspect().Status==L::DurableEdlsStatus::Ambiguous);
         Archive archive(storage,{{a.Value,b.Value}});
         auto state=archive.Inspect();
         assert(state.Status==L::DurableEdlsStatus::Empty);

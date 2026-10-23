@@ -18,3 +18,15 @@ This is the first small-record durability profile, **not** a drop-in
 replacement for rolling multi-record SPIFFS archives. The complete
 guarantees and HIL limits are in
 [POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD](../docs/POWERLOSS-EDLS-SNAPSHOT-PROFILE.MD).
+
+
+## Real ESP32 verification
+
+The native ESP-IDF NVS-backed two-key profile passed a genuine
+GPIO17-controlled supply interruption during repeated atomic-key
+commits. After reboot with `ESP_RST_POWERON`, recovered generation
+29 was CRC clean and at least as new as the host-visible last
+acknowledgement 5. Durable run `20261023T122318-b1b4e020`
+PASS exit0. See the HIL README for phase boundaries, private evidence,
+and strict caveats about the single cut and 512-byte/latest-only
+limits.

@@ -89,6 +89,27 @@ namespace ESPressio::Logging {
         TStorage* storage_;
         std::array<ESPressio::Persistence::KeyView,TSlots> keys_;
 
+        /// Duplicate/empty physical keys would alias protected and inactive
+        /// storage, invalidating the entire atomic two-key safety argument.
+        /// Detect at the boundary before any storage operation or mutation.
+        [[nodiscard]] bool KeysValid() const noexcept {
+            for(std::size_t i=0U;i<TSlots;++i) {
+                if(keys_[i].Data()==nullptr || keys_[i].Size()==0U)
+                    return false;
+                for(std::size_t j=0U;j<i;++j) {
+                    if(keys_[j].Size()!=keys_[i].Size())continue;
+                    bool equal=true;
+                    for(std::size_t k=0U;k<keys_[i].Size();++k) {
+                        if(keys_[i].Data()[k]!=keys_[j].Data()[k]) {
+                            equal=false;break;
+                        }
+                    }
+                    if(equal)return false;
+                }
+            }
+            return true;
+        }
+
         struct Slot final {
             DurableEdlsStatus Status{DurableEdlsStatus::ProviderFailure};
             EdlsHeader Header{};
@@ -144,6 +165,10 @@ namespace ESPressio::Logging {
         /// degraded; never rewrite it silently to make recovery look clean.
         [[nodiscard]] DurableEdlsObservation<TSlots> Inspect() const noexcept {
             DurableEdlsObservation<TSlots> result{};
+            if(!KeysValid()) {
+                result.Status=DurableEdlsStatus::Ambiguous;
+                return result;
+            }
             result.Status=DurableEdlsStatus::Empty;
             std::array<std::byte,TMaximumValueBytes> buffer{};
             bool degraded=false;
