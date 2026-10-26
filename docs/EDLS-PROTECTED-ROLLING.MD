@@ -33,3 +33,50 @@ Neither API overwrites a still-protected filename. Both require caller-exclusive
 New RPI400 GCC/Clang fake-FileStorage tests cover 42 generations, finite rollover, incarnation changes, failure before new write, torn candidate, noncontiguous or corrupt history, limit exhaustion, collateral protected-record change and interrupted retirement/recovery. Real host `VfsFileStorage` tests use separate reopened provider instances through 24 generations, an interrupted complete-but-not-retired successor, and a preexisting zero-byte candidate collision. GCC UBSan also passes; see the contemporaneous Policy/main living handoff for exact IDs.
 
 **Unqualified:** power-loss survival of this exact EDLS API on native ESP32 LittleFS, arbitrary internal garbage collection or flash instruction interruption, complete LogRecord→EDP-Serialisation strongly-typed CBOR projection, torn-candidate provenance and safe cleanup, physical reserve/wear/lifetime budgets and other Logging G1–G15 release gates. Provider traits remain Restart/None/MayModify. The prior synthetic two-record hard-power-cut tests are relevant positive evidence, **not** a general EDLS production guarantee. All versions remain 0.1.0.
+
+
+## 2026-10-26: high-payload stack qualification and caller-owned reusable scratch
+
+The **real ESP32-WROOM-32** near-full test exposed a genuine fatal
+`LoadProhibited` panic when publishing a 4156-byte EDLS segment with the
+previous nested local scratch. The original failing receipt is
+`20261026T123043-dfb40466` (FAIL; **no electrical cut occurred**).
+Xtensa address-to-source tracing confirmed chained `InspectEdlsSlot<4096>`
+(4116-byte frame buffer), `PublishEdlsSuccessorIntoEmptySlot<4096>`
+(4156-byte assembled segment) and strict archive scan on an 8192-byte
+native main task stack. A short 64-byte EDLG test had not exercised this.
+
+The existing **single** archive owner now exposes `WithScratch` alternatives
+for `InspectEdlsSlot`, `InspectEdlsArchive`,
+`PublishEdlsSuccessorIntoEmptySlot`, `FinishEdlsProtectedRollingRetirement`
+and `PublishEdlsProtectedRollingSuccessor`, plus their internal strict
+preflight/retained-predecessor checks. All existing API names delegate to
+these same state machines with local scratch for backwards compatibility.
+At high payloads, **Bootstrap must instead supply one exclusive stable
+`std::span<std::byte>` with at least `EdlsHeaderBytes + TPayloadMaximum + 20`
+bytes**; the caller reuses the *same buffer* across inspect, assemble,
+physical write, re-read, history preservation and oldest retirement.
+For `TPayloadMaximum=4096`, this is exactly **4156 bytes outside the task
+stack**. Buffer must not overlap the EDLG source frame during ReplaceFile;
+no concurrent writer may reuse the buffer. It may originate from the already
+provided EDP-Memory pool, an application-owned static, or any approved
+Bootstrap-owned capacity, but not a Logging-internal global or heap owner.
+
+The existing generated 15-field `LogRecord` TypedEnvelope CBOR-to-EDLS
+helper also has `PublishGeneratedLogRecordToProtectedEdlsWithScratch`, taking
+external archive scratch. The old helper delegates locally. Once separate
+CBOR bytes have been copied into a *distinct* complete EDLG frame buffer,
+Bootstrap may reuse former CBOR scratch as archive scratch **if large enough**
+without a third buffer. The optional existing Task delivery adapter accepts
+separate externally owned EDLG/EDLS scratch; Task admission is not a durable
+ACK. No new encoder, worker, filesystem or allocator is introduced.
+
+An independently reopened POSIX VfsFileStorage regression now publishes
+**five 4156-byte complete CRC-bearing EDLG/EDLS generations** with the same
+4156-byte caller scratch, verifies exact rolling N=2 physical history and
+finishes with one free path (GCC and Clang PASS). Existing short-archive,
+legacy API, typed CBOR and sanitizer tests remain active. This validates
+correct owner-memory alias/lifetime behavior in host execution; actual
+WROOM no-panic near-full electrical qualification requires a fresh native
+build and powered test. A positive later physical result must not be
+represented as arbitrary mid-instruction flash atomicity.

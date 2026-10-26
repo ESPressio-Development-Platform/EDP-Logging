@@ -149,8 +149,73 @@ namespace {
         assert(::rmdir(folder)==0);
     }
 
+    void ExerciseLargeCallerScratch() {
+        using LargeProfile=P::EspIdf::VfsBindingProfile<
+            P::RetentionLevel::Restart,P::TextCaseSensitivity::CaseSensitive,
+            P::MediaRemovability::Fixed,64U,64U,8192U>;
+        using LargeStore=P::EspIdf::VfsFileStorage<
+            Binding,LargeProfile,M::ByteOperationsProvider>;
+        char directory[]="/tmp/edp-edls-large-scratch-XXXXXX";
+        const auto folder=::mkdtemp(directory);
+        assert(folder!=nullptr);
+        M::ByteOperationsProvider ops{};
+        std::array<std::byte,16U> identity{};
+        identity.fill(std::byte{0xA6U});
+        static std::array<std::byte,4096U> cbor{};
+        static std::array<std::byte,4116U> frame{};
+        static std::array<std::byte,4156U> archiveScratch{};
+        cbor.fill(std::byte{0xA5U});
+        cbor[0U]=std::byte{0x59U};
+        cbor[1U]=std::byte{0x0FU};
+        cbor[2U]=std::byte{0xFDU};
+        std::size_t length=0U;
+        assert(L::WriteEdlgFrame(
+            L::EdlgCodec::Cbor,cbor,frame,length,4096U)==
+            L::EdlgFrameWriteResult::Succeeded);
+        assert(length==4116U);
+        for(std::uint32_t generation=1U;generation<=5U;++generation) {
+            LargeStore writer(folder,ops);
+            const auto posted=L::PublishEdlsProtectedRollingSuccessorWithScratch<
+                3U,2U,4096U,4200U
+            >(writer,Paths,identity,generation,
+              std::span<const std::byte>(frame.data(),length),archiveScratch);
+            assert(posted.Status==(generation<=2U
+                ? L::EdlsProtectedRollingStatus::PublishedWithinCapacity
+                : L::EdlsProtectedRollingStatus::PublishedAndRetired));
+            assert(posted.Generation==generation);
+            LargeStore reopened(folder,ops);
+            const auto state=L::InspectEdlsArchiveWithScratch<
+                3U,4096U
+            >(reopened,Paths,archiveScratch);
+            assert(state.Condition==L::EdlsArchiveCondition::Unambiguous);
+            assert(state.NextGeneration==generation+1U);
+            std::size_t occupied=0U;
+            for(const auto& slot:state.Slots) {
+                if(slot.Condition!=L::EdlsSlotCondition::Clean) continue;
+                assert(slot.VerifiedFrames==1U);
+                assert(slot.VerifiedPrefixBytes==4156U);
+                ++occupied;
+            }
+            assert(occupied==(generation==1U?1U:2U));
+        }
+        // Reusing the same physical scratch did not destroy prior records.
+        LargeStore finalStore(folder,ops);
+        const auto stopped=L::FinishEdlsProtectedRollingRetirementWithScratch<
+            3U,2U,4096U>(finalStore,Paths,archiveScratch);
+        assert(stopped.Status==
+            L::EdlsProtectedRollingStatus::NoPendingRetirement);
+        for(std::size_t i=0U;i<3U;++i) {
+            char name[200U]{};
+            assert(std::snprintf(name,sizeof(name),"%s/slot%zu",folder,i)>0);
+            const auto result=::unlink(name);
+            assert(result==0 || errno==ENOENT);
+        }
+        assert(::rmdir(folder)==0);
+    }
+
 } // namespace
 
 int main() {
     Exercise();
+    ExerciseLargeCallerScratch();
 }

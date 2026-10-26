@@ -13,6 +13,7 @@
 #include <logging/DiagnosticClockEraArguments.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
 #include <logging/GeneratedLogRecordEdlsArchive.hpp>
+#include <logging/GeneratedEdlsTaskAdapters.hpp>
 #include <logging/EdlgFrameReader.hpp>
 
 namespace L=ESPressio::Logging;
@@ -72,14 +73,15 @@ int main() {
     Scratch scratch{};
     std::array<std::byte,2048U> cbor{};
     std::array<std::byte,2200U> frame{};
+    std::array<std::byte,2200U> archiveScratch{};
     const auto submit=[&](Storage& storage, const Source& source,
                           std::span<std::byte> cborOutput,
                           const std::array<std::byte,16U>& id,
                           std::uint32_t incarnation) {
-        return L::PublishGeneratedLogRecordToProtectedEdls<
+        return L::PublishGeneratedLogRecordToProtectedEdlsWithScratch<
             FixtureMessage,2U,2048U,2200U
         >(source,projection,scratch,cborOutput,frame,storage,
-          Paths,id,incarnation);
+          Paths,id,incarnation,archiveScratch);
     };
 
     for(std::uint32_t gen=1U;gen<=12U;++gen) {
@@ -160,6 +162,53 @@ int main() {
     const auto after=L::InspectEdlsArchive<3U,2048U>(final,Paths);
     assert(after.Condition==L::EdlsArchiveCondition::Unambiguous);
     assert(after.NextGeneration==writesBefore);
+
+    // Real worker-side adapter boundaries: existing generated projection
+    // encoder produces borrowed CBOR, and existing Task worker callback
+    // receives *separately copied* bytes for typed decode + EDLS commit.
+    // The independently qualified AsyncCopyingTaskSink holds that copy.
+    L::GeneratedLogRecordCborEncoder<
+        FixtureMessage,L::AttemptSequenceWidth::Bits16,2U,12U,
+        S::Identity::RuntimeIncarnationId,C::ClockEra
+    > encoder(projection,scratch);
+    const auto workerCbor=encoder(record,cbor);
+    assert(workerCbor.Status==L::RepresentationEncodeStatus::Succeeded);
+    assert(workerCbor.Written>0U);
+    Projection workerDecoded{};
+    L::TypedCborProtectedEdlsTaskDelivery<
+        FixtureMessage,L::AttemptSequenceWidth::Bits16,
+        3U,2U,2048U,2200U,Storage,
+        S::Identity::RuntimeIncarnationId,C::ClockEra
+    > delivery(final,workerDecoded,frame,archiveScratch,Paths,identity,7U);
+    const auto view=std::span<const std::byte>(
+        cbor.data(),workerCbor.Written);
+    assert(delivery(L::EdlgCodec::Json,view)==
+        L::RecordSinkSubmission::Rejected);
+    assert(delivery.LastCompletion==
+        L::TypedEdlsTaskCompletion::InvalidCodec);
+    assert(delivery(L::EdlgCodec::Cbor,
+        std::span<const std::byte>(cbor.data(),1U))==
+        L::RecordSinkSubmission::Rejected);
+    assert(delivery.LastCompletion==
+        L::TypedEdlsTaskCompletion::InvalidTypedRecord);
+    // A semantic decoder may accept trailing CBOR; the actual persistence
+    // Task sink requires exact owner-canonical byte representation.
+    std::array<std::byte,2049U> trailing{};
+    for(std::size_t i=0U;i<view.size();++i) trailing[i]=view[i];
+    trailing[view.size()]=std::byte{0U};
+    assert(delivery(L::EdlgCodec::Cbor,
+        std::span<const std::byte>(trailing.data(),view.size()+1U))==
+        L::RecordSinkSubmission::Rejected);
+    assert(delivery.LastCompletion==
+        L::TypedEdlsTaskCompletion::InvalidTypedRecord);
+    assert((L::InspectEdlsArchive<3U,2048U>(final,Paths).NextGeneration==13U));
+    assert(delivery(L::EdlgCodec::Cbor,view)==
+        L::RecordSinkSubmission::Accepted);
+    assert(delivery.LastCompletion==L::TypedEdlsTaskCompletion::Archived);
+    assert(delivery.LastArchive.Generation==13U);
+    assert(delivery.LastArchive.Status==
+        L::EdlsProtectedRollingStatus::PublishedAndRetired);
+    assert((L::InspectEdlsArchive<3U,2048U>(final,Paths).NextGeneration==14U));
     std::size_t cleaned=0U;
     for(std::size_t i=0U;i<3U;++i) {
         char name[240U]{};

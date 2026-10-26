@@ -70,10 +70,11 @@ namespace ESPressio::Logging {
     /// @tparam TMaximumPayloadBytes Maximum EDLG payload retained temporarily.
     /// @tparam TStorage Bootstrap-owned EDP-Persistence FileStorage provider.
     template<std::size_t TMaximumPayloadBytes, class TStorage>
-    [[nodiscard]] EdlsSlotInspection InspectEdlsSlot(
+    [[nodiscard]] EdlsSlotInspection InspectEdlsSlotWithScratch(
         const TStorage& storage,
         ESPressio::Persistence::FilePathView path,
-        std::uint16_t expectedSlot
+        std::uint16_t expectedSlot,
+        std::span<std::byte> frameScratch
     ) noexcept {
         using namespace ESPressio::Persistence;
         static_assert(TMaximumPayloadBytes > 0U &&
@@ -109,7 +110,9 @@ namespace ESPressio::Logging {
         EdlsSlotInspection result{
             EdlsSlotCondition::Clean,header,true,0U,EdlsHeaderBytes
         };
-        std::array<std::byte, TMaximumPayloadBytes + 20U> frameBuffer{};
+        if (frameScratch.size() < TMaximumPayloadBytes+20U) {
+            return {EdlsSlotCondition::ProviderFailure};
+        }
         std::array<std::byte, 16U> frameHeader{};
         std::uint64_t position = EdlsHeaderBytes;
         while (position < size) {
@@ -139,14 +142,14 @@ namespace ESPressio::Logging {
             }
             if (!Detail::ReadExactEdlsBytes(
                 storage, path, position,
-                std::span<std::byte>(frameBuffer.data(),frameBytes)
+                frameScratch.first(frameBytes)
             )) {
                 result.Condition = EdlsSlotCondition::ProviderFailure;
                 return result;
             }
             EdlgFrameView frame{};
             if (ReadEdlgFrame(
-                std::span<const std::byte>(frameBuffer.data(),frameBytes),
+                std::span<const std::byte>(frameScratch.data(),frameBytes),
                 frame,TMaximumPayloadBytes
             ) != EdlgFrameReadResult::Succeeded ||
                 frame.Consumed != frameBytes) {
@@ -158,6 +161,21 @@ namespace ESPressio::Logging {
             result.VerifiedPrefixBytes = position;
         }
         return result;
+    }
+
+    /// Backward-compatible bounded single-slot scan, using stack scratch.
+    /// High-payload native workers SHOULD select WithScratch explicitly and
+    /// provision the buffer through their existing Bootstrap Memory owner.
+    template<std::size_t TMaximumPayloadBytes, class TStorage>
+    [[nodiscard]] EdlsSlotInspection InspectEdlsSlot(
+        const TStorage& storage,
+        ESPressio::Persistence::FilePathView path,
+        std::uint16_t expectedSlot
+    ) noexcept {
+        static_assert(TMaximumPayloadBytes>0U && TMaximumPayloadBytes<=4096U);
+        std::array<std::byte,TMaximumPayloadBytes+20U> ownedScratch{};
+        return InspectEdlsSlotWithScratch<TMaximumPayloadBytes>(
+            storage,path,expectedSlot,ownedScratch);
     }
 
     /// Conservative cross-slot generation/identity assessment. Never issues
@@ -193,17 +211,18 @@ namespace ESPressio::Logging {
     /// @tparam TMaximumPayloadBytes Maximum validated frame payload.
     /// @tparam TStorage Bootstrap-composed EDP-Persistence FileStorage provider.
     template<std::size_t TSlots, std::size_t TMaximumPayloadBytes, class TStorage>
-    [[nodiscard]] EdlsArchiveInspection<TSlots> InspectEdlsArchive(
+    [[nodiscard]] EdlsArchiveInspection<TSlots> InspectEdlsArchiveWithScratch(
         const TStorage& storage,
-        const std::array<ESPressio::Persistence::FilePathView,TSlots>& paths
+        const std::array<ESPressio::Persistence::FilePathView,TSlots>& paths,
+        std::span<std::byte> frameScratch
     ) noexcept {
         static_assert(TSlots >= 2U && TSlots <= 64U,
                       "Archive requires a bounded 2..64-slot topology");
         EdlsArchiveInspection<TSlots> result{};
         bool invalid = false;
         for (std::size_t slot = 0U; slot < TSlots; ++slot) {
-            result.Slots[slot] = InspectEdlsSlot<TMaximumPayloadBytes>(
-                storage, paths[slot], static_cast<std::uint16_t>(slot)
+            result.Slots[slot] = InspectEdlsSlotWithScratch<TMaximumPayloadBytes>(
+                storage,paths[slot],static_cast<std::uint16_t>(slot),frameScratch
             );
             const auto& current = result.Slots[slot];
             if (current.Condition == EdlsSlotCondition::InvalidHeader ||
@@ -250,6 +269,20 @@ namespace ESPressio::Logging {
         result.Condition = EdlsArchiveCondition::Unambiguous;
         result.NextGeneration = latest + 1U;
         return result;
+    }
+
+    /// Existing stack-backed API remains stable. Worker-side high-payload
+    /// call sites can use InspectEdlsArchiveWithScratch for predictable
+    /// low stack usage without creating any duplicate filesystem owner.
+    template<std::size_t TSlots, std::size_t TMaximumPayloadBytes, class TStorage>
+    [[nodiscard]] EdlsArchiveInspection<TSlots> InspectEdlsArchive(
+        const TStorage& storage,
+        const std::array<ESPressio::Persistence::FilePathView,TSlots>& paths
+    ) noexcept {
+        static_assert(TMaximumPayloadBytes>0U && TMaximumPayloadBytes<=4096U);
+        std::array<std::byte,TMaximumPayloadBytes+20U> ownedScratch{};
+        return InspectEdlsArchiveWithScratch<TSlots,TMaximumPayloadBytes>(
+            storage,paths,ownedScratch);
     }
 
 } // namespace ESPressio::Logging

@@ -12,6 +12,9 @@
 #include <freertos/task.h>
 #include <esp_system.h>
 #include <esp_heap_caps.h>
+#if defined(EDP_TEST_EDLS_LOWSPACE)
+#include <esp_littlefs.h>
+#endif
 #include <nvs.h>
 #include <nvs_flash.h>
 
@@ -105,6 +108,120 @@ static void ExpectPair(Store& store,
     Require(found==2U,"EXPECTED_EXACT_TWO");
 }
 
+#if defined(EDP_TEST_EDLS_LOWSPACE)
+#include <esp_littlefs.h>
+#include <cstdio>
+#include <cstring>
+static std::array<std::uint8_t,8192U> UnprotectedPadding{};
+// A complete 4096-byte canonical CBOR byte-string stresses a >4K real
+// EDLS successor when the exhausted LittleFS partition reports <= one
+// physical 4096-byte erase block available. Static to avoid task stack.
+static std::array<std::byte,4096U> FullCborPayload{};
+static std::array<std::byte,4116U> FullEdlgFrame{};
+static std::array<std::byte,4156U> FullArchiveScratch{};
+static constexpr std::uint32_t MaximumPaddingFiles=96U;
+
+static void PressureUsage(const char* stage) {
+    std::size_t total=0U,used=0U;
+    Require(esp_littlefs_info("edplfs",&total,&used)==ESP_OK &&
+        total==0x90000U && used<=total,"PRESSURE_INFO");
+    std::printf("EDP_EDLS|PRESSURE|stage=%s|total=%u|used=%u|free=%u\n",
+        stage,static_cast<unsigned>(total),static_cast<unsigned>(used),
+        static_cast<unsigned>(total-used));
+    std::fflush(stdout);
+}
+static auto PaddingPath(std::uint32_t index,char (&name)[16U]) {
+    const int n=std::snprintf(name,sizeof(name),"pad%03u.bin",
+        static_cast<unsigned>(index));
+    Require(n>0 && n<static_cast<int>(sizeof(name)),"PADDING_NAME");
+    const auto parsed=P::FilePathView::Validate(name,static_cast<std::size_t>(n));
+    Require(parsed.Status==P::FilePathValidationStatus::Succeeded,
+        "PADDING_PATH");
+    return parsed.Value;
+}
+static void VerifyLowspaceProtectedPair(Store& storage) {
+    const auto inspected=Inspect(storage);
+    for(std::size_t slot=0U;slot<2U;++slot) {
+        const auto& prior=inspected.Slots[slot];
+        Require(prior.Condition==L::EdlsSlotCondition::Clean &&
+            prior.HasHeader && prior.Header.Generation==slot+1U &&
+            prior.Header.DeviceIdentifier==DeviceIdentifier &&
+            prior.VerifiedFrames==1U && prior.VerifiedPrefixBytes==64U,
+            "ACKED_EDLS_PROTECTED_WINDOW_DAMAGED");
+    }
+}
+static void FillUnprotectedAndRefuse(Store& storage) {
+    // Protected real EDLS CRC files remain untouched while this disposable
+    // test-only allocation pressure consumes the LittleFS physical reserve.
+    UnprotectedPadding.fill(0xA5U);
+    bool reachedExhaustion=false;
+    for(std::uint32_t i=0U;i<MaximumPaddingFiles;++i) {
+        char filename[16U]{};
+        const auto path=PaddingPath(i,filename);
+        const auto result=storage.ReplaceFile(path,P::SourceBufferView{
+            UnprotectedPadding.data(),UnprotectedPadding.size()});
+        if(result!=P::FileReplaceStatus::Succeeded) {
+            std::printf("EDP_EDLS|PADDING_REFUSED|index=%u|native=%u\n",
+                static_cast<unsigned>(i),static_cast<unsigned>(result));
+            reachedExhaustion=true;
+            break;
+        }
+        if(i%8U==7U)PressureUsage("filling");
+    }
+    Require(reachedExhaustion,"PHYSICAL_EXHAUSTION_NOT_REACHED");
+    PressureUsage("exhausted");
+    // CBOR definite-length byte-string 0x0FFD = 4093 data bytes,
+    // total canonical payload 4096 bytes. This is an actual complete
+    // EDLG CRC-protected frame with a physical EDLS length > 4096.
+    FullCborPayload[0U]=std::byte{0x59U};
+    FullCborPayload[1U]=std::byte{0x0FU};
+    FullCborPayload[2U]=std::byte{0xFDU};
+    FullCborPayload.fill(std::byte{0xA5U});
+    FullCborPayload[0U]=std::byte{0x59U};
+    FullCborPayload[1U]=std::byte{0x0FU};
+    FullCborPayload[2U]=std::byte{0xFDU};
+    std::size_t fullFrameSize=0U;
+    Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,FullCborPayload,
+        FullEdlgFrame,fullFrameSize,4096U)==
+        L::EdlgFrameWriteResult::Succeeded && fullFrameSize==4116U,
+        "LARGE_CBOR_FRAME_INVALID");
+    std::printf("EDP_EDLS|PRESSURE_CANDIDATE|payload=4096|edlg=%u|edls=4156\n",
+        static_cast<unsigned>(fullFrameSize));
+    std::fflush(stdout);
+    const auto attempted=L::PublishEdlsProtectedRollingSuccessorWithScratch<
+        3U,2U,4096U,4200U>(
+        storage,Paths,DeviceIdentifier,3U,
+        std::span<const std::byte>(FullEdlgFrame.data(),fullFrameSize),
+        FullArchiveScratch
+    );
+    std::printf("EDP_EDLS|REFUSED_G3|status=%u|native=%u\n",
+        static_cast<unsigned>(attempted.Status),
+        static_cast<unsigned>(attempted.NativeWrite));
+    std::fflush(stdout);
+    Require(attempted.Status!=L::EdlsProtectedRollingStatus::PublishedAndRetired
+            && attempted.Status!=L::EdlsProtectedRollingStatus::PublishedWithinCapacity,
+        "SUCCESSOR_UNEXPECTEDLY_ACCEPTED");
+    VerifyLowspaceProtectedPair(storage);
+}
+static void ReclaimUnprotectedAfterVerifiedAck(Store& storage) {
+    // TEST-ONLY. Caller has read independent committed NVS ack=2 and
+    // revalidated BOTH protected records before deliberately discarding
+    // unacknowledged candidate g3. Not automatic production repair logic.
+    VerifyLowspaceProtectedPair(storage);
+    for(std::uint32_t i=0U;i<MaximumPaddingFiles;++i) {
+        char filename[16U]{};
+        const auto removed=storage.RemoveFile(PaddingPath(i,filename));
+        Require(removed==P::FileRemoveStatus::Succeeded ||
+            removed==P::FileRemoveStatus::NotFound,"PADDING_RECLAIM");
+    }
+    const auto candidate=storage.RemoveFile(Path2.Value);
+    Require(candidate==P::FileRemoveStatus::Succeeded ||
+        candidate==P::FileRemoveStatus::NotFound,"UNACKED_CANDIDATE_RECLAIM");
+    PressureUsage("reclaimed");
+    ExpectPair(storage,1U,2U);
+}
+#endif
+
 extern "C" void app_main() {
     const auto reset=esp_reset_reason();
     std::printf("EDP_BND|BOOT|reset=%u\n",static_cast<unsigned>(reset));
@@ -154,6 +271,30 @@ extern "C" void app_main() {
             static_cast<unsigned>(reset),
             reset==ESP_RST_POWERON?1U:0U);
         std::fflush(stdout);
+#if defined(EDP_TEST_EDLS_LOWSPACE)
+        VerifyLowspaceProtectedPair(storage);
+        std::uint8_t lastAck=0U;
+        Require(nvs_get_u8(session,"ack",&lastAck)==ESP_OK &&
+            lastAck==2U,"NVS_PROTECTED_ACK_MISMATCH");
+        ReclaimUnprotectedAfterVerifiedAck(storage);
+        const auto first=L::PublishEdlsProtectedRollingSuccessor<
+            3U,2U,32U,1024U>(storage,Paths,DeviceIdentifier,3U,encoded);
+        Require(first.Status==L::EdlsProtectedRollingStatus::PublishedAndRetired &&
+            first.Generation==3U,"PRESSURE_RECOVERY_NEW_G3");
+        ExpectPair(storage,2U,3U);
+        std::printf("EDP_BND|LOWSPACE_ROLLED|ack=3|window=2,3|retired=1\n");
+        std::fflush(stdout);
+        const auto second=L::PublishEdlsProtectedRollingSuccessor<
+            3U,2U,32U,1024U>(storage,Paths,DeviceIdentifier,4U,encoded);
+        Require(second.Status==L::EdlsProtectedRollingStatus::PublishedAndRetired &&
+            second.Generation==4U,"PRESSURE_RECOVERY_NEW_G4");
+        ExpectPair(storage,3U,4U);
+        std::printf("EDP_EDLS|REAL_LOWSPACE_ROLLED|window=3,4|CRC=PASS\n");
+        std::printf("EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n");
+        std::printf("EDP_BND|REPLAY_VERIFIED|TWO_RETAINED_AFTER_RECLAIM_CUT\n");
+        std::fflush(stdout);
+        for(;;)vTaskDelay(pdMS_TO_TICKS(1000U));
+#else
         // The complete successor g3 was written before this power-cut,
         // but no physical oldest was retired. Verify all three here.
         const auto found=Inspect(storage);
@@ -213,6 +354,7 @@ extern "C" void app_main() {
         for (;;) {
             vTaskDelay(pdMS_TO_TICKS(1000U));
         }
+#endif
     }
 
     Require(phase==ESP_ERR_NVS_NOT_FOUND,"UNEXPECTED_PRIOR_SESSION");
@@ -236,8 +378,19 @@ extern "C" void app_main() {
     vTaskDelay(pdMS_TO_TICKS(12000U));
     Require(nvs_set_u8(session,"armed",1U)==ESP_OK &&
         nvs_commit(session)==ESP_OK,"NVS_ARM");
+#if defined(EDP_TEST_EDLS_LOWSPACE)
+    Require(nvs_set_u8(session,"ack",2U)==ESP_OK &&
+        nvs_commit(session)==ESP_OK,"NVS_PROTECTED_ACK2");
+#endif
     nvs_close(session);
-
+#if defined(EDP_TEST_EDLS_LOWSPACE)
+    FillUnprotectedAndRefuse(storage);
+    std::printf("EDP_BND|ACK|gen=2\n");
+    std::printf("EDP_BND|LOWSPACE_SAFE|protected=1,2|last_ack=2|pads=1|no_ack_3=1\n");
+    std::fflush(stdout);
+    vTaskDelay(pdMS_TO_TICKS(15000U));
+    Halt("LOWSPACE_HARD_POWER_CUT_NOT_OBSERVED");
+#else
     // Explicit COMPLETE but NOT YET retired successor. Host VDD cut
     // occurs on the marker below, between checked EDLS logical phases.
     const auto candidate=
@@ -265,4 +418,5 @@ extern "C" void app_main() {
     std::fflush(stdout);
     vTaskDelay(pdMS_TO_TICKS(15000U));
     Halt("HARD_POWER_CUT_NOT_OBSERVED");
+#endif
 }

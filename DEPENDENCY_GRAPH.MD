@@ -374,3 +374,16 @@ in the Logging domain-neutral library. All versions remain 0.1.0.
 ## 2026-10-26: generated typed CBOR-to-archive composition
 
 `logging/GeneratedLogRecordEdlsArchive.hpp` is a thin optional application-worker composition of existing domain-neutral Logging generated schema-projection, existing **EDP-Serialisation** canonical TypedEnvelope CBOR encoder, existing EDLG/EDLS frame/immutable archive owners, and the already-approved optional abstract **EDP-Persistence FileStorage**. It adds no new direct SDK, Clock platform, allocation provider, threading engine, or mandatory dependency. The test selects EDP-Persistence-ESP-IDF VfsFileStorage **outside** Logging production ownership. No circular dependency or new EDP component. All versions 0.1.0.
+
+## 2026-10-26 existing Task-worker CBOR/EDLS adapters
+
+`logging/GeneratedEdlsTaskAdapters.hpp` optionally composes **already declared** Logging→EDP-Memory, EDP-Threading, EDP-Serialisation and abstract EDP-Persistence edges. No new component, concrete provider or second worker/pool/codec edge is introduced. Existing `AsyncCopyingTaskSink` and `EncodeOnceAndSubmitToSinks` are reused; Task delivery gets a borrowed copy only while EDP-Memory lease stays active. All versions 0.1.0.
+
+## 2026-10-26 bounded high-payload scratch ownership
+
+The existing Logging EDLS ArchiveInspection/Successor/Rotation and typed
+CBOR/Task adapters now accept **caller-owned** reusable archive scratch
+through additional WithScratch APIs, sourced from existing application
+Bootstrap EDP-Memory or static owner. No new allocator, Flash provider,
+queue, worker, SDK import or EDP dependency; all internal scans use the
+same original EDP-Persistence abstraction. All versions remain 0.1.0.

@@ -40,7 +40,7 @@ template<
     std::size_t TPhysicalSlots, class TStorage
 >
 [[nodiscard]] GeneratedEdlsPublishOutcome<TPhysicalSlots>
-PublishGeneratedLogRecordToProtectedEdls(
+PublishGeneratedLogRecordToProtectedEdlsWithScratch(
     const BasicLogRecord<TWidth,TMaximumArguments,TArgumentBytes>& record,
     GeneratedLogRecordWireProjection<TWidth,TParameters...>& projection,
     OwnedPositionalScratch<TParameters...>& positionalScratch,
@@ -51,7 +51,8 @@ PublishGeneratedLogRecordToProtectedEdls(
         ESPressio::Persistence::FilePathView,TPhysicalSlots
     >& paths,
     const std::array<std::byte,16U>& deviceIdentifier,
-    std::uint32_t runtimeIncarnation
+    std::uint32_t runtimeIncarnation,
+    std::span<std::byte> archiveScratch
 ) noexcept {
     static_assert(TPhysicalSlots==TProtectedSlots+1U);
     static_assert(TMaximumPayload>=1U && TMaximumPayload<=4096U);
@@ -112,16 +113,49 @@ PublishGeneratedLogRecordToProtectedEdls(
         return result;
     }
     result.EdlgBytes=framed;
-    result.Archive=PublishEdlsProtectedRollingSuccessor<
+    result.Archive=PublishEdlsProtectedRollingSuccessorWithScratch<
         TPhysicalSlots,TProtectedSlots,TMaximumPayload,TMaximumSegment
     >(storage,paths,deviceIdentifier,runtimeIncarnation,
-      std::span<const std::byte>(edlgScratch.data(),framed));
+      std::span<const std::byte>(edlgScratch.data(),framed),archiveScratch);
     result.Status=(
         result.Archive.Status==EdlsProtectedRollingStatus::PublishedWithinCapacity ||
         result.Archive.Status==EdlsProtectedRollingStatus::PublishedAndRetired)
         ? GeneratedEdlsPublishStatus::Published
         : GeneratedEdlsPublishStatus::ArchiveRejected;
     return result;
+}
+
+/// The old host API is retained, using stack scratch. ESP32 workers with
+/// high payload bounds must instead call WithScratch and supply one
+/// Bootstrap-owned scratch separate from their EDLG frame buffer. Once
+/// framing completes, the former CBOR buffer may be reused as archive
+/// scratch if it has the full EdlsHeaderBytes+maximumPayload+20 capacity.
+template<
+    class TMessageSchema,
+    std::size_t TProtectedSlots,std::size_t TMaximumPayload,
+    std::size_t TMaximumSegment,
+    AttemptSequenceWidth TWidth,class... TParameters,
+    std::size_t TMaximumArguments,std::size_t TArgumentBytes,
+    std::size_t TPhysicalSlots,class TStorage
+>
+[[nodiscard]] GeneratedEdlsPublishOutcome<TPhysicalSlots>
+PublishGeneratedLogRecordToProtectedEdls(
+    const BasicLogRecord<TWidth,TMaximumArguments,TArgumentBytes>& record,
+    GeneratedLogRecordWireProjection<TWidth,TParameters...>& projection,
+    OwnedPositionalScratch<TParameters...>& positionalScratch,
+    std::span<std::byte> cborScratch,
+    std::span<std::byte> edlgScratch,
+    TStorage& storage,
+    const std::array<ESPressio::Persistence::FilePathView,
+        TPhysicalSlots>& paths,
+    const std::array<std::byte,16U>& deviceIdentifier,
+    std::uint32_t runtimeIncarnation
+) noexcept {
+    std::array<std::byte,EdlsHeaderBytes+TMaximumPayload+20U> archiveScratch{};
+    return PublishGeneratedLogRecordToProtectedEdlsWithScratch<
+        TMessageSchema,TProtectedSlots,TMaximumPayload,TMaximumSegment
+    >(record,projection,positionalScratch,cborScratch,edlgScratch,storage,
+      paths,deviceIdentifier,runtimeIncarnation,archiveScratch);
 }
 
 } // namespace ESPressio::Logging

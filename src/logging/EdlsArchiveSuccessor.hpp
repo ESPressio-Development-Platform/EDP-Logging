@@ -68,12 +68,13 @@ namespace ESPressio::Logging {
         std::size_t TSlotMaximum,
         class TStorage
     >
-    [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlot(
+    [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlotWithScratch(
         TStorage& storage,
         const std::array<ESPressio::Persistence::FilePathView,TSlots>& paths,
         const std::array<std::byte,16U>& deviceIdentifier,
         std::uint32_t runtimeIncarnation,
-        std::span<const std::byte> completeEdlg
+        std::span<const std::byte> completeEdlg,
+        std::span<std::byte> callerScratch
     ) noexcept {
         using namespace ESPressio::Persistence;
         static_assert(TSlots>=2U && TSlots<=64U);
@@ -103,8 +104,12 @@ namespace ESPressio::Logging {
             outcome.Status=EdlsSuccessorStatus::SlotCapacityExceeded;
             return outcome;
         }
-        const auto current=InspectEdlsArchive<TSlots,TPayloadMaximum>(
-            storage,paths
+        if (callerScratch.size()<EdlsHeaderBytes+TPayloadMaximum+20U) {
+            outcome.Status=EdlsSuccessorStatus::SlotCapacityExceeded;
+            return outcome;
+        }
+        const auto current=InspectEdlsArchiveWithScratch<TSlots,TPayloadMaximum>(
+            storage,paths,callerScratch
         );
         if (current.Condition!=EdlsArchiveCondition::Unambiguous ||
             current.NextGeneration==0U) {
@@ -145,7 +150,9 @@ namespace ESPressio::Logging {
             outcome.Status=EdlsSuccessorStatus::ChangedDuringPreflight;
             return outcome;
         }
-        std::array<std::byte,EdlsHeaderBytes+TPayloadMaximum+20U> buffer{};
+        // The checked archive scan is complete before this scratch is
+        // reused for immutable successor assembly; there is NO live borrow.
+        auto buffer=callerScratch.first(EdlsHeaderBytes+TPayloadMaximum+20U);
         if (WriteEdlsHeader(header,buffer)!=EdlsHeaderStatus::Succeeded) {
             outcome.Status=EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
@@ -161,8 +168,8 @@ namespace ESPressio::Logging {
             outcome.Status=EdlsSuccessorStatus::ProviderRejected;
             return outcome;
         }
-        const auto verification=InspectEdlsSlot<TPayloadMaximum>(
-            storage,paths[outcome.Slot],header.Slot
+        const auto verification=InspectEdlsSlotWithScratch<TPayloadMaximum>(
+            storage,paths[outcome.Slot],header.Slot,callerScratch
         );
         const auto measured=storage.GetFileSize(paths[outcome.Slot]);
         if (verification.Condition!=EdlsSlotCondition::Clean ||
@@ -179,6 +186,26 @@ namespace ESPressio::Logging {
         }
         outcome.Status=EdlsSuccessorStatus::PublishedAndVerified;
         return outcome;
+    }
+
+    /// Backward-compatible local scratch path. High-payload native workers
+    /// SHOULD provision stable Bootstrap-owned scratch via WithScratch to
+    /// avoid nested >8KB stack frames under archive scan and publication.
+    template<std::size_t TSlots,std::size_t TPayloadMaximum,
+             std::size_t TSlotMaximum,class TStorage>
+    [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlot(
+        TStorage& storage,
+        const std::array<ESPressio::Persistence::FilePathView,TSlots>& paths,
+        const std::array<std::byte,16U>& deviceIdentifier,
+        std::uint32_t runtimeIncarnation,
+        std::span<const std::byte> completeEdlg
+    ) noexcept {
+        static_assert(TPayloadMaximum>0U && TPayloadMaximum<=4096U);
+        std::array<std::byte,EdlsHeaderBytes+TPayloadMaximum+20U> scratch{};
+        return PublishEdlsSuccessorIntoEmptySlotWithScratch<
+            TSlots,TPayloadMaximum,TSlotMaximum
+        >(storage,paths,deviceIdentifier,runtimeIncarnation,completeEdlg,
+          scratch);
     }
 
 } // ESPressio::Logging

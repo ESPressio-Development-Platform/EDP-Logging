@@ -774,3 +774,14 @@ living handoff, never inferred merely because the fixture exists.
 ## 2026-10-26: typed LogRecord canonical CBOR into finite EDLS
 
 The optional [typed CBOR EDLS adapter](docs/TYPED-EDLS-CBOR-ARCHIVE.MD) now directly connects the existing generated diagnostic schema-qualified fifteen-field LogRecord projection and **EDP-Serialisation::Cbor TypedEnvelope** writer to the existing checked EDLG frame and finite immutable N+1 EDLS archive owner. It accepts Bootstrap/worker-owned fixed scratch buffers, validates source device/incarnation/fingerprint, rejects oversize CBOR before touching the archive, verifies the entire successor and earlier generations, and only then permits logical oldest-eligible retirement. No alternative codec, platform provider or worker is created. A new owner-generated real VFS test decodes every retained frame as the canonical typed envelope under GCC, Clang and UBSan; physical typed-payload VDD cut/flash reserve/worker saturation are additional outstanding production gates. All versions stay 0.1.0.
+
+A further opt-in [pooled Task encoding and EDLS persistence adapter](docs/TYPED-EDLS-CBOR-ARCHIVE.MD) connects existing EDP-Memory representation and EDP-Threading copying Task admission with schema-verified canonical CBOR decode and immutable persistence in the existing Task worker. Task admission remains distinct from verified EDLS archive completion; no new worker is created.
+
+**High-payload WROOM memory:** after a physically observed 4 KiB frame stack
+panic, the existing EDLS inspection, immutable successor, protected retirement,
+full generated typed CBOR pipeline and Task delivery paths now allow one
+Bootstrap-owned reusable archive scratch buffer, rather than nested large
+stack locals. For maximum 4096-byte CBOR payload this archive buffer is exactly
+4156 bytes outside the task stack, source EDLG frame separate. See the
+[physical failure and correction](docs/EDLS-PROTECTED-ROLLING.MD); the
+legacy stack-scratch overloads remain for source compatibility.

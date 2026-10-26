@@ -89,3 +89,23 @@ capabilities remain conservative and unchanged. See
 ## 2026-10-26 typed LogRecord CBOR archive integration
 
 `GeneratedLogRecordEdlsArchive.hpp` adds the opt-in **public worker-side** `PublishGeneratedLogRecordToProtectedEdls` with `GeneratedEdlsPublishStatus` and `GeneratedEdlsPublishOutcome`. It composes *exact generated EDP-Localisation positional types* and existing fifteen approved System FieldIds via `ProjectGeneratedLogRecord`, canonical EDP-Serialisation CBOR `TypedEnvelope`, existing EDLG CRC32C framing, then `PublishEdlsProtectedRollingSuccessor`. Caller owns projection, positional scratch, separate bounded CBOR and EDLG buffers, exclusive FileStorage, static physical names and source-consistent DeviceIdentifier/runtime incarnation. `Published` requires complete independently verified immutable EDLS successor and safeguarded predecessors. Other explicit statuses include source identity mismatch, projection rejection, CBOR measurement/encoding failure, CBOR capacity exceeded, EDLG framing failure, and propagated archive refusal with exact nested status. This does **not** imply full PowerLoss provider guarantee or indefinite history; N retained+one vacant physical successor is mandatory. See [normative document](../docs/TYPED-EDLS-CBOR-ARCHIVE.MD) and `tests/GeneratedEdlsArchiveIntegrationTests.cpp`. Full native typed-payload interruption/worker integration is still pending.
+
+## 2026-10-26 — typed CBOR worker delivery adapters
+
+`GeneratedEdlsTaskAdapters.hpp` declares optional `GeneratedLogRecordCborEncoder<TMessageSchema,TWidth,TMaximumArguments,TArgumentBytes,TParameters...>` as the no-allocation EDP-Memory fanout encoder, and `TypedCborProtectedEdlsTaskDelivery<TMessageSchema,TWidth,TPhysicalSlots,TProtectedSlots,TMaximumPayload,TMaximumSegment,TStorage,TParameters...>` as the **existing Task-owned** synchronous delivery callback. Use only after copying CBOR into an independent EDP-Memory lease via existing `AsyncCopyingTaskSink`; Task acceptance does not imply durability. The delivery validates full canonical typed CBOR and matching generated message/diagnostic fingerprint, source device and runtime incarnation, then frames EDLG and publishes the protected N+1 EDLS successor. `RecordSinkSubmission::Accepted` is returned only after checked archive completion; inspect `LastCompletion` and nested `LastArchive` only after Task terminal with application-provided synchronization. `TypedEdlsTaskCompletion` is a finite value enum `NotInvoked`, `Archived`, `InvalidCodec`, `InvalidTypedRecord`, `SourceIdentityMismatch`, `FramingFailure`, `ArchiveFailure`. A new worker, Flash owner or codec is NOT created. Refer to [typed contract](../docs/TYPED-EDLS-CBOR-ARCHIVE.MD).
+
+## 2026-10-26 WROOM large-payload stack-scratch variants
+
+`InspectEdlsSlotWithScratch`, `InspectEdlsArchiveWithScratch`,
+`PublishEdlsSuccessorIntoEmptySlotWithScratch`,
+`FinishEdlsProtectedRollingRetirementWithScratch`,
+`PublishEdlsProtectedRollingSuccessorWithScratch` and
+`PublishGeneratedLogRecordToProtectedEdlsWithScratch` use the **same existing
+semantic owner**, requiring one caller-owned writable span with at least
+`EdlsHeaderBytes + TPayloadMaximum + 20` bytes. The legacy APIs delegate to
+the same logic with local scratch; **do not select those high-payload
+stack-backed wrappers on ESP32-WROOM without a separately measured stack
+budget**. The reusable scratch must not alias the caller's live EDLG source
+span. This fixes a real physically observed panic (4 KiB payload in native
+HIL) without relaxing frame/header validation, finite N+1 retention,
+PowerLoss constraints or EDP version 0.1.0.

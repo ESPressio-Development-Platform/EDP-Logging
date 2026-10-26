@@ -44,6 +44,7 @@ fi
   -I"$WORKSPACE/EDP-Platform-Portable/src" \
   -I"$WORKSPACE/EDP-Persistence/src" \
   -I"$WORKSPACE/EDP-Persistence-ESP-IDF/src" \
+  -I"$WORKSPACE/EDP-Threading/src" \
   "$ROOT/tests/GeneratedEdlsArchiveIntegrationTests.cpp" \
   -o "$TEMP/test"
 "$TEMP/test"

@@ -58,18 +58,19 @@ namespace ESPressio::Logging {
         /// Revisit the preexisting newest clean generation after replacement,
         /// including its CRC-validated full prefix; no mutation is performed.
         template<std::size_t TPayloadMaximum, class TStorage>
-        [[nodiscard]] bool PriorNewestEdlsStillClean(
+        [[nodiscard]] bool PriorNewestEdlsStillCleanWithScratch(
             const TStorage& storage,
             ESPressio::Persistence::FilePathView path,
             std::size_t physicalSlot,
-            const EdlsSlotInspection& before
+            const EdlsSlotInspection& before,
+            std::span<std::byte> scratch
         ) noexcept {
             if (before.Condition != EdlsSlotCondition::Clean ||
                 !before.HasHeader) {
                 return false;
             }
-            const auto after = InspectEdlsSlot<TPayloadMaximum>(
-                storage, path, static_cast<std::uint16_t>(physicalSlot)
+            const auto after = InspectEdlsSlotWithScratch<TPayloadMaximum>(
+                storage,path,static_cast<std::uint16_t>(physicalSlot),scratch
             );
             return after.Condition == EdlsSlotCondition::Clean &&
                    after.HasHeader &&
@@ -80,6 +81,19 @@ namespace ESPressio::Logging {
                        before.Header.RuntimeIncarnation &&
                    after.VerifiedFrames == before.VerifiedFrames &&
                    after.VerifiedPrefixBytes == before.VerifiedPrefixBytes;
+        }
+
+        /// Preserve the earlier stack-scratch contract for legacy callers.
+        template<std::size_t TPayloadMaximum,class TStorage>
+        [[nodiscard]] bool PriorNewestEdlsStillClean(
+            const TStorage& storage,
+            ESPressio::Persistence::FilePathView path,
+            std::size_t physicalSlot,
+            const EdlsSlotInspection& before
+        ) noexcept {
+            std::array<std::byte,TPayloadMaximum+20U> scratch{};
+            return PriorNewestEdlsStillCleanWithScratch<TPayloadMaximum>(
+                storage,path,physicalSlot,before,scratch);
         }
 
     } // namespace Detail
@@ -423,11 +437,12 @@ namespace ESPressio::Logging {
         >
         [[nodiscard]] EdlsProtectedRollingPlan<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum,TStorage
-        > InspectProtectedRollingPlan(
+        > InspectProtectedRollingPlanWithScratch(
             const TStorage& storage,
             const std::array<
                 ESPressio::Persistence::FilePathView,TPhysicalSlots
-            >& paths
+            >& paths,
+            std::span<std::byte> scratch
         ) noexcept {
             static_assert(TProtectedSlots >= 2U);
             static_assert(TPhysicalSlots == TProtectedSlots + 1U);
@@ -436,9 +451,9 @@ namespace ESPressio::Logging {
             EdlsProtectedRollingPlan<
                 TPhysicalSlots,TProtectedSlots,TPayloadMaximum,TStorage
             > result{};
-            result.Inspected = InspectEdlsArchive<
+            result.Inspected = InspectEdlsArchiveWithScratch<
                 TPhysicalSlots,TPayloadMaximum
-            >(storage,paths);
+            >(storage,paths,scratch);
 
             if (result.Inspected.Condition ==
                 EdlsArchiveCondition::GenerationExhausted) {
@@ -491,6 +506,24 @@ namespace ESPressio::Logging {
             return result;
         }
 
+        /// Backward-compatible local scratch path for the strict plan.
+        template<
+            std::size_t TPhysicalSlots,std::size_t TProtectedSlots,
+            std::size_t TPayloadMaximum,class TStorage
+        >
+        [[nodiscard]] EdlsProtectedRollingPlan<
+            TPhysicalSlots,TProtectedSlots,TPayloadMaximum,TStorage
+        > InspectProtectedRollingPlan(
+            const TStorage& storage,
+            const std::array<
+                ESPressio::Persistence::FilePathView,TPhysicalSlots>& paths
+        ) noexcept {
+            std::array<std::byte,TPayloadMaximum+20U> scratch{};
+            return InspectProtectedRollingPlanWithScratch<
+                TPhysicalSlots,TProtectedSlots,TPayloadMaximum
+            >(storage,paths,scratch);
+        }
+
         /// Confirm each previously protected slot still has identical
         /// generation/identity/frame count and full CRC-qualified prefix.
         template<
@@ -498,25 +531,41 @@ namespace ESPressio::Logging {
             std::size_t TPayloadMaximum,
             class TStorage
         >
-        [[nodiscard]] bool ConfirmProtectedRollingPredecessors(
+        [[nodiscard]] bool ConfirmProtectedRollingPredecessorsWithScratch(
             const TStorage& storage,
             const std::array<
                 ESPressio::Persistence::FilePathView,TPhysicalSlots
             >& paths,
-            const EdlsArchiveInspection<TPhysicalSlots>& before
+            const EdlsArchiveInspection<TPhysicalSlots>& before,
+            std::span<std::byte> scratch
         ) noexcept {
             for (std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
                 const auto& preceding=before.Slots[slot];
                 if (preceding.Condition!=EdlsSlotCondition::Clean) {
                     continue;
                 }
-                if (!PriorNewestEdlsStillClean<TPayloadMaximum>(
-                    storage,paths[slot],slot,preceding
+                if (!PriorNewestEdlsStillCleanWithScratch<TPayloadMaximum>(
+                    storage,paths[slot],slot,preceding,scratch
                 )) {
                     return false;
                 }
             }
             return true;
+        }
+
+        /// Preserve stack-backed predecessor verification for existing APIs.
+        template<std::size_t TPhysicalSlots,std::size_t TPayloadMaximum,
+                 class TStorage>
+        [[nodiscard]] bool ConfirmProtectedRollingPredecessors(
+            const TStorage& storage,
+            const std::array<ESPressio::Persistence::FilePathView,
+                TPhysicalSlots>& paths,
+            const EdlsArchiveInspection<TPhysicalSlots>& before
+        ) noexcept {
+            std::array<std::byte,TPayloadMaximum+20U> scratch{};
+            return ConfirmProtectedRollingPredecessorsWithScratch<
+                TPhysicalSlots,TPayloadMaximum
+            >(storage,paths,before,scratch);
         }
 
     } // namespace Detail
@@ -537,18 +586,19 @@ namespace ESPressio::Logging {
         class TStorage
     >
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
-    FinishEdlsProtectedRollingRetirement(
+    FinishEdlsProtectedRollingRetirementWithScratch(
         TStorage& storage,
         const std::array<
             ESPressio::Persistence::FilePathView,TPhysicalSlots
-        >& paths
+        >& paths,
+        std::span<std::byte> scratch
     ) noexcept {
         using namespace ESPressio::Persistence;
 
         EdlsProtectedRollingOutcome<TPhysicalSlots> result{};
-        const auto before = Detail::InspectProtectedRollingPlan<
+        const auto before = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum
-        >(storage,paths);
+        >(storage,paths,scratch);
         result.Status = before.Status;
         if (before.Status !=
             EdlsProtectedRollingStatus::NoPendingRetirement) {
@@ -566,8 +616,8 @@ namespace ESPressio::Logging {
             }
             const auto& previous=before.Inspected.Slots[slot];
             if (previous.Condition!=EdlsSlotCondition::Clean ||
-                !Detail::PriorNewestEdlsStillClean<TPayloadMaximum>(
-                    storage,paths[slot],slot,previous
+                !Detail::PriorNewestEdlsStillCleanWithScratch<TPayloadMaximum>(
+                    storage,paths[slot],slot,previous,scratch
                 )) {
                 result.Status =
                     EdlsProtectedRollingStatus::ProtectedHistoryChanged;
@@ -581,21 +631,37 @@ namespace ESPressio::Logging {
             result.Status=EdlsProtectedRollingStatus::RetirementRejected;
             return result;
         }
-        const auto after = Detail::InspectProtectedRollingPlan<
+        const auto after = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum
-        >(storage,paths);
+        >(storage,paths,scratch);
         if (after.Status!=EdlsProtectedRollingStatus::NoPendingRetirement ||
             after.Occupied!=TProtectedSlots ||
             after.NewestGeneration!=before.NewestGeneration ||
             after.OldestGeneration!=before.OldestGeneration+1U ||
-            !Detail::ConfirmProtectedRollingPredecessors<
+            !Detail::ConfirmProtectedRollingPredecessorsWithScratch<
                 TPhysicalSlots,TPayloadMaximum
-            >(storage,paths,after.Inspected)) {
+            >(storage,paths,after.Inspected,scratch)) {
             result.Status=EdlsProtectedRollingStatus::RetirementUnconfirmed;
             return result;
         }
         result.Status=EdlsProtectedRollingStatus::RecoveredPendingRetirement;
         return result;
+    }
+
+    /// Legacy stack-backed entrypoint delegates to the SAME single actual
+    /// retirement state machine; new high-payload workers choose WithScratch.
+    template<std::size_t TPhysicalSlots,std::size_t TProtectedSlots,
+             std::size_t TPayloadMaximum,class TStorage>
+    [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
+    FinishEdlsProtectedRollingRetirement(
+        TStorage& storage,
+        const std::array<ESPressio::Persistence::FilePathView,
+            TPhysicalSlots>& paths
+    ) noexcept {
+        std::array<std::byte,EdlsHeaderBytes+TPayloadMaximum+20U> scratch{};
+        return FinishEdlsProtectedRollingRetirementWithScratch<
+            TPhysicalSlots,TProtectedSlots,TPayloadMaximum
+        >(storage,paths,scratch);
     }
 
     /// Publish a real EDLS/EDLG successor into an UNUSED physical path,
@@ -621,14 +687,15 @@ namespace ESPressio::Logging {
         class TStorage
     >
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
-    PublishEdlsProtectedRollingSuccessor(
+    PublishEdlsProtectedRollingSuccessorWithScratch(
         TStorage& storage,
         const std::array<
             ESPressio::Persistence::FilePathView,TPhysicalSlots
         >& paths,
         const std::array<std::byte,16U>& deviceIdentifier,
         std::uint32_t runtimeIncarnation,
-        std::span<const std::byte> completeEdlg
+        std::span<const std::byte> completeEdlg,
+        std::span<std::byte> scratch
     ) noexcept {
         using namespace ESPressio::Persistence;
         static_assert(TPhysicalSlots==TProtectedSlots+1U);
@@ -638,9 +705,9 @@ namespace ESPressio::Logging {
         static_assert(ESPressio::Persistence::Detail::HasMandatoryFileStorageOperations<TStorage>);
 
         EdlsProtectedRollingOutcome<TPhysicalSlots> result{};
-        const auto before = Detail::InspectProtectedRollingPlan<
+        const auto before = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum
-        >(storage,paths);
+        >(storage,paths,scratch);
         result.Status=before.Status;
         if (before.Status!=
             EdlsProtectedRollingStatus::NoPendingRetirement) {
@@ -659,9 +726,9 @@ namespace ESPressio::Logging {
 
         // The existing successor owner handles exact EDLG framing, EDLS
         // header identity, new immutable filename and independent readback.
-        const auto posted=PublishEdlsSuccessorIntoEmptySlot<
+        const auto posted=PublishEdlsSuccessorIntoEmptySlotWithScratch<
             TPhysicalSlots,TPayloadMaximum,TSlotMaximum
-        >(storage,paths,deviceIdentifier,runtimeIncarnation,completeEdlg);
+        >(storage,paths,deviceIdentifier,runtimeIncarnation,completeEdlg,scratch);
         result.NativeWrite=posted.Native;
         result.PublishedSlot=posted.Slot;
         result.Generation=posted.Generation;
@@ -690,9 +757,9 @@ namespace ESPressio::Logging {
         }
         // Even an independently CRC-clean new segment is not permission to
         // retire history if ANY previous still-protected byte changed.
-        if (!Detail::ConfirmProtectedRollingPredecessors<
+        if (!Detail::ConfirmProtectedRollingPredecessorsWithScratch<
             TPhysicalSlots,TPayloadMaximum
-        >(storage,paths,before.Inspected)) {
+        >(storage,paths,before.Inspected,scratch)) {
             result.Status=EdlsProtectedRollingStatus::ProtectedHistoryChanged;
             return result;
         }
@@ -701,9 +768,9 @@ namespace ESPressio::Logging {
             return result;
         }
 
-        const auto retired=FinishEdlsProtectedRollingRetirement<
+        const auto retired=FinishEdlsProtectedRollingRetirementWithScratch<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum
-        >(storage,paths);
+        >(storage,paths,scratch);
         result.RetiredSlot=retired.RetiredSlot;
         result.NativeRemove=retired.NativeRemove;
         result.Status=retired.Status==
@@ -711,6 +778,28 @@ namespace ESPressio::Logging {
             ? EdlsProtectedRollingStatus::PublishedAndRetired
             : retired.Status;
         return result;
+    }
+
+    /// Legacy API intentionally remains callable and regression-compatible.
+    /// This stack-backed path is not recommended at TPayloadMaximum=4096 on
+    /// the ESP32 main task; use the caller-owned WithScratch overload.
+    template<std::size_t TPhysicalSlots,std::size_t TProtectedSlots,
+             std::size_t TPayloadMaximum,std::size_t TSlotMaximum,
+             class TStorage>
+    [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
+    PublishEdlsProtectedRollingSuccessor(
+        TStorage& storage,
+        const std::array<ESPressio::Persistence::FilePathView,
+            TPhysicalSlots>& paths,
+        const std::array<std::byte,16U>& deviceIdentifier,
+        std::uint32_t runtimeIncarnation,
+        std::span<const std::byte> completeEdlg
+    ) noexcept {
+        std::array<std::byte,EdlsHeaderBytes+TPayloadMaximum+20U> scratch{};
+        return PublishEdlsProtectedRollingSuccessorWithScratch<
+            TPhysicalSlots,TProtectedSlots,TPayloadMaximum,TSlotMaximum
+        >(storage,paths,deviceIdentifier,runtimeIncarnation,completeEdlg,
+            scratch);
     }
 
 } // namespace ESPressio::Logging

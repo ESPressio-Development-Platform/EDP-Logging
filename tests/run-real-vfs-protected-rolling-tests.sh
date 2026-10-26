@@ -7,7 +7,11 @@ CC="$(printenv CXX || true)"
 if test -z "$CC"; then CC=g++; fi
 BIN="$(mktemp)"
 trap 'rm -f "$BIN"' EXIT
-"$CC" -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+FLAGS=()
+if test "${EDP_EDLS_UBSAN:-0}" = 1; then
+  FLAGS=(-fsanitize=undefined -fno-sanitize-recover=all)
+fi
+"$CC" "${FLAGS[@]}" -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
   -I"$ROOT/src" -I"$DEPS/EDP-Persistence/src" \
   -I"$DEPS/EDP-Persistence-ESP-IDF/src" \
   -I"$DEPS/EDP-Memory/src" -I"$DEPS/EDP-Platform-Portable/src" \
