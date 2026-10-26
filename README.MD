@@ -753,3 +753,20 @@ docs/POWERLOSS-EDLS-JOURNAL.MD for precise limitations.
 The existing [EDLS rotation owner](src/logging/EdlsArchiveRotation.hpp) now exposes a separate opt-in `PublishEdlsProtectedRollingSuccessor` and `FinishEdlsProtectedRollingRetirement`. Application Bootstrap chooses a **finite N-record/segment retained capacity**, N+1 physical file paths and compile-time frame/segment bounds. The new path never replaces a still-retained physical filename: it commits/CRC-verifies an immutable successor in the empty spare, independently checks all previous complete history, and only then retires the oldest eligible record. After a crash at the retirement boundary, N+1 complete contiguous generations may be reconciled and reduced to N; a torn unknown candidate fails closed without destructive inference. **Indefinite history retention is not intended.**
 
 Host GCC, Clang, UBSan and independently reopened real POSIX VfsFileStorage tests have passed on RPI400; see [contract and limitations](docs/EDLS-PROTECTED-ROLLING.MD). The previous best-effort oldest-slot overwrite remains a separate weaker API, **not suitable for strict LittleFS PowerLoss history**. This is not yet the native physical EDLS power-cut result, does not establish a hardware wear/GC reserve, and does not complete canonical typed LogRecord CBOR production integration. Generic FileStorage remains Restart/None/MayModify; EDP versions remain exactly 0.1.0.
+
+
+## 2026-10-26 — native real-EDLS LittleFS cut evidence fixture (G7)
+
+A new **test-only** [native G7 LittleFS application](tests/hil/g7-littlefs-protected-rolling-espidf/README.MD)
+reuses existing Logging immutable N+1 EDLS owner, canonical EDLS and CRC-
+bearing EDLG/CBOR frame, and selected EDP-Persistence-ESP-IDF LittleFS
+conservative VFS provider. This is the first native target of the *actual*
+new EDLS archive owner, as distinguished from earlier synthetic 8192-byte
+generation probes. The fixture deliberately power-interrupts AFTER a
+verified N+1 complete successor but BEFORE oldest physical retirement;
+on reboot it re-verifies complete N+1, retires oldest, then rolls to
+exactly two generations. Host raw electrical controller and independent
+physical flash decoder are separate gate owners. The fixed tiny CBOR
+payload is NOT the full typed LogRecord output; exhaustive GC/wear/
+candidate-tear remains open. Actual PASS/FAIL is recorded in the Policy
+living handoff, never inferred merely because the fixture exists.

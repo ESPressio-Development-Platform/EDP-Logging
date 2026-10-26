@@ -1,0 +1,5 @@
+# Test-only ESP-IDF main task budget. Source-level EDLS inspection uses
+# bounded nested C++20 local state; default 3584B main stack was measured
+# INSUFFICIENT on native WROOM, real HIL run 20261026T100632-e35fbdca.
+# The application/Bootstrap must budget each actual worker stack separately.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

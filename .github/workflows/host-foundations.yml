@@ -268,3 +268,9 @@ jobs:
           CXX: ${{ github.workspace }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-real-vfs-protected-rolling-tests.sh
+      - name: Install UART host test dependency
+        run: python3 -m pip install pyserial
+      - name: Qualify real EDLS LittleFS power-cut monitor classification and offline archive evidence
+        env:
+          PYTHONPATH: ${{ github.workspace }}/EDP-Logging/tools
+        run: python3 -m unittest discover -s EDP-Logging/tests/hil/g7-littlefs-protected-rolling-espidf -p "test_*.py" -v

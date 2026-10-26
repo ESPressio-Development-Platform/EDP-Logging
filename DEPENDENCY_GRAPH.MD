@@ -358,3 +358,15 @@ Optional logging/PowerLossEdlsJournal.hpp adds **no new repository dependency**:
 ## 2026-10-26 — immutable EDLS protected N+1 rolling dependency revalidation
 
 The opt-in physical spare/rolling functions are inside existing `logging/EdlsArchiveRotation.hpp`. They consume the *already-declared optional* **abstract EDP-Persistence FileStorage** contract, EDLG/EDLS existing CRC reader/writer, existing archive inspection, guarded empty-slot successor and fixed C++20 storage. No new mandatory or optional ESPressio dependency edge, direct platform SDK import, memory allocator, independent worker, Clock, Mutex, Flash adapter or reverse dependency is added. The real host VFS tests use EDP-Persistence-ESP-IDF as an **application/test-level concrete** only. Complete previously documented production graph remains unchanged, acyclic, and all versions remain 0.1.0.
+
+
+## 2026-10-26 native real EDLS LittleFS fixture (test dependency only)
+
+Optional test-only \`tests/hil/g7-littlefs-protected-rolling-espidf\` consumes
+the existing Logging EDLG/EDLS headers plus abstract EDP-Persistence,
+concrete EDP-Persistence-ESP-IDF LittleFsVfsMount and the already-existing
+joltwallet/littlefs ESP-IDF component at the **application/test edge**.
+Existing EDP-Platform-Portable EDP-Memory ByteOperations is explicitly
+selected by test Bootstrap. This adds **zero production** EDP-Logging
+dependencies, no new Flash owner or cross-repo cycle, and no SDK import
+in the Logging domain-neutral library. All versions remain 0.1.0.
