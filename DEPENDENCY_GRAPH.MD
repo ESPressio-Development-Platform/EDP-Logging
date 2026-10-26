@@ -370,3 +370,7 @@ Existing EDP-Platform-Portable EDP-Memory ByteOperations is explicitly
 selected by test Bootstrap. This adds **zero production** EDP-Logging
 dependencies, no new Flash owner or cross-repo cycle, and no SDK import
 in the Logging domain-neutral library. All versions remain 0.1.0.
+
+## 2026-10-26: generated typed CBOR-to-archive composition
+
+`logging/GeneratedLogRecordEdlsArchive.hpp` is a thin optional application-worker composition of existing domain-neutral Logging generated schema-projection, existing **EDP-Serialisation** canonical TypedEnvelope CBOR encoder, existing EDLG/EDLS frame/immutable archive owners, and the already-approved optional abstract **EDP-Persistence FileStorage**. It adds no new direct SDK, Clock platform, allocation provider, threading engine, or mandatory dependency. The test selects EDP-Persistence-ESP-IDF VfsFileStorage **outside** Logging production ownership. No circular dependency or new EDP component. All versions 0.1.0.

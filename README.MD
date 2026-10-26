@@ -770,3 +770,7 @@ physical flash decoder are separate gate owners. The fixed tiny CBOR
 payload is NOT the full typed LogRecord output; exhaustive GC/wear/
 candidate-tear remains open. Actual PASS/FAIL is recorded in the Policy
 living handoff, never inferred merely because the fixture exists.
+
+## 2026-10-26: typed LogRecord canonical CBOR into finite EDLS
+
+The optional [typed CBOR EDLS adapter](docs/TYPED-EDLS-CBOR-ARCHIVE.MD) now directly connects the existing generated diagnostic schema-qualified fifteen-field LogRecord projection and **EDP-Serialisation::Cbor TypedEnvelope** writer to the existing checked EDLG frame and finite immutable N+1 EDLS archive owner. It accepts Bootstrap/worker-owned fixed scratch buffers, validates source device/incarnation/fingerprint, rejects oversize CBOR before touching the archive, verifies the entire successor and earlier generations, and only then permits logical oldest-eligible retirement. No alternative codec, platform provider or worker is created. A new owner-generated real VFS test decodes every retained frame as the canonical typed envelope under GCC, Clang and UBSan; physical typed-payload VDD cut/flash reserve/worker saturation are additional outstanding production gates. All versions stay 0.1.0.

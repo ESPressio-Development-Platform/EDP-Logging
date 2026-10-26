@@ -247,6 +247,29 @@ jobs:
           repository: ESPressio-Development-Platform/EDP-Clock
           ref: mesh_v1
           path: EDP-Clock
+      - name: Checkout EDP-Serialisation canonical CBOR owner
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Serialisation
+          ref: feature/logging-v1
+          path: EDP-Serialisation
+      - name: Checkout EDP-Localisation schema generator
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Localisation
+          ref: feature/logging-v1
+          path: EDP-Localisation
+      - name: Checkout EDP-BoundedTypes declared owner types
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTypes
+          ref: main
+          path: EDP-BoundedTypes
+      - name: Generate LogRecord canonical CBOR and persist through real EDLS rolling
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-generated-edls-archive-integration-tests.sh
       - name: Run bounded EDLS FileStorage read-only recovery tests
         env:
           CXX: ${{ matrix.compiler }}
@@ -260,12 +283,12 @@ jobs:
 
       - name: Compile and test finite N+1 protected immutable EDLS rotation
         env:
-          CXX: ${{ github.workspace }}
+          CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-edls-protected-rolling-tests.sh
       - name: Independently reopen real VFS EDLS rolling and resume retirement
         env:
-          CXX: ${{ github.workspace }}
+          CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-real-vfs-protected-rolling-tests.sh
       - name: Install UART host test dependency
