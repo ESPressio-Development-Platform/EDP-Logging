@@ -746,3 +746,10 @@ Physical RPI400 ESP32 GPIO17 hard-power-cut journal HIL
 generations 18 and 19 independently CRC-verified after power
 restoration, with bounded two-record history. See normative
 docs/POWERLOSS-EDLS-JOURNAL.MD for precise limitations.
+
+
+## 2026-10-26 — finite immutable EDLS rolling with N protected + 1 physical reserve
+
+The existing [EDLS rotation owner](src/logging/EdlsArchiveRotation.hpp) now exposes a separate opt-in `PublishEdlsProtectedRollingSuccessor` and `FinishEdlsProtectedRollingRetirement`. Application Bootstrap chooses a **finite N-record/segment retained capacity**, N+1 physical file paths and compile-time frame/segment bounds. The new path never replaces a still-retained physical filename: it commits/CRC-verifies an immutable successor in the empty spare, independently checks all previous complete history, and only then retires the oldest eligible record. After a crash at the retirement boundary, N+1 complete contiguous generations may be reconciled and reduced to N; a torn unknown candidate fails closed without destructive inference. **Indefinite history retention is not intended.**
+
+Host GCC, Clang, UBSan and independently reopened real POSIX VfsFileStorage tests have passed on RPI400; see [contract and limitations](docs/EDLS-PROTECTED-ROLLING.MD). The previous best-effort oldest-slot overwrite remains a separate weaker API, **not suitable for strict LittleFS PowerLoss history**. This is not yet the native physical EDLS power-cut result, does not establish a hardware wear/GC reserve, and does not complete canonical typed LogRecord CBOR production integration. Generic FileStorage remains Restart/None/MayModify; EDP versions remain exactly 0.1.0.

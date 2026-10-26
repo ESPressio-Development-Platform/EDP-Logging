@@ -353,3 +353,8 @@ archive; the non-atomic VFS profile remains unchanged.
 ## 2026-10-23 — optional strict historical EDLS journal
 
 Optional logging/PowerLossEdlsJournal.hpp adds **no new repository dependency**: it composes the existing PowerLossEdlsSnapshots owner and the same optional abstract EDP-Persistence::KeyValueStorage contract, EDP-System composition requirements and existing EDLG/EDLS encoding. Application Bootstrap selects the already-existing PowerLoss-atomic ESP-IDF NVS provider. No new raw flash driver, worker, queue, mutex, allocator, Clock, Mesh or reverse dependency. No change to SPIFFS FileStorage guarantees or versions 0.1.0.
+
+
+## 2026-10-26 — immutable EDLS protected N+1 rolling dependency revalidation
+
+The opt-in physical spare/rolling functions are inside existing `logging/EdlsArchiveRotation.hpp`. They consume the *already-declared optional* **abstract EDP-Persistence FileStorage** contract, EDLG/EDLS existing CRC reader/writer, existing archive inspection, guarded empty-slot successor and fixed C++20 storage. No new mandatory or optional ESPressio dependency edge, direct platform SDK import, memory allocator, independent worker, Clock, Mutex, Flash adapter or reverse dependency is added. The real host VFS tests use EDP-Persistence-ESP-IDF as an **application/test-level concrete** only. Complete previously documented production graph remains unchanged, acyclic, and all versions remain 0.1.0.

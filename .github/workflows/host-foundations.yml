@@ -257,3 +257,14 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-real-vfs-successor-tests.sh
+
+      - name: Compile and test finite N+1 protected immutable EDLS rotation
+        env:
+          CXX: ${{ github.workspace }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-edls-protected-rolling-tests.sh
+      - name: Independently reopen real VFS EDLS rolling and resume retirement
+        env:
+          CXX: ${{ github.workspace }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-real-vfs-protected-rolling-tests.sh
