@@ -141,6 +141,21 @@ namespace {
             encoderProjection=Projection{};
             assert(sink.TryFinalize().Status==
                 L::AsyncSinkCompletionStatus::Pending);
+            // Real bounded fanout backpressure: a second different valid
+            // generated record may acquire/release its own encoding lease,
+            // but the already pending Task must not be overwritten and may
+            // not acknowledge either generation prematurely.
+            Record blocked=make_record(device,gen+1U);
+            const auto concurrent=L::EncodeOnceAndSubmitToSinks<
+                L::EdlgCodec::Cbor,1024U
+            >(pool,sourceLease,blocked,encoder,sink);
+            assert(concurrent.Status==
+                L::OwnedRepresentationStatus::SubmissionNotAccepted);
+            assert(concurrent.Accepted==0U && concurrent.EncoderInvocations==1U);
+            assert(concurrent.Submissions[0U]==L::RecordSinkSubmission::Rejected);
+            assert(sourceLease.IsEmpty() && !copyLease.IsEmpty() &&
+                task.has_value());
+            blocked=Record{};
             assert((L::InspectEdlsArchive<3U,1024U>(storage,Paths)
                 .NextGeneration==gen));
             executor.Execute(); // actual EDP-Threading Task result callback
