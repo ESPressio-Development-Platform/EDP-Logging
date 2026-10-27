@@ -72,6 +72,8 @@ class PostCutEvidence:
             self.roll_verified = True
         if REPLAY_PASS in line:
             self.replay_verified = True
+        if "EDP_BND|REPLAY_VERIFIED|TWO_PROTECTED_AFTER_MIDWRITE_CUT" in line:
+            self.replay_verified = True
         if "EDP_EDLS|TYPED_REPLAY_VERIFIED|all_15_fields=1|window=3,4" in line:
             self.replay_verified = True
             self.typed_replay_verified = True

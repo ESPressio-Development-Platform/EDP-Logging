@@ -44,7 +44,8 @@ class EmulatedSerial:
 class ElectricalControllerAndBufferTests(unittest.TestCase):
     def exercise(self, *, native=7, rom="rst:0x10 (RTCWDT_RTC_RESET)",
                  wrong_off=False, bad_recovery=False,
-                 lowspace=False, lowspace_reclaim=False):
+                 lowspace=False, lowspace_reclaim=False,
+                 midwrite=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -87,6 +88,24 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                    "EDP_BND|LOWSPACE_ROLLED|ack=3|window=2,3|retired=1\n")
                 + "EDP_BND|REPLAY_VERIFIED|TWO_RETAINED_AFTER_RECLAIM_CUT\n"
             ).encode()
+        if midwrite:
+            before=(
+                b"rst:0x1 (POWERON_RESET)\n"
+                b"EDP_BND|BOOT|reset=1\n"
+                b"EDP_BND|ACK|gen=1\n"
+                b"EDP_BND|ACK|gen=2\n"
+                b"EDP_BND|MIDWRITE_START|attempt=1\n"
+                b"EDP_BND|REPLAY_VERIFIED|TWO_PROTECTED_AFTER_MIDWRITE_CUT\n"
+            )
+            after=(
+                f"{rom}\n"
+                f"EDP_BND|BOOT|reset={native}\n"
+                f"EDP_BND|RESET_OBSERVED|reason={native}|por={int(native==1)}\n"
+                + ("EDP_BND|RECOVERED|newest=2|older=0|valid=1|contiguous=1\n"
+                    if bad_recovery else
+                    "EDP_BND|RECOVERED|newest=2|older=1|valid=2|contiguous=1\n")
+                + "EDP_BND|REPLAY_VERIFIED|TWO_PROTECTED_AFTER_MIDWRITE_CUT\n"
+            ).encode()
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -116,7 +135,8 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                          side_effect=lambda: actual_clock()+elapsed[0]),
             patch.dict(os.environ, {
                 "EDP_LFS_CUT_STAGE": ("lowspace_reclaim" if lowspace_reclaim else
-                                      "lowspace" if lowspace else "write"),
+                                      "lowspace" if lowspace else
+                                      "midwrite" if midwrite else "write"),
                 "EDP_LFS_OFF_HOLD_S": "8.0",
             }),
             patch("builtins.print", side_effect=lambda *a, **_k: results.append(
@@ -129,6 +149,18 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_midwrite_cut_preserves_oldest_acknowledged(self):
+        code, output, recorded, _ = self.exercise(midwrite=True,native=1,
+            rom="rst:0x1 (POWERON_RESET)")
+        self.assertEqual(code,0)
+        self.assertTrue(any("CUT_STAGE=midwrite" in x for x in output))
+        self.assertTrue(any("last_ack=2|newest=2|older=1" in x for x in output))
+        self.assertTrue(any("QUALIFICATION=POR_CONFIRMED" in x for x in output))
+        self.assertIn("TWO_PROTECTED_AFTER_MIDWRITE_CUT",recorded)
+    def test_midwrite_cut_damaged_ack_fails(self):
+        code, _, _, _ = self.exercise(midwrite=True,bad_recovery=True)
+        self.assertEqual(code,4)
 
     def test_real_por_from_new_epoch(self):
         code, output, recorded, port = self.exercise(

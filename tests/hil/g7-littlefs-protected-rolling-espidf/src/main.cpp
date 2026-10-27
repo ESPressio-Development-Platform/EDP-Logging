@@ -111,6 +111,9 @@ static void ExpectPair(Store& store,
 #if defined(EDP_TEST_TYPED_ARCHIVE)
 #include "typed_archive_probe.hpp"
 #endif
+#if defined(EDP_TEST_EDLS_MIDWRITE)
+#include "midwrite_fault_probe.hpp"
+#endif
 
 #if defined(EDP_TEST_EDLS_LOWSPACE)
 #include <esp_littlefs.h>
@@ -265,6 +268,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_EDLS_MIDWRITE)
+    ExecuteMidwriteFaultProbe(storage,reset,session,phase,armed);
+#endif
 #if defined(EDP_TEST_TYPED_ARCHIVE)
     ExecuteTypedArchiveHIL(storage,reset,session,phase,armed);
 #endif

@@ -7,7 +7,7 @@ PROJECT="$ROOT/tests/hil/g7-littlefs-protected-rolling-espidf"
 BUILD_ENV="${EDP_LFS_BUILD_ENV:-esp32dev}"
 STAGE="${EDP_LFS_CUT_STAGE:-reclaim}"
 case "$STAGE:$BUILD_ENV" in
-    lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed) ;;
+    lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite) ;;
     *) echo "Invalid stage/build pairing: $STAGE:$BUILD_ENV" >&2; exit 2 ;;
 esac
 IMAGE="$PROJECT/.pio/build/$BUILD_ENV/firmware.factory.bin"
@@ -51,6 +51,10 @@ set -e
 "$CONTROL" status
 echo "LITTLEFS_MONITOR_EXIT=$rc"
 test "$rc" -eq 0
+if test "$STAGE" = midwrite; then
+    grep -Fq 'EDP_BND|REPLAY_VERIFIED|TWO_PROTECTED_AFTER_MIDWRITE_CUT' "$EVIDENCE/monitor/serial.txt" || exit 9
+    grep -Fq 'EDP_BND|MIDWRITE_START|attempt=1' "$EVIDENCE/monitor/serial.txt" || exit 9
+fi
 if test "$STAGE" = typed; then
     grep -Fq 'EDP_EDLS|TYPED_REPLAY_VERIFIED|all_15_fields=1|window=3,4'         "$EVIDENCE/monitor/serial.txt" || {
         echo 'Typed 15-field postcut archive verification missing' >&2
