@@ -114,6 +114,9 @@ static void ExpectPair(Store& store,
 #if defined(EDP_TEST_EDLS_MIDWRITE)
 #include "midwrite_fault_probe.hpp"
 #endif
+#if defined(EDP_TEST_STRICT_ACK)
+#include "strict_ack_probe.hpp"
+#endif
 
 #if defined(EDP_TEST_EDLS_LOWSPACE)
 #include <esp_littlefs.h>
@@ -236,8 +239,13 @@ extern "C" void app_main() {
 
     Require(nvs_flash_init()==ESP_OK,"NVS_INIT");
     nvs_handle_t session{};
+#if defined(EDP_TEST_STRICT_ACK)
+    Require(nvs_open("edpstrict28",NVS_READWRITE,&session)==ESP_OK,
+        "NVS_SESSION");
+#else
     Require(nvs_open("edpedls26",NVS_READWRITE,&session)==ESP_OK,
         "NVS_SESSION");
+#endif
     std::uint8_t armed=0U;
     const auto phase=nvs_get_u8(session,"armed",&armed);
     Require(phase==ESP_OK || phase==ESP_ERR_NVS_NOT_FOUND,
@@ -268,6 +276,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_STRICT_ACK)
+    ExecuteStrictNvsRecoveryHIL(storage,byteOps,reset,session,phase,armed);
+#endif
 #if defined(EDP_TEST_EDLS_MIDWRITE)
     ExecuteMidwriteFaultProbe(storage,reset,session,phase,armed);
 #endif

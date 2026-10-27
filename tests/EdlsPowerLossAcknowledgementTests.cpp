@@ -100,25 +100,52 @@ namespace {
         assert(files.GetFileSize(path0.Value).Status==priorWrites.Status);
         ledger.failRead=false;
 
-        // A DIFFERENT runtime incarnation must not resume the ACK epoch.
-        Strict wrongIncarnation(files,ledger,paths,ledgerKey.Value,id,8U);
-        assert(wrongIncarnation.Read().Status==S::InvalidWatermark);
-        assert(wrongIncarnation.Recover(scratch).Status==S::InvalidWatermark);
+        // SystemIdentity provides a NEW durable incarnation per boot;
+        // the old ACK ledger and EDLS history remain valid across boots.
+        Strict rebooted(files,ledger,paths,ledgerKey.Value,id,8U);
+        const auto previousBootAck=rebooted.Read();
+        assert(previousBootAck.Status==S::Ready &&
+            previousBootAck.AcknowledgedGeneration==4U &&
+            previousBootAck.AcknowledgedIncarnation==7U);
+        assert(rebooted.Recover(scratch).Status==S::Ready);
+        const auto fifth=rebooted.Publish(frame,scratch);
+        assert(fifth.Status==S::AcknowledgedAndRetired &&
+            fifth.AcknowledgedGeneration==5U);
+        const auto currentBootAck=rebooted.Read();
+        assert(currentBootAck.Status==S::Ready &&
+            currentBootAck.AcknowledgedGeneration==5U &&
+            currentBootAck.AcknowledgedIncarnation==8U);
+        assert(rebooted.Recover(scratch).Status==S::Ready);
+
+        // Even a checksum-valid replayed ledger with a falsely changed
+        // incumbent incarnation must NOT authorize deleting any file.
+        auto ledgerCopy=ledger.bytes[0U];
+        Logging::EdlsHeader fraudulent{};
+        fraudulent.DeviceIdentifier=id;
+        fraudulent.RuntimeIncarnation=7U;
+        fraudulent.Generation=6U;
+        fraudulent.Slot=0U;
+        assert(Logging::WriteEdlsHeader(fraudulent,
+            std::span<std::byte>(ledger.bytes[0U]))==
+            Logging::EdlsHeaderStatus::Succeeded);
+        assert(rebooted.Recover(scratch).Status==S::InvalidWatermark);
+        ledger.bytes[0U]=ledgerCopy;
+        assert(rebooted.Recover(scratch).Status==S::Ready);
 
         // Corrupt an acknowledged physical segment: never repair a spare
         // or retire any older record with protected CRC corruption present.
         std::array<std::byte,128U> saved{};
-        const auto read=files.ReadFileAt(path2.Value,Persist::StorageOffset{},
+        const auto read=files.ReadFileAt(path0.Value,Persist::StorageOffset{},
             Persist::DestinationBufferView{saved.data(),saved.size()});
         assert(read.Status==Persist::FileReadStatus::Succeeded &&
             read.BytesTransferred==63U);
         const std::byte original=saved[0U];
         const std::byte bad=original^std::byte{0x10U};
-        assert(files.WriteFileAt(path2.Value,Persist::StorageOffset{},
+        assert(files.WriteFileAt(path0.Value,Persist::StorageOffset{},
             Persist::SourceBufferView{&bad,1U})==
             Persist::FileWriteAtStatus::Succeeded);
         assert(writer.Recover(scratch).Status==S::ArchiveAmbiguous);
-        assert(files.WriteFileAt(path2.Value,Persist::StorageOffset{},
+        assert(files.WriteFileAt(path0.Value,Persist::StorageOffset{},
             Persist::SourceBufferView{&original,1U})==
             Persist::FileWriteAtStatus::Succeeded);
         assert(writer.Recover(scratch).Status==S::Ready);
@@ -136,12 +163,12 @@ namespace {
         const auto state=Logging::InspectEdlsArchive<3U,16U>(
             reopened,paths);
         assert(state.Condition==Logging::EdlsArchiveCondition::Unambiguous);
-        assert(state.NextGeneration==5U);
+        assert(state.NextGeneration==6U);
         std::size_t clean=0U;
         for(const auto& slot:state.Slots) {
             if(slot.Condition==Logging::EdlsSlotCondition::Clean) {
-                assert(slot.Header.Generation>=3U &&
-                    slot.Header.Generation<=4U);
+                assert(slot.Header.Generation>=4U &&
+                    slot.Header.Generation<=5U);
                 ++clean;
             }
         }

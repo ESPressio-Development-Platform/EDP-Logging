@@ -38,6 +38,8 @@ namespace ESPressio::Logging {
             EdlsAcknowledgedStatus::InvalidWatermark};
         std::uint64_t AcknowledgedGeneration{0U};
         std::size_t CandidateSlot{0U};
+        /// Runtime incarnation of the LAST acknowledged source, not this boot.
+        std::uint32_t AcknowledgedIncarnation{0U};
     };
 
     /// Bootstrap provides one exclusive FileStorage owner and one independent
@@ -47,6 +49,9 @@ namespace ESPressio::Logging {
     /// genesis (=1, so last acknowledged=0). Header.Slot is reserved as 0.
     /// No private codec or second logging archive is introduced.
     ///
+    /// The watermark's RuntimeIncarnation records the LAST ACKed segment's
+    /// incarnation. On a new boot the caller-supplied runtime incarnation MAY
+    /// and normally MUST advance; retained generations may span incarnations.
     /// Strict guarantees apply only to writers that use this exact ordering;
     /// this API MUST NOT be adopted to infer provenance for legacy EDLS files
     /// that were published/acknowledged without this companion watermark.
@@ -113,7 +118,8 @@ namespace ESPressio::Logging {
                 return {EdlsAcknowledgedStatus::WatermarkStoreRejected};
             const auto checked=Read();
             return checked.Status==EdlsAcknowledgedStatus::Ready &&
-                checked.AcknowledgedGeneration==latest
+                checked.AcknowledgedGeneration==latest &&
+                checked.AcknowledgedIncarnation==incarnation_
                 ? checked
                 : EdlsAcknowledgedObservation{
                     EdlsAcknowledgedStatus::WatermarkStoreRejected};
@@ -160,11 +166,11 @@ namespace ESPressio::Logging {
             EdlsHeader decoded{};
             if(ReadEdlsHeader(bytes,decoded)!=EdlsHeaderStatus::Succeeded ||
                decoded.Slot!=0U ||
-               decoded.DeviceIdentifier!=identity_ ||
-               decoded.RuntimeIncarnation!=incarnation_)
+               decoded.DeviceIdentifier!=identity_)
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
             return {EdlsAcknowledgedStatus::Ready,
-                decoded.Generation-1U,TPhysicalSlots};
+                decoded.Generation-1U,TPhysicalSlots,
+                decoded.RuntimeIncarnation};
         }
 
         /// Only an empty, physically absent archive can be freshly bound to
@@ -207,6 +213,7 @@ namespace ESPressio::Logging {
             std::array<EdlsSlotInspection,TPhysicalSlots> before{};
             std::size_t candidate=TPhysicalSlots;
             bool olderCommitted=false;
+            std::uint32_t observedAckIncarnation=0U;
 
             for(std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
                 const auto size=files_->GetFileSize(paths_[slot]);
@@ -220,7 +227,6 @@ namespace ESPressio::Logging {
                 if(found.Condition==EdlsSlotCondition::Clean &&
                    found.HasHeader &&
                    found.Header.DeviceIdentifier==identity_ &&
-                   found.Header.RuntimeIncarnation==incarnation_ &&
                    found.Header.Generation>=first &&
                    found.Header.Generation<=ack) {
                     const auto offset=static_cast<std::size_t>(
@@ -228,13 +234,14 @@ namespace ESPressio::Logging {
                     if(offset>=countExpected || observed[offset])
                         return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
                     observed[offset]=true;
+                    if(found.Header.Generation==ack)
+                        observedAckIncarnation=found.Header.RuntimeIncarnation;
                     continue;
                 }
                 if(candidate!=TPhysicalSlots)
                     return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
                 if(found.HasHeader && (
                     found.Header.DeviceIdentifier!=identity_ ||
-                    found.Header.RuntimeIncarnation!=incarnation_ ||
                     (found.Header.Generation!=ack+1U &&
                      !(ack>=TProtectedSlots &&
                        found.Header.Generation==first-1U)))) {
@@ -249,9 +256,16 @@ namespace ESPressio::Logging {
             for(std::size_t i=0U;i<countExpected;++i)
                 if(!observed[i])
                     return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+            // The ledger's incarnation binds to the LAST ACKed segment;
+            // previous generations can legitimately belong to older boots.
+            if(ack>0U &&
+               observedAckIncarnation!=evidence.AcknowledgedIncarnation)
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
             const auto same=Read();
             if(same.Status!=EdlsAcknowledgedStatus::Ready ||
-               same.AcknowledgedGeneration!=ack)
+               same.AcknowledgedGeneration!=ack ||
+               same.AcknowledgedIncarnation!=
+                   evidence.AcknowledgedIncarnation)
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
             if(candidate==TPhysicalSlots)
                 return {EdlsAcknowledgedStatus::Ready,ack,candidate};
@@ -298,7 +312,9 @@ namespace ESPressio::Logging {
             }
             const auto next=Read();
             if(next.Status!=EdlsAcknowledgedStatus::Ready ||
-               next.AcknowledgedGeneration!=ack)
+               next.AcknowledgedGeneration!=ack ||
+               next.AcknowledgedIncarnation!=
+                   evidence.AcknowledgedIncarnation)
                 return {EdlsAcknowledgedStatus::InvalidWatermark,
                     ack,candidate};
             return {
