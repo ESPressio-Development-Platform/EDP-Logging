@@ -785,3 +785,7 @@ stack locals. For maximum 4096-byte CBOR payload this archive buffer is exactly
 4156 bytes outside the task stack, source EDLG frame separate. See the
 [physical failure and correction](docs/EDLS-PROTECTED-ROLLING.MD); the
 legacy stack-scratch overloads remain for source compatibility.
+
+### Oct 27 typed EDLS real hardware and Task owner evidence
+
+Native ESP32-WROOM owner-generated 15-field CBOR/EDLS externally controlled VDD interruption **PASS** after a measured 8.254-second outage (run 20261027T114439-028890f5, POR confirmed) with retained g3/g4. The independently extracted raw physical 589824B LittleFS partition audit, including all mandatory fields and approved absent optional field, passed with strict generated schema fingerprint and CRC validation; prior incorrect auditor FAIL remains recorded. Existing EDP-Memory pool + EDP-Threading Task copying sink + real VFS EDLS 16-generation test: GCC/Clang and GCC UBSan PASS. These do **not** yet prove on-target production worker saturation, LittleFS write/GC crash consistency, automated provenance-based torn-candidate handling, or wear/reserve; production-ready status withheld.

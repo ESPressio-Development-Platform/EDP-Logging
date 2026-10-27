@@ -5,3 +5,5 @@ sdkconfig*
 __pycache__/
 *.pyc
 !sdkconfig.defaults
+src/generated/
+src/_g4_generated_input/

@@ -9,8 +9,10 @@
 #include <span>
 #include <type_traits>
 
+#ifndef EDP_LOGGING_ASYNC_SKIP_ADMISSION_INCLUDE
 #define EDP_LOGGING_G1_LIFECYCLE_TEST_INCLUDE
 #include "AdmissionWakeCoordinatorTests.cpp"
+#endif
 #include <logging/AsyncCopyingTaskSink.hpp>
 #include <memory/ByteOperationsProvider.hpp>
 

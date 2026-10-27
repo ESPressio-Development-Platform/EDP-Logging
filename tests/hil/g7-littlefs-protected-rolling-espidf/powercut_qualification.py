@@ -45,6 +45,7 @@ class PostCutEvidence:
         self.reset_observed: tuple[int, int] | None = None
         self.recovered: tuple[int, int, int] | None = None
         self.replay_verified = False
+        self.typed_replay_verified = False
         self.roll_verified = False
         self.halt_reason: str | None = None
 
@@ -71,6 +72,9 @@ class PostCutEvidence:
             self.roll_verified = True
         if REPLAY_PASS in line:
             self.replay_verified = True
+        if "EDP_EDLS|TYPED_REPLAY_VERIFIED|all_15_fields=1|window=3,4" in line:
+            self.replay_verified = True
+            self.typed_replay_verified = True
 
     def verdict(
         self,

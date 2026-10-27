@@ -39,7 +39,7 @@ def run(destination: str) -> int:
     evidence_path.mkdir(parents=True, exist_ok=False)
 
     stage = os.environ.get("EDP_LFS_CUT_STAGE", "reclaim").lower()
-    if stage not in {"reclaim", "write", "lowspace", "lowspace_reclaim"}:
+    if stage not in {"reclaim", "write", "lowspace", "lowspace_reclaim", "typed"}:
         raise ValueError("cut stage must be reclaim, write, lowspace or lowspace_reclaim")
     threshold = 22 if stage == "reclaim" else (24 if stage == "write" else (5 if stage == "lowspace_reclaim" else 1))
     trigger = (
@@ -51,7 +51,9 @@ def run(destination: str) -> int:
             else (
                 re.compile(r"\|LOWSPACE_RECLAIM_ENTER\|pad=(\d+)")
                 if stage == "lowspace_reclaim"
-                else re.compile(r"\|LOWSPACE_SAFE\|protected=1,2\|last_ack=(\d+)")
+                else (re.compile(r"\|TYPED_SUCCESSOR_PENDING\|gen=(\d+)")
+                      if stage == "typed" else
+                      re.compile(r"\|LOWSPACE_SAFE\|protected=1,2\|last_ack=(\d+)"))
             )
         )
     )

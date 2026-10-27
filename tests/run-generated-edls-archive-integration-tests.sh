@@ -40,12 +40,13 @@ fi
   -I"$WORKSPACE/EDP-BoundedTypes/src" \
   -I"$WORKSPACE/EDP-BoundedTopology/src" \
   -I"$WORKSPACE/EDP-Memory/src" \
+  -I"$WORKSPACE/EDP-Memory" \
   -I"$WORKSPACE/EDP-Platform/src" \
   -I"$WORKSPACE/EDP-Platform-Portable/src" \
   -I"$WORKSPACE/EDP-Persistence/src" \
   -I"$WORKSPACE/EDP-Persistence-ESP-IDF/src" \
   -I"$WORKSPACE/EDP-Threading/src" \
-  "$ROOT/tests/GeneratedEdlsArchiveIntegrationTests.cpp" \
+  "${EDP_TYPED_SOURCE:-$ROOT/tests/GeneratedEdlsArchiveIntegrationTests.cpp}" \
   -o "$TEMP/test"
 "$TEMP/test"
 echo "Real generated typed LogRecord -> canonical CBOR -> immutable EDLS integration PASS ($COMPILER)"

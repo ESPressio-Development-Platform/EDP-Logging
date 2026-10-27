@@ -16,4 +16,8 @@ target_include_directories(
       "../../../../../EDP-System/src"
       "../../../../../EDP-BoundedTopology/src"
       "../../../../../EDP-BoundedTypes/src"
+      "../../../../../EDP-Serialisation/src"
+      "../../../../../EDP-Localisation/src"
+      "../../../../../EDP-Clock/src"
+      "${CMAKE_CURRENT_SOURCE_DIR}/generated"
 )

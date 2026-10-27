@@ -387,3 +387,7 @@ through additional WithScratch APIs, sourced from existing application
 Bootstrap EDP-Memory or static owner. No new allocator, Flash provider,
 queue, worker, SDK import or EDP dependency; all internal scans use the
 same original EDP-Persistence abstraction. All versions remain 0.1.0.
+
+## Oct 27 real existing Task-owner tests and typed native fixture
+
+Additional tests exercise the already declared EDP-Memory ObjectPool, EDP-Threading Task<T>, EDP-Serialisation typed CBOR, and EDP-Persistence FileStorage paths; the optional Logging worker-side TypedCborProtectedEdlsTaskDelivery remains an adapter, not a new worker, codec, allocator or provider. Native ESP-IDF and LittleFS are selected only in test/bootstrap fixture, not Logging. Versions fixed 0.1.0.

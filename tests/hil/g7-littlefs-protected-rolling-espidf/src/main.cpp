@@ -108,6 +108,10 @@ static void ExpectPair(Store& store,
     Require(found==2U,"EXPECTED_EXACT_TWO");
 }
 
+#if defined(EDP_TEST_TYPED_ARCHIVE)
+#include "typed_archive_probe.hpp"
+#endif
+
 #if defined(EDP_TEST_EDLS_LOWSPACE)
 #include <esp_littlefs.h>
 #include <cstdio>
@@ -261,6 +265,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_TYPED_ARCHIVE)
+    ExecuteTypedArchiveHIL(storage,reset,session,phase,armed);
+#endif
     const auto [frameBytes,frameCount]=Frame();
     const auto encoded=std::span<const std::byte>(
         frameBytes.data(),frameCount
