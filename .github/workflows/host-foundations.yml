@@ -270,6 +270,11 @@ jobs:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-generated-edls-archive-integration-tests.sh
+      - name: Validate PowerLoss KeyValue watermark and recover torn EDLS candidate
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-edls-powerloss-acknowledgement-tests.sh
       - name: Qualify existing Memory pool and deferred Threading Task typed EDLS archive
         env:
           CXX: ${{ matrix.compiler }}

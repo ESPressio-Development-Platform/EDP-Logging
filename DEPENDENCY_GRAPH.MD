@@ -391,3 +391,7 @@ same original EDP-Persistence abstraction. All versions remain 0.1.0.
 ## Oct 27 real existing Task-owner tests and typed native fixture
 
 Additional tests exercise the already declared EDP-Memory ObjectPool, EDP-Threading Task<T>, EDP-Serialisation typed CBOR, and EDP-Persistence FileStorage paths; the optional Logging worker-side TypedCborProtectedEdlsTaskDelivery remains an adapter, not a new worker, codec, allocator or provider. Native ESP-IDF and LittleFS are selected only in test/bootstrap fixture, not Logging. Versions fixed 0.1.0.
+
+## Strict finite EDLS acknowledgment (Oct 27)
+
+`src/logging/EdlsPowerLossAcknowledgement.hpp` consumes only the **already declared EDP-Persistence** FileStorage and KeyValueStorage abstraction and the existing Logging EdlsArchiveRotation/EdlsSegment CRC implementation. Selection of NVS PowerLoss-atomic KeyValueStorage versus conservative LittleFS FileStorage remains exclusively Bootstrap/application composition. No SDK imports, alternate owner, dynamic allocator, task, or codec added in EDP-Logging; existing EDP-Serialisation typed CBOR still frames log records. Version 0.1.0.

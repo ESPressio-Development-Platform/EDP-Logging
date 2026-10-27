@@ -1,0 +1,381 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <span>
+#include <ESPressio_Persistence.hpp>
+#include "EdlsArchiveRotation.hpp"
+
+namespace ESPressio::Logging {
+
+    /// This API is an opt-in acknowledgement contract for an archive writer.
+    /// An acknowledged EDLS generation is a complete verified segment AND
+    /// a separately PowerLoss-atomic committed and reread watermark. The
+    /// writer may not return success to a producer before BOTH facts hold.
+    enum class EdlsAcknowledgedStatus : std::uint8_t {
+        Ready,
+        Initialized,
+        MissingWatermark,
+        InvalidWatermark,
+        ArchiveAmbiguous,
+        AcknowledgedHistoryChanged,
+        UnacknowledgedCandidateRemoved,
+        CommittedOldestRetired,
+        NoPhysicalReserve,
+        GenerationExhausted,
+        ProviderFailure,
+        WatermarkStoreRejected,
+        PublishedNotAcknowledged,
+        AcknowledgedWithinCapacity,
+        AcknowledgedAndRetired,
+        AcknowledgedPendingRetirement
+    };
+
+    struct EdlsAcknowledgedObservation final {
+        EdlsAcknowledgedStatus Status{
+            EdlsAcknowledgedStatus::InvalidWatermark};
+        std::uint64_t AcknowledgedGeneration{0U};
+        std::size_t CandidateSlot{0U};
+    };
+
+    /// Bootstrap provides one exclusive FileStorage owner and one independent
+    /// PowerLoss-atomic KeyValueStorage owner. The EDLS v1 40-byte CRC header
+    /// serves as the existing wire representation of a watermarked generation:
+    /// key Header.Generation = latest acknowledged generation + 1, including
+    /// genesis (=1, so last acknowledged=0). Header.Slot is reserved as 0.
+    /// No private codec or second logging archive is introduced.
+    ///
+    /// Strict guarantees apply only to writers that use this exact ordering;
+    /// this API MUST NOT be adopted to infer provenance for legacy EDLS files
+    /// that were published/acknowledged without this companion watermark.
+    template<
+        std::size_t TPhysicalSlots,
+        std::size_t TProtectedSlots,
+        std::size_t TPayloadMaximum,
+        std::size_t TSegmentMaximum,
+        class TFileStorage,
+        class TKeyValueStorage
+    >
+    class PowerLossAcknowledgedEdls final {
+
+        using Capability=ESPressio::Persistence::KeyValueStorage;
+        using Properties=typename TKeyValueStorage::CompositionOffers
+            ::template PropertiesFor<Capability>;
+        static_assert(TPhysicalSlots==TProtectedSlots+1U);
+        static_assert(TProtectedSlots>=2U && TPhysicalSlots<=64U);
+        static_assert(TPayloadMaximum>=1U && TPayloadMaximum<=4096U);
+        static_assert(TSegmentMaximum>=EdlsHeaderBytes+TPayloadMaximum+20U);
+        static_assert(ESPressio::Persistence::KeyValueStorageProvider<
+            TKeyValueStorage>);
+        static_assert(ESPressio::Persistence::Detail::
+            HasMandatoryFileStorageOperations<TFileStorage>);
+        static_assert(Properties::template Value<
+            ESPressio::Persistence::KeyValueRetention> ==
+                ESPressio::Persistence::RetentionLevel::PowerLoss);
+        static_assert(Properties::template Value<
+            ESPressio::Persistence::KeyValueInterruptionAtomicity> ==
+                ESPressio::Persistence::InterruptionAtomicity::PowerLoss);
+        static_assert(Properties::template Value<
+            ESPressio::Persistence::KeyValueAccessMode> ==
+                ESPressio::Persistence::AccessMode::ReadWrite);
+        static_assert(Properties::template Value<
+            ESPressio::Persistence::MaximumKeyValueSize> >=
+                ESPressio::Persistence::StorageSize{EdlsHeaderBytes});
+
+        TFileStorage* files_;
+        TKeyValueStorage* watermark_;
+        std::array<ESPressio::Persistence::FilePathView,TPhysicalSlots> paths_;
+        ESPressio::Persistence::KeyView watermarkKey_;
+        std::array<std::byte,16U> identity_;
+        std::uint32_t incarnation_;
+
+        [[nodiscard]] EdlsAcknowledgedObservation StoreWatermark(
+            std::uint64_t latest
+        ) noexcept {
+            namespace P=ESPressio::Persistence;
+            if(latest==std::numeric_limits<std::uint64_t>::max() ||
+                incarnation_==0U)
+                return {EdlsAcknowledgedStatus::GenerationExhausted};
+            EdlsHeader encoded{};
+            encoded.Slot=0U;
+            encoded.Generation=latest+1U;
+            encoded.DeviceIdentifier=identity_;
+            encoded.RuntimeIncarnation=incarnation_;
+            std::array<std::byte,EdlsHeaderBytes> bytes{};
+            if(WriteEdlsHeader(encoded,bytes)!=EdlsHeaderStatus::Succeeded)
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
+            if(watermark_->StoreValue(
+                watermarkKey_,
+                P::SourceBufferView{bytes.data(),bytes.size()}) !=
+                P::KeyValueStoreStatus::Succeeded)
+                return {EdlsAcknowledgedStatus::WatermarkStoreRejected};
+            const auto checked=Read();
+            return checked.Status==EdlsAcknowledgedStatus::Ready &&
+                checked.AcknowledgedGeneration==latest
+                ? checked
+                : EdlsAcknowledgedObservation{
+                    EdlsAcknowledgedStatus::WatermarkStoreRejected};
+        }
+
+    public:
+
+        /// Bind caller-owned, non-aliased owners and bounded physical names.
+        explicit PowerLossAcknowledgedEdls(
+            TFileStorage& files,
+            TKeyValueStorage& watermark,
+            const std::array<
+                ESPressio::Persistence::FilePathView,TPhysicalSlots>& paths,
+            ESPressio::Persistence::KeyView watermarkKey,
+            const std::array<std::byte,16U>& identity,
+            std::uint32_t runtimeIncarnation
+        ) noexcept :
+            files_(&files),watermark_(&watermark),paths_(paths),
+            watermarkKey_(watermarkKey),identity_(identity),
+            incarnation_(runtimeIncarnation) {}
+
+        /// Read only the PowerLoss-atomic independent acknowledgement fact.
+        /// Neither a FileStorage success nor a parseable archive is an ACK.
+        [[nodiscard]] EdlsAcknowledgedObservation Read() const noexcept {
+            namespace P=ESPressio::Persistence;
+            if(!files_->IsFileStorageReady() ||
+               !watermark_->IsKeyValueStorageReady() ||
+               watermarkKey_.Data()==nullptr ||
+               watermarkKey_.Size()==0U)
+                return {EdlsAcknowledgedStatus::ProviderFailure};
+            std::array<std::byte,EdlsHeaderBytes> bytes{};
+            const auto native=watermark_->ReadValue(
+                watermarkKey_,P::DestinationBufferView{
+                    bytes.data(),bytes.size()});
+            if(native.Status==P::KeyValueReadStatus::NotFound)
+                return {EdlsAcknowledgedStatus::MissingWatermark};
+            if(native.Status!=P::KeyValueReadStatus::Succeeded ||
+               !P::HasFact(native.Facts,
+                   P::ReadFact::AvailableDataSizeIsKnown))
+                return {EdlsAcknowledgedStatus::ProviderFailure};
+            if(native.BytesTransferred!=EdlsHeaderBytes ||
+               native.AvailableDataSize.RawValue!=EdlsHeaderBytes)
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
+            EdlsHeader decoded{};
+            if(ReadEdlsHeader(bytes,decoded)!=EdlsHeaderStatus::Succeeded ||
+               decoded.Slot!=0U ||
+               decoded.DeviceIdentifier!=identity_ ||
+               decoded.RuntimeIncarnation!=incarnation_)
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
+            return {EdlsAcknowledgedStatus::Ready,
+                decoded.Generation-1U,TPhysicalSlots};
+        }
+
+        /// Only an empty, physically absent archive can be freshly bound to
+        /// genesis ACK=0. Never silently install an ACK for legacy history.
+        [[nodiscard]] EdlsAcknowledgedObservation InitializeEmpty() noexcept {
+            namespace P=ESPressio::Persistence;
+            auto known=Read();
+            if(known.Status!=EdlsAcknowledgedStatus::MissingWatermark)
+                return known;
+            for(const auto path:paths_) {
+                if(files_->GetFileSize(path).Status!=
+                    P::FileSizeStatus::NotFound)
+                    return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+            }
+            const auto written=StoreWatermark(0U);
+            if(written.Status!=EdlsAcknowledgedStatus::Ready)
+                return written;
+            return {EdlsAcknowledgedStatus::Initialized,0U,TPhysicalSlots};
+        }
+
+        /// Reconcile only the exact ACKed latest N CRC-clean generations.
+        ///
+        /// A single other physical file is removable ONLY if the independent
+        /// PowerLoss ledger proves its generation is not acknowledged. This
+        /// permits zero-byte/torn candidate recovery without ever retiring
+        /// a still-protected predecessor, while rejecting unknown provenance.
+        [[nodiscard]] EdlsAcknowledgedObservation Recover(
+            std::span<std::byte> scratch
+        ) noexcept {
+            namespace P=ESPressio::Persistence;
+            const auto evidence=Read();
+            if(evidence.Status!=EdlsAcknowledgedStatus::Ready)
+                return evidence;
+            const auto ack=evidence.AcknowledgedGeneration;
+            const auto countExpected=ack<TProtectedSlots
+                ? static_cast<std::size_t>(ack) : TProtectedSlots;
+            const auto first=ack>=TProtectedSlots
+                ? ack-TProtectedSlots+1U : 1U;
+            std::array<bool,TProtectedSlots> observed{};
+            std::array<EdlsSlotInspection,TPhysicalSlots> before{};
+            std::size_t candidate=TPhysicalSlots;
+            bool olderCommitted=false;
+
+            for(std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
+                const auto size=files_->GetFileSize(paths_[slot]);
+                if(size.Status==P::FileSizeStatus::NotFound)continue;
+                if(size.Status!=P::FileSizeStatus::Succeeded)
+                    return {EdlsAcknowledgedStatus::ProviderFailure};
+                before[slot]=InspectEdlsSlotWithScratch<TPayloadMaximum>(
+                    *files_,paths_[slot],static_cast<std::uint16_t>(slot),
+                    scratch);
+                const auto& found=before[slot];
+                if(found.Condition==EdlsSlotCondition::Clean &&
+                   found.HasHeader &&
+                   found.Header.DeviceIdentifier==identity_ &&
+                   found.Header.RuntimeIncarnation==incarnation_ &&
+                   found.Header.Generation>=first &&
+                   found.Header.Generation<=ack) {
+                    const auto offset=static_cast<std::size_t>(
+                        found.Header.Generation-first);
+                    if(offset>=countExpected || observed[offset])
+                        return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+                    observed[offset]=true;
+                    continue;
+                }
+                if(candidate!=TPhysicalSlots)
+                    return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+                if(found.HasHeader && (
+                    found.Header.DeviceIdentifier!=identity_ ||
+                    found.Header.RuntimeIncarnation!=incarnation_ ||
+                    (found.Header.Generation!=ack+1U &&
+                     !(ack>=TProtectedSlots &&
+                       found.Header.Generation==first-1U)))) {
+                    return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+                }
+                candidate=slot;
+                olderCommitted=found.Condition==EdlsSlotCondition::Clean &&
+                    found.HasHeader &&
+                    ack>=TProtectedSlots &&
+                    found.Header.Generation==first-1U;
+            }
+            for(std::size_t i=0U;i<countExpected;++i)
+                if(!observed[i])
+                    return {EdlsAcknowledgedStatus::ArchiveAmbiguous};
+            const auto same=Read();
+            if(same.Status!=EdlsAcknowledgedStatus::Ready ||
+               same.AcknowledgedGeneration!=ack)
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
+            if(candidate==TPhysicalSlots)
+                return {EdlsAcknowledgedStatus::Ready,ack,candidate};
+            for(std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
+                const auto& prior=before[slot];
+                if(prior.Condition!=EdlsSlotCondition::Clean ||
+                   prior.Header.Generation<first ||
+                   prior.Header.Generation>ack)continue;
+                if(!Detail::PriorNewestEdlsStillCleanWithScratch<
+                    TPayloadMaximum>(*files_,paths_[slot],slot,prior,
+                    scratch))
+                    return {EdlsAcknowledgedStatus::
+                        AcknowledgedHistoryChanged,ack,candidate};
+            }
+            if(olderCommitted) {
+                const auto completed=
+                    FinishEdlsProtectedRollingRetirementWithScratch<
+                        TPhysicalSlots,TProtectedSlots,TPayloadMaximum>(
+                        *files_,paths_,scratch);
+                if(completed.Status!=
+                    EdlsProtectedRollingStatus::RecoveredPendingRetirement)
+                    return {EdlsAcknowledgedStatus::ProviderFailure,
+                        ack,candidate};
+            } else {
+                if(files_->RemoveFile(paths_[candidate])!=
+                    P::FileRemoveStatus::Succeeded)
+                    return {EdlsAcknowledgedStatus::ProviderFailure,
+                        ack,candidate};
+            }
+            if(files_->GetFileSize(paths_[candidate]).Status!=
+                P::FileSizeStatus::NotFound)
+                return {EdlsAcknowledgedStatus::ProviderFailure,
+                    ack,candidate};
+            for(std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
+                const auto& prior=before[slot];
+                if(prior.Condition!=EdlsSlotCondition::Clean ||
+                   prior.Header.Generation<first ||
+                   prior.Header.Generation>ack)continue;
+                if(!Detail::PriorNewestEdlsStillCleanWithScratch<
+                    TPayloadMaximum>(*files_,paths_[slot],slot,prior,
+                    scratch))
+                    return {EdlsAcknowledgedStatus::
+                        AcknowledgedHistoryChanged,ack,candidate};
+            }
+            const auto next=Read();
+            if(next.Status!=EdlsAcknowledgedStatus::Ready ||
+               next.AcknowledgedGeneration!=ack)
+                return {EdlsAcknowledgedStatus::InvalidWatermark,
+                    ack,candidate};
+            return {
+                olderCommitted
+                    ? EdlsAcknowledgedStatus::CommittedOldestRetired
+                    : EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
+                ack,candidate
+            };
+        }
+
+        /// Strict two-provider commit order:
+        ///  1. reserve previously physically ABSENT EDLS path;
+        ///  2. publish and CRC-readback new immutable EDLS successor;
+        ///  3. prove every still ACKed predecessor unchanged;
+        ///  4. commit+readback PowerLoss-atomic ACK watermark in KeyValue;
+        ///  5. ONLY THEN retire the oldest physically acknowledged segment.
+        ///
+        /// Never report accepted before step 4. Failed watermark persistence
+        /// leaves the old protected window intact and a safely unacknowledged
+        /// candidate that Recover can resolve after a restart.
+        [[nodiscard]] EdlsAcknowledgedObservation Publish(
+            std::span<const std::byte> completeEdlg,
+            std::span<std::byte> scratch
+        ) noexcept {
+            const auto recovered=Recover(scratch);
+            if(recovered.Status!=EdlsAcknowledgedStatus::Ready &&
+               recovered.Status!=
+                    EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved &&
+               recovered.Status!=
+                    EdlsAcknowledgedStatus::CommittedOldestRetired)
+                return recovered;
+            const auto ack=recovered.AcknowledgedGeneration;
+            if(ack>=std::numeric_limits<std::uint64_t>::max()-1U)
+                return {EdlsAcknowledgedStatus::GenerationExhausted,ack};
+
+            const auto prior=Detail::InspectProtectedRollingPlanWithScratch<
+                TPhysicalSlots,TProtectedSlots,TPayloadMaximum>(
+                *files_,paths_,scratch);
+            const auto expected=ack<TProtectedSlots
+                ? static_cast<std::size_t>(ack) : TProtectedSlots;
+            if(prior.Status!=EdlsProtectedRollingStatus::NoPendingRetirement ||
+               prior.Occupied!=expected ||
+               prior.NewestGeneration!=ack)
+                return {EdlsAcknowledgedStatus::ArchiveAmbiguous,ack};
+            if(prior.Occupied>=TPhysicalSlots)
+                return {EdlsAcknowledgedStatus::NoPhysicalReserve,ack};
+            const auto posted=PublishEdlsSuccessorIntoEmptySlotWithScratch<
+                TPhysicalSlots,TPayloadMaximum,TSegmentMaximum>(
+                *files_,paths_,identity_,incarnation_,completeEdlg,
+                scratch);
+            if(posted.Status!=EdlsSuccessorStatus::PublishedAndVerified)
+                return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
+                    ack,posted.Slot};
+            if(!Detail::ConfirmProtectedRollingPredecessorsWithScratch<
+                TPhysicalSlots,TPayloadMaximum>(
+                *files_,paths_,prior.Inspected,scratch))
+                return {EdlsAcknowledgedStatus::AcknowledgedHistoryChanged,
+                    ack,posted.Slot};
+            const auto committed=StoreWatermark(ack+1U);
+            if(committed.Status!=EdlsAcknowledgedStatus::Ready)
+                return {EdlsAcknowledgedStatus::WatermarkStoreRejected,
+                    ack,posted.Slot};
+            if(prior.Occupied<TProtectedSlots)
+                return {EdlsAcknowledgedStatus::AcknowledgedWithinCapacity,
+                    ack+1U,posted.Slot};
+            const auto retired=
+                FinishEdlsProtectedRollingRetirementWithScratch<
+                    TPhysicalSlots,TProtectedSlots,TPayloadMaximum>(
+                    *files_,paths_,scratch);
+            return {
+                retired.Status==
+                    EdlsProtectedRollingStatus::RecoveredPendingRetirement
+                    ? EdlsAcknowledgedStatus::AcknowledgedAndRetired
+                    : EdlsAcknowledgedStatus::AcknowledgedPendingRetirement,
+                ack+1U,posted.Slot
+            };
+        }
+    };
+
+} // namespace ESPressio::Logging
