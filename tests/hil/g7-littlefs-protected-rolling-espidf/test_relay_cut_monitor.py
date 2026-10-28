@@ -45,7 +45,8 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
     def exercise(self, *, native=7, rom="rst:0x10 (RTCWDT_RTC_RESET)",
                  wrong_off=False, bad_recovery=False,
                  lowspace=False, lowspace_reclaim=False,
-                 midwrite=False, strictack=False):
+                 midwrite=False, strictack=False,
+                 typed_ack_gap=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -124,6 +125,24 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                     "EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n")
                 + "EDP_BND|REPLAY_VERIFIED|STRICT_TWO_PROTECTED_AFTER_REPAIR\n"
             ).encode()
+        if typed_ack_gap:
+            before=(
+                b"rst:0x1 (POWERON_RESET)\n"
+                b"EDP_BND|BOOT|reset=1\n"
+                b"EDP_BND|ACK|gen=1\n"
+                b"EDP_BND|ACK|gen=2\n"
+                b"EDP_BND|TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1\n"
+                b"EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT\n"
+            )
+            after=(
+                f"{rom}\n"
+                f"EDP_BND|BOOT|reset={native}\n"
+                f"EDP_BND|RESET_OBSERVED|reason={native}|por={int(native==1)}\n"
+                + ("EDP_BND|RECOVERED|newest=4|older=2|valid=2|contiguous=1\n"
+                   if bad_recovery else
+                   "EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n")
+                + "EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT\n"
+            ).encode()
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -155,7 +174,8 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 "EDP_LFS_CUT_STAGE": ("lowspace_reclaim" if lowspace_reclaim else
                                       "lowspace" if lowspace else
                                       "midwrite" if midwrite else
-                                      "strictack" if strictack else "write"),
+                                      "strictack" if strictack else
+                                      "typed_ack_gap" if typed_ack_gap else "write"),
                 "EDP_LFS_OFF_HOLD_S": "8.0",
             }),
             patch("builtins.print", side_effect=lambda *a, **_k: results.append(
@@ -168,6 +188,24 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_typed_gap_requires_power_reset_and_real_postcut_replay(self):
+        code, out, recorded, _=self.exercise(
+            typed_ack_gap=True,native=1,rom="rst:0x1 (POWERON_RESET)")
+        self.assertEqual(code,0)
+        self.assertIn("STRICT_TYPED15_NVS_ACK_AFTER_CUT",recorded)
+        self.assertTrue(any("last_ack=2|newest=4|older=3" in line
+                            for line in out))
+        self.assertTrue(any("CUT_STAGE=typed_ack_gap" in line
+                            for line in out))
+
+    def test_typed_gap_corrupted_retention_fails(self):
+        code,_,_,_=self.exercise(typed_ack_gap=True,bad_recovery=True)
+        self.assertEqual(code,4)
+
+    def test_typed_gap_wrong_relay_off_fails(self):
+        code,_,_,_=self.exercise(typed_ack_gap=True,wrong_off=True)
+        self.assertEqual(code,9)
 
     def test_strict_nvs_ack_atomicity_cut_and_resume(self):
         code, out, recorded, _ = self.exercise(strictack=True, native=1,

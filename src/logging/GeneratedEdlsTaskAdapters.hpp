@@ -3,11 +3,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <concepts>
 #include <span>
 #include <utility>
 
 #include <ESPressio_Serialisation.hpp>
 #include "GeneratedLogRecordEdlsArchive.hpp"
+#include "EdlsPowerLossAcknowledgement.hpp"
 #include "RecordProduction.hpp"
 #include "OwnedRepresentationFanout.hpp"
 
@@ -57,7 +59,8 @@ namespace ESPressio::Logging {
 
     enum class TypedEdlsTaskCompletion : std::uint8_t {
         NotInvoked, Archived, InvalidCodec, InvalidTypedRecord,
-        SourceIdentityMismatch, FramingFailure, ArchiveFailure
+        SourceIdentityMismatch, FramingFailure, ArchiveFailure,
+        DurablyAcknowledged
     };
 
     /// Existing EDP-Threading Task-completion-side delivery callback.
@@ -86,6 +89,9 @@ namespace ESPressio::Logging {
         TypedEdlsTaskCompletion LastCompletion{
             TypedEdlsTaskCompletion::NotInvoked};
         EdlsProtectedRollingOutcome<TPhysicalSlots> LastArchive{};
+        /// Populated only when TStorage is an opt-in strictly ACKed archive
+        /// bound to the existing PowerLoss KeyValueStorage owner.
+        EdlsAcknowledgedObservation LastAcknowledgement{};
 
         TypedCborProtectedEdlsTaskDelivery(
             TStorage& storage,Projection& decoded,
@@ -106,6 +112,7 @@ namespace ESPressio::Logging {
             EdlgCodec codec,std::span<const std::byte> encoded
         ) noexcept {
             LastArchive=EdlsProtectedRollingOutcome<TPhysicalSlots>{};
+            LastAcknowledgement=EdlsAcknowledgedObservation{};
             LastCompletion=TypedEdlsTaskCompletion::InvalidCodec;
             if(codec!=EdlgCodec::Cbor || encoded.empty() ||
                encoded.size()>TMaximumPayload) {
@@ -167,6 +174,30 @@ namespace ESPressio::Logging {
                 LastCompletion=TypedEdlsTaskCompletion::FramingFailure;
                 return RecordSinkSubmission::Rejected;
             }
+            // Compile-time optional strict durability. The SAME canonical
+            // full-LogRecord validation and existing EDLG frame owner above
+            // are reused; only the injected archive publisher changes.
+            if constexpr (requires(TStorage& archive,
+                                   std::span<const std::byte> complete,
+                                   std::span<std::byte> scratch) {
+                {archive.Publish(complete,scratch)} noexcept ->
+                    std::same_as<EdlsAcknowledgedObservation>;
+            }) {
+                LastAcknowledgement=_storage->Publish(
+                    std::span<const std::byte>(
+                        _framingScratch.data(),framed),_archiveScratch);
+                if(LastAcknowledgement.Status==
+                       EdlsAcknowledgedStatus::AcknowledgedWithinCapacity ||
+                   LastAcknowledgement.Status==
+                       EdlsAcknowledgedStatus::AcknowledgedAndRetired ||
+                   LastAcknowledgement.Status==
+                       EdlsAcknowledgedStatus::AcknowledgedPendingRetirement) {
+                    LastCompletion=TypedEdlsTaskCompletion::DurablyAcknowledged;
+                    return RecordSinkSubmission::Accepted;
+                }
+                LastCompletion=TypedEdlsTaskCompletion::ArchiveFailure;
+                return RecordSinkSubmission::ProviderFailure;
+            } else {
             LastArchive=PublishEdlsProtectedRollingSuccessorWithScratch<
                 TPhysicalSlots,TProtectedSlots,TMaximumPayload,TMaximumSegment
             >(*_storage,_paths,_device,_incarnation,
@@ -181,6 +212,7 @@ namespace ESPressio::Logging {
             }
             LastCompletion=TypedEdlsTaskCompletion::ArchiveFailure;
             return RecordSinkSubmission::ProviderFailure;
+            }
         }
     };
 

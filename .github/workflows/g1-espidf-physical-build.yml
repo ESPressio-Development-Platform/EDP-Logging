@@ -122,6 +122,11 @@ jobs:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: pio run -e esp32dev
 
+      - name: Generate typed Localisation contract and compile strict NVS-ACKed EDLS (build only)
+        working-directory: EDP-Logging
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash tests/hil/g7-littlefs-protected-rolling-espidf/build_typed_strict.sh
       - name: Run G11 site evidence negative tests
         working-directory: EDP-Logging
         run: python3 tests/test_g11_site_evidence.py

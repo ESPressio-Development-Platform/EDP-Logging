@@ -7,7 +7,7 @@ PROJECT="$ROOT/tests/hil/g7-littlefs-protected-rolling-espidf"
 BUILD_ENV="${EDP_LFS_BUILD_ENV:-esp32dev}"
 STAGE="${EDP_LFS_CUT_STAGE:-reclaim}"
 case "$STAGE:$BUILD_ENV" in
-    lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack) ;;
+    lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack|typed_ack_gap:esp32dev-typed-strict) ;;
     *) echo "Invalid stage/build pairing: $STAGE:$BUILD_ENV" >&2; exit 2 ;;
 esac
 IMAGE="$PROJECT/.pio/build/$BUILD_ENV/firmware.factory.bin"
@@ -51,6 +51,10 @@ set -e
 "$CONTROL" status
 echo "LITTLEFS_MONITOR_EXIT=$rc"
 test "$rc" -eq 0
+if test "$STAGE" = typed_ack_gap; then
+    grep -Fq 'EDP_BND|TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1' "$EVIDENCE/monitor/serial.txt" || exit 9
+    grep -Fq 'EDP_EDLS|TYPED_STRICT_ACK_REPLAY_VERIFIED|all_15_fields=1|ack=4|window=3,4' "$EVIDENCE/monitor/serial.txt" || exit 9
+fi
 if test "$STAGE" = strictack; then
     grep -Fq 'EDP_EDLS|STRICT_NVS_RECOVERED|ack=4|window=3,4' "$EVIDENCE/monitor/serial.txt" || exit 9
     grep -Fq 'EDP_BND|STRICT_CANDIDATE_START|attempt=1' "$EVIDENCE/monitor/serial.txt" || exit 9

@@ -108,8 +108,11 @@ static void ExpectPair(Store& store,
     Require(found==2U,"EXPECTED_EXACT_TWO");
 }
 
-#if defined(EDP_TEST_TYPED_ARCHIVE)
+#if defined(EDP_TEST_TYPED_ARCHIVE) || defined(EDP_TEST_TYPED_STRICT_ACK)
 #include "typed_archive_probe.hpp"
+#endif
+#if defined(EDP_TEST_TYPED_STRICT_ACK)
+#include "typed_strict_ack_probe.hpp"
 #endif
 #if defined(EDP_TEST_EDLS_MIDWRITE)
 #include "midwrite_fault_probe.hpp"
@@ -239,7 +242,10 @@ extern "C" void app_main() {
 
     Require(nvs_flash_init()==ESP_OK,"NVS_INIT");
     nvs_handle_t session{};
-#if defined(EDP_TEST_STRICT_ACK)
+#if defined(EDP_TEST_TYPED_STRICT_ACK)
+    Require(nvs_open("edptyp27",NVS_READWRITE,&session)==ESP_OK,
+        "NVS_SESSION");
+#elif defined(EDP_TEST_STRICT_ACK)
     Require(nvs_open("edpstrict28",NVS_READWRITE,&session)==ESP_OK,
         "NVS_SESSION");
 #else
@@ -276,6 +282,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_TYPED_STRICT_ACK)
+    ExecuteTypedStrictAckHIL(storage,byteOps,reset,session,phase,armed);
+#endif
 #if defined(EDP_TEST_STRICT_ACK)
     ExecuteStrictNvsRecoveryHIL(storage,byteOps,reset,session,phase,armed);
 #endif

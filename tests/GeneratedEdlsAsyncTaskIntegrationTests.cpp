@@ -57,7 +57,8 @@ namespace {
         P0.Value,P1.Value,P2.Value};
     Record make_record(
         const S::Identity::DeviceIdentifier& device,
-        std::uint32_t generation
+        std::uint32_t generation,
+        std::uint32_t runtimeIncarnation=7U
     ) {
         const L::QualifiedLogTime temporal{
             C::MonotonicTimestamp::FromNanoseconds(123456U+generation),
@@ -72,7 +73,7 @@ namespace {
             L::AttemptSequenceWidth::Bits16>::FromValidatedValue(generation);
         assert(L::AssembleLogRecordSource<Schema>(
             record,L::Severity::Warning,device,
-            S::Identity::RuntimeIncarnationId{7U},attempt,temporal,
+            S::Identity::RuntimeIncarnationId{runtimeIncarnation},attempt,temporal,
             S::Identity::RuntimeIncarnationId{0x01020304U},
             C::ClockEra::FromValue(0x0102030405060708ULL)
         )==L::LogRecordAssemblyStatus::Prepared);
@@ -190,6 +191,8 @@ namespace {
         assert(::rmdir(folder)==0);
     }
 }
+#ifndef EDP_LOGGING_STRICT_TASK_REUSE
 int main() {
     ExerciseActualTaskLifecycle();
 }
+#endif
