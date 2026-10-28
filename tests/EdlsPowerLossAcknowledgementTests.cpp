@@ -115,6 +115,34 @@ namespace {
         assert(currentBootAck.Status==S::Ready &&
             currentBootAck.AcknowledgedGeneration==5U &&
             currentBootAck.AcknowledgedIncarnation==8U);
+        // The next Publish would take the completed-exclusive-writer hint.
+        // A direct physical mutation MUST still be detected by the full
+        // CRC-clean preflight, without advancing NVS or retiring history.
+        std::array<std::byte,128U> fastPrior{};
+        const auto fastRead=files.ReadFileAt(path0.Value,
+            Persist::StorageOffset{},Persist::DestinationBufferView{
+                fastPrior.data(),fastPrior.size()});
+        assert(fastRead.Status==Persist::FileReadStatus::Succeeded &&
+            fastRead.BytesTransferred==63U);
+        const auto changed=fastPrior[0U]^std::byte{0x08U};
+        assert(files.WriteFileAt(path0.Value,Persist::StorageOffset{},
+            Persist::SourceBufferView{&changed,1U})==
+            Persist::FileWriteAtStatus::Succeeded);
+        assert(rebooted.Publish(frame,scratch).Status==S::ArchiveAmbiguous);
+        assert(rebooted.Read().AcknowledgedGeneration==5U);
+        assert(files.WriteFileAt(path0.Value,Persist::StorageOffset{},
+            Persist::SourceBufferView{fastPrior.data(),1U})==
+            Persist::FileWriteAtStatus::Succeeded);
+        assert(rebooted.Recover(scratch).Status==S::Ready);
+
+        // An independent NVS interruption/error cannot be accepted merely
+        // because the volatile completed-writer hint existed previously.
+        // This is the non-cached branch after explicit recovery.
+        ledger.failRead=true;
+        assert(rebooted.Publish(frame,scratch).Status==S::ProviderFailure);
+        ledger.failRead=false;
+        assert(rebooted.Recover(scratch).Status==S::Ready);
+
         assert(rebooted.Recover(scratch).Status==S::Ready);
 
         // Even a checksum-valid replayed ledger with a falsely changed

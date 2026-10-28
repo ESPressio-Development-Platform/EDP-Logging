@@ -95,6 +95,12 @@ namespace ESPressio::Logging {
         ESPressio::Persistence::KeyView watermarkKey_;
         std::array<std::byte,16U> identity_;
         std::uint32_t incarnation_;
+        // A volatile fast-path hint, NEVER a durability acknowledgement.
+        // Valid ONLY after this exclusive writer completed all physical
+        // successor verification, NVS commit/readback and retirement.
+        // Boot, explicit recovery or ANY failed publication invalidates it.
+        bool exclusiveWriterCompleted_{false};
+        std::uint64_t exclusiveWriterAck_{0U};
 
         [[nodiscard]] EdlsAcknowledgedObservation StoreWatermark(
             std::uint64_t latest
@@ -176,6 +182,7 @@ namespace ESPressio::Logging {
         /// Only an empty, physically absent archive can be freshly bound to
         /// genesis ACK=0. Never silently install an ACK for legacy history.
         [[nodiscard]] EdlsAcknowledgedObservation InitializeEmpty() noexcept {
+            exclusiveWriterCompleted_=false;
             namespace P=ESPressio::Persistence;
             auto known=Read();
             if(known.Status!=EdlsAcknowledgedStatus::MissingWatermark)
@@ -200,6 +207,7 @@ namespace ESPressio::Logging {
         [[nodiscard]] EdlsAcknowledgedObservation Recover(
             std::span<std::byte> scratch
         ) noexcept {
+            exclusiveWriterCompleted_=false;
             namespace P=ESPressio::Persistence;
             const auto evidence=Read();
             if(evidence.Status!=EdlsAcknowledgedStatus::Ready)
@@ -339,7 +347,22 @@ namespace ESPressio::Logging {
             std::span<const std::byte> completeEdlg,
             std::span<std::byte> scratch
         ) noexcept {
-            const auto recovered=Recover(scratch);
+            // The full initial Recover remains authoritative after boot,
+            // interrupted/failed publish, explicit recovery or uncertainty.
+            // Once this same exclusive writer completed a fully verified
+            // transaction, a fresh independent NVS watermark read combined
+            // with the mandatory full CRC-clean physical preflight below
+            // is sufficient; repeating Recover's previous scan is redundant.
+            // Never cache a physical file inspection across publications.
+            const bool previouslyComplete=exclusiveWriterCompleted_;
+            const auto previousAck=exclusiveWriterAck_;
+            exclusiveWriterCompleted_=false;
+            const auto recovered=previouslyComplete ? Read() : Recover(scratch);
+            if(previouslyComplete && (
+                recovered.Status!=EdlsAcknowledgedStatus::Ready ||
+                recovered.AcknowledgedGeneration!=previousAck ||
+                recovered.AcknowledgedIncarnation!=incarnation_))
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
             if(recovered.Status!=EdlsAcknowledgedStatus::Ready &&
                recovered.Status!=
                     EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved &&
@@ -377,13 +400,21 @@ namespace ESPressio::Logging {
             if(committed.Status!=EdlsAcknowledgedStatus::Ready)
                 return {EdlsAcknowledgedStatus::WatermarkStoreRejected,
                     ack,posted.Slot};
-            if(prior.Occupied<TProtectedSlots)
+            if(prior.Occupied<TProtectedSlots) {
+                exclusiveWriterAck_=ack+1U;
+                exclusiveWriterCompleted_=true;
                 return {EdlsAcknowledgedStatus::AcknowledgedWithinCapacity,
                     ack+1U,posted.Slot};
+            }
             const auto retired=
                 FinishEdlsProtectedRollingRetirementWithScratch<
                     TPhysicalSlots,TProtectedSlots,TPayloadMaximum>(
                     *files_,paths_,scratch);
+            if(retired.Status==
+                EdlsProtectedRollingStatus::RecoveredPendingRetirement) {
+                exclusiveWriterAck_=ack+1U;
+                exclusiveWriterCompleted_=true;
+            }
             return {
                 retired.Status==
                     EdlsProtectedRollingStatus::RecoveredPendingRetirement
