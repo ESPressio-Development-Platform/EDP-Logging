@@ -108,7 +108,7 @@ static void ExpectPair(Store& store,
     Require(found==2U,"EXPECTED_EXACT_TWO");
 }
 
-#if defined(EDP_TEST_TYPED_ARCHIVE) || defined(EDP_TEST_TYPED_STRICT_ACK) || defined(EDP_TEST_TYPED_STRICT_LOAD)
+#if defined(EDP_TEST_TYPED_ARCHIVE) || defined(EDP_TEST_TYPED_STRICT_ACK) || defined(EDP_TEST_TYPED_STRICT_LOAD) || defined(EDP_TEST_TYPED_STRICT_PROFILE)
 #include "typed_archive_probe.hpp"
 #endif
 #if defined(EDP_TEST_TYPED_STRICT_ACK)
@@ -116,6 +116,9 @@ static void ExpectPair(Store& store,
 #endif
 #if defined(EDP_TEST_TYPED_STRICT_LOAD)
 #include "typed_strict_load_probe.hpp"
+#endif
+#if defined(EDP_TEST_TYPED_STRICT_PROFILE)
+#include "typed_strict_profile_probe.hpp"
 #endif
 #if defined(EDP_TEST_EDLS_MIDWRITE)
 #include "midwrite_fault_probe.hpp"
@@ -248,6 +251,9 @@ extern "C" void app_main() {
 #if defined(EDP_TEST_TYPED_STRICT_ACK)
     Require(nvs_open("edptyp27",NVS_READWRITE,&session)==ESP_OK,
         "NVS_SESSION");
+#elif defined(EDP_TEST_TYPED_STRICT_PROFILE)
+    Require(nvs_open("edpprof28",NVS_READWRITE,&session)==ESP_OK,
+        "NVS_SESSION");
 #elif defined(EDP_TEST_TYPED_STRICT_LOAD)
     Require(nvs_open("edpload28",NVS_READWRITE,&session)==ESP_OK,
         "NVS_SESSION");
@@ -291,6 +297,10 @@ extern "C" void app_main() {
 #if defined(EDP_TEST_TYPED_STRICT_LOAD)
     nvs_close(session);
     RunTypedStrictLoadHIL(storage,byteOps,phase);
+#endif
+#if defined(EDP_TEST_TYPED_STRICT_PROFILE)
+    nvs_close(session);
+    RunTypedStrictProfileHIL(storage,byteOps,phase);
 #endif
 #if defined(EDP_TEST_TYPED_STRICT_ACK)
     ExecuteTypedStrictAckHIL(storage,byteOps,reset,session,phase,armed);

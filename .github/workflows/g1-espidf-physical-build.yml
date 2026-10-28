@@ -127,6 +127,11 @@ jobs:
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash tests/hil/g7-littlefs-protected-rolling-espidf/build_typed_strict.sh
+      - name: Build test-only timed strict EDLS real-provider attribution firmware (compile only)
+        working-directory: EDP-Logging
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash tests/hil/g7-littlefs-protected-rolling-espidf/build_edls_provider_profile.sh
       - name: Run G11 site evidence negative tests
         working-directory: EDP-Logging
         run: python3 tests/test_g11_site_evidence.py
