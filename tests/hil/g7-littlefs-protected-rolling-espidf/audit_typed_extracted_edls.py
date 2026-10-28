@@ -24,15 +24,15 @@ FINGERPRINT = [197,113,70,141,242,104,131,221,93,63,240,70,7,164,83,169]
 # SynchronizedTimestamp is absent. No other field may be absent/extra.
 EXPECTED_FIELDS = set(range(15)) - {7}
 
-def audit(root: Path) -> tuple[int,int]:
+def audit(root: Path, expected=EXPECTED) -> tuple[int,int]:
     if not root.is_dir():
         raise ValueError("missing independently extracted filesystem")
-    if set(p.name for p in root.iterdir()) != {"seed.txt",*EXPECTED}:
+    if set(p.name for p in root.iterdir()) != {"seed.txt",*expected}:
         raise ValueError("wrong typed EDLS finite physical slot set")
     if (root/"seed.txt").read_bytes()!=b"EDP1":
         raise ValueError("wrong explicit test provisioning seed")
     fingerprints: set[bytes] = set()
-    for filename,(slot,generation) in EXPECTED.items():
+    for filename,(slot,generation) in expected.items():
         path=root/filename
         if not path.is_file() or path.is_symlink():
             raise ValueError("retained typed archive file invalid")
@@ -76,12 +76,21 @@ def audit(root: Path) -> tuple[int,int]:
         fingerprints.add(tuple(fp))
     if len(fingerprints)!=1:
         raise ValueError("diagnostic schema changed within physical archive")
-    return (3,4)
+    generations=sorted(g for (_,g) in expected.values())
+    return (generations[0],generations[-1])
 
 if __name__=="__main__":
-    if len(sys.argv)!=2: raise SystemExit("usage: audit_typed_extracted_edls.py <dir>")
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument("directory",type=Path)
+    parser.add_argument("--older",type=int,default=3)
+    parser.add_argument("--newer",type=int,default=4)
+    args=parser.parse_args()
+    if args.older<1 or args.newer!=args.older+1 or args.newer%3!=1:
+        raise SystemExit("require consecutive generations with newest physical slot0")
+    expected={"slot0":(0,args.newer),"slot2":(2,args.older)}
     try:
-        oldest,newest=audit(Path(sys.argv[1]))
+        oldest,newest=audit(args.directory,expected)
     except (ValueError,OSError) as exc:
         print(f"OFFLINE_TYPED_EDLS_AUDIT=FAIL reason={exc}",flush=True)
         raise SystemExit(1)
