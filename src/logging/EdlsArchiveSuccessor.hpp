@@ -74,7 +74,8 @@ namespace ESPressio::Logging {
         const std::array<std::byte,16U>& deviceIdentifier,
         std::uint32_t runtimeIncarnation,
         std::span<const std::byte> completeEdlg,
-        std::span<std::byte> callerScratch
+        std::span<std::byte> callerScratch,
+        const EdlsArchiveInspection<TSlots>* alreadyVerifiedInThisTransaction = nullptr
     ) noexcept {
         using namespace ESPressio::Persistence;
         static_assert(TSlots>=2U && TSlots<=64U);
@@ -108,9 +109,17 @@ namespace ESPressio::Logging {
             outcome.Status=EdlsSuccessorStatus::SlotCapacityExceeded;
             return outcome;
         }
-        const auto current=InspectEdlsArchiveWithScratch<TSlots,TPayloadMaximum>(
-            storage,paths,callerScratch
-        );
+        // An exclusive owner may reuse the archive's already CRC-qualified
+        // immutable snapshot from an immediately preceding full physical
+        // scan in THIS SAME transaction. No cross-publication cache is used;
+        // physical vacancy is independently rechecked below, and the newly
+        // written segment is fully CRC-read back before returning success.
+        // Public default remains the original fresh whole-archive scan.
+        const auto current=alreadyVerifiedInThisTransaction != nullptr
+            ? *alreadyVerifiedInThisTransaction
+            : InspectEdlsArchiveWithScratch<TSlots,TPayloadMaximum>(
+                storage,paths,callerScratch);
+
         if (current.Condition!=EdlsArchiveCondition::Unambiguous ||
             current.NextGeneration==0U) {
             outcome.Status=EdlsSuccessorStatus::ArchiveAmbiguous;

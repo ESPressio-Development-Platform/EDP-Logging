@@ -387,8 +387,12 @@ namespace ESPressio::Logging {
             const auto posted=PublishEdlsSuccessorIntoEmptySlotWithScratch<
                 TPhysicalSlots,TPayloadMaximum,TSegmentMaximum>(
                 *files_,paths_,identity_,incarnation_,completeEdlg,
-                scratch);
-            if(posted.Status!=EdlsSuccessorStatus::PublishedAndVerified)
+                scratch,&prior.Inspected);
+            if(posted.Status!=EdlsSuccessorStatus::PublishedAndVerified ||
+               posted.Generation!=ack+1U ||
+               posted.Slot>=TPhysicalSlots ||
+               prior.Inspected.Slots[posted.Slot].Condition!=
+                   EdlsSlotCondition::Empty)
                 return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
                     ack,posted.Slot};
             if(!Detail::ConfirmProtectedRollingPredecessorsWithScratch<
