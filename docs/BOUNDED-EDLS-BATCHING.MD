@@ -530,3 +530,16 @@ The demo README preserves earlier build and image-verification failures,
 their measured cause, exact image hashes and corrected verify-before-boot
 ordering. No hosted Actions coverage is relied upon. Overall production,
 extended scheduled load and remaining write/GC/endurance gates remain open.
+
+## Extended scheduled load
+
+The explicit O2/500ms/160MHz native profile also passes6000 scheduled sources
+offered at100records/s over60seconds:232528-9e980d90 PASS, with all6129 phase
+records retired/durable, finite teardown and independent actual LittleFS/NVS
+audit. Final ACK97 and124 retained original15-field records.
+Complete drain61.096605s; ACKp50812.873ms/p991257.849ms, minheap162096B.
+Test history is bounded512 tagged slots while all6000 exact latency samples
+are retained. The earlier static-telemetry DRAM linker failure is preserved.
+See native README for hashes, exact resources, timings and honest finite scope.
+[Current qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) lists remaining
+typed-demo, interruption, endurance and product acceptance work.

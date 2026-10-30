@@ -7,20 +7,20 @@ from edp_logging.record_structure import inspect_typed_envelope
 from edp_logging.framing import FrameCodec
 from audit_typed_extracted_edls import verify_record, DEVICE
 
-PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
+PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000)\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
 ORIGINAL = re.compile(r"^EDP_WORKER\|ORIGINAL\|ticket=(\d+)\|monotonic_ns=(\d+)$", re.M)
 
 def receipt(text):
     matches=PASS.findall(text)
-    if len(matches)!=1 or int(matches[0])<2:
+    if len(matches)!=1 or int(matches[0][1])<2:
         raise ValueError("missing or ambiguous final worker receipt")
     pairs=ORIGINAL.findall(text)
     coordinates={int(ticket):int(tick) for ticket,tick in pairs}
     if not pairs or len(coordinates)!=len(pairs):
         raise ValueError("missing or duplicate original source coordinate")
-    if any(not 1<=ticket<=2161 or tick<=0 for ticket,tick in coordinates.items()):
+    if any(not 1<=ticket<=int(matches[0][0])+161 or tick<=0 for ticket,tick in coordinates.items()):
         raise ValueError("invalid bounded original source")
-    return int(matches[0]),coordinates
+    return int(matches[0][1]),coordinates
 
 def audit(root: Path, transcript: str):
     ack,coordinates=receipt(transcript)

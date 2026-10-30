@@ -865,3 +865,7 @@ builds and passes actual two-boot tests on RPI400 for Arduino IDE, PlatformIO
 Arduino and PlatformIO ESP-IDF. RAM buffering remains distinct from durable
 ACK. Extended sustained-load and remaining reliability/production gates
 remain open; versions stay0.1.0 and tests do not rely on GitHub Actions.
+
+The [qualification ledger](docs/LOGGING-QUALIFICATION-STATUS.MD) now records
+the passing6000-record/60-second managed workload and independent raw-media
+audit, alongside remaining production gates and preserved failed attempts.

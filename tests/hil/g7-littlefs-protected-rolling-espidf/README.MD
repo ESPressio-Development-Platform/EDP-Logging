@@ -396,3 +396,64 @@ capacity failures remain FAIL. It does not qualify default100ms scheduling,
 arbitrary in-write/GC power interruption, sustained endurance, a product CPU
 budget or all release gates. No GitHub Actions execution was used.
 All versions remain0.1.0; target was independently verified powered OFF.
+
+## Extended6000-source managed qualification (30 October23:28CET)
+
+The explicit esp32dev-batch-worker-500-o2-6000 environment keeps the same
+two50Hz producers, ordinary coordinator,128-slot queue,130-source pool,
+one encoded pool,64-record batch,500ms dwell and160MHz CPU. It schedules
+3000 sources per producer. Default2000 remains separately selectable.
+Actual compile proof additionally requires the selected producer count;
+wrong workload, CPU, dwell, optimisation or disabled checks cannot satisfy
+the extended gate.99 host/controller/media/command tests231645-6f27cbdc PASS.
+
+First extended build231625-9890b348 FAIL: duration-sized test telemetry
+exceeded static DRAM by6472B. No hardware phase ran; prerequisite parent
+231749-08442200 also FAIL before hardware. Corrected test evidence uses512
+ticket-tagged coordinate/order slots, covering queued, pending, deferred
+completion and retained records; stale reuse fails explicitly. All6000
+exact latency samples remain. This is evidence history, not work transport
+or a production memory-pool change. Native rebuild232502-77723967 PASS,
+including actual command verification with assertions enabled/level2.
+
+Factory SHA256:
+ded6c03fe262e2d177a0e29bb18a3b3fcc859f8ea61267b956d527755aecf379.
+
+Physical + independent actual-media sequence232528-9e980d90 PASS:
+- pressure128 accepted/32 finite refusals before any ACK;
+- one idle partial, no subsequent input,500ms dwell, ACK718004us;
+-6000 scheduled sources, zero scheduled refusal/failure; all6129 accepted
+  phase records retired and durably completed, partial0, cooperative stop
+  and actual Threading/Memory teardown;
+- full scheduled drain61.096605s, approximately98.205records/s including
+  final drain for the workload offered at100records/s;
+- ACK latency p50812873us/p951117971us/p991257849us;
+  maximum schedule lateness69849us;
+- sampled minimum heap162096B; producer stack headroom2916/2924B,
+  worker3308B, main4740B; source144B, queue2592B; core masks3/3;
+  queue-lock contentions observed0;
+- final NVS ACK97; native and independent raw LittleFS replay check every
+  original15-field binding for124 retained records in the latest two
+  segments; official independent NVS page/entry/blob CRC ACK97/incarnation7
+  in batchack passes.
+
+Actual LittleFS SHA256:
+19cb68954a9a50a6fea69c979ca93173f4179cb9ed13329f693a809ea944c63e.
+Actual NVS SHA256:
+441be9b2dfdd1bf0c670fe2fc41134dd32e90811123a1bfb6f240bab0138061a.
+
+Scheduled wall observations:6000 encoder calls1827705us;6000 non-flushing
+typed delivery calls4051504us;945 service polls46636263us; callback6404210us.
+These include scheduling/storage waits, not isolated CPU utilisation.
+Recorded heap includes the corrected test history and is not directly a
+product memory budget.
+
+Provisioning now retains ROM/stub through independent full firmware and
+filesystem verification using the existing appliance with-power interface,
+as already qualified by the three-target demos. No controller/GPIO owner
+or provider implementation changed. Raw images/UART remain private in
+private-worker6000-20261030-01; target exitsOFF.
+
+This is a finite60-second successful load. It does not establish indefinite
+sustained rate, a current-pipeline write/GC cut result, flash endurance or full
+production acceptance. All versions0.1.0; no GitHub Actions coverage relied on.

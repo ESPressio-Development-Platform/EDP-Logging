@@ -7,6 +7,7 @@ from pathlib import Path
 import shlex
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--records-per-producer", type=int, choices=(1000, 3000), default=1000)
 parser.add_argument("--database", required=True, type=Path)
 parser.add_argument("--sdkconfig", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
@@ -26,6 +27,11 @@ try:
                 "-DEDP_WORKER_OPTIMISED_BUILD=1"}
     if not required.issubset(command):
         raise ValueError("wrong managed worker/dwell/optimisation configuration")
+    schedule_flags = [value for value in command if value.startswith("-DEDP_WORKER_RECORDS_PER_PRODUCER")]
+    expected_schedule_flags = [] if args.records_per_producer == 1000 else [
+        "-DEDP_WORKER_RECORDS_PER_PRODUCER=3000U"]
+    if schedule_flags != expected_schedule_flags:
+        raise ValueError("actual application schedule does not match selected workload")
     config = set(args.sdkconfig.read_text("utf-8").splitlines())
     if "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y" not in config or \
             "CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2" not in config:
@@ -35,6 +41,7 @@ try:
     report = {"status": "Verified", "application_optimisation": "O2",
               "optimisation_flags": optimisations, "assertions": "enabled-level2",
               "cpu_mhz": 160, "dwell_ns": 500000000,
+              "records_per_producer": args.records_per_producer,
               "sdkconfig_sha256": hashlib.sha256(args.sdkconfig.read_bytes()).hexdigest()}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", "utf-8")

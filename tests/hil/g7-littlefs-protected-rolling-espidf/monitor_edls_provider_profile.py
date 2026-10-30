@@ -10,6 +10,7 @@ import serial
 
 CONTROL="/srv/espressio/bin/esp32-integrated"
 PATTERNS={
+    "batch-worker-500-o2-6000": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=6000\|producers=2\|target_rps=100\|[^\n]*\|scheduled_dwell_ns=500000000\|application_optimisation=o2\|cpu_mhz=160\|"),
     "configurable-batch-demo": re.compile(r"EDP_BATCH_DEMO\|PASS\|incarnation=[1-9][0-9]*\|dwell_ns=[0-9]+\|full_records=4\|idle_records=1\|ack_segment=[1-9][0-9]*$"),
     "batch-worker-500-o2": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|[^\n]*\|scheduled_dwell_ns=500000000\|application_optimisation=o2\|cpu_mhz=160\|"),
     "batch-worker-500": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|[^\n]*\|scheduled_dwell_ns=500000000\|"),

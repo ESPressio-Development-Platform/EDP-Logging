@@ -15,6 +15,10 @@
 #define EDP_WORKER_DWELL_NS 100000000LL
 #endif
 
+#ifndef EDP_WORKER_RECORDS_PER_PRODUCER
+#define EDP_WORKER_RECORDS_PER_PRODUCER 1000U
+#endif
+
 namespace {
 
 
@@ -57,11 +61,25 @@ namespace {
                                                           nanoseconds);
         }
         /// One exclusive upper bound covers every ticket including refused attempts.
-        constexpr std::size_t MaximumAttempts = 2162U;
+        constexpr unsigned RecordsPerProducer = EDP_WORKER_RECORDS_PER_PRODUCER;
+        static_assert(RecordsPerProducer == 1000U || RecordsPerProducer == 3000U);
+        /// Both managed producers retain their existing50Hz absolute schedules.
+        constexpr unsigned ScheduledRecords = 2U * RecordsPerProducer;
+        /// Pressure128 accepted and one isolated idle partial precede the schedule.
+        constexpr unsigned TotalAccepted = 129U + ScheduledRecords;
+        /// Attempt tickets also include the32 deliberate pressure refusals.
+        constexpr std::size_t MaximumAttempts = 162U + ScheduledRecords;
         /// Original producer coordinates retained only as test evidence for independent replay.
-        static std::array<std::uint64_t, MaximumAttempts> SourceCoordinates{};
+        constexpr std::size_t EvidenceSlots = 512U;
+        // Covers queued128, two retained batches, pending batch, deferred service
+        // completions and two producer reservations. This is test evidence, not work transport.
+        static_assert(EvidenceSlots > 128U + 4U * SealedRecords + 2U);
+        /// Original ticket tags make stale coordinate reuse an explicit test failure.
+        static std::array<std::uint32_t, EvidenceSlots> CoordinateTickets{};
+        /// Only live and retained source coordinates need history; exact latency samples stay separate.
+        static std::array<std::uint64_t, EvidenceSlots> SourceCoordinates{};
         /// Test telemetry of successful offer order, not a work queue or payload owner.
-        static std::array<std::uint32_t, MaximumAttempts> OrderedTickets{};
+        static std::array<std::uint32_t, EvidenceSlots> OrderedTickets{};
         /// Occurrence-to-confirmed-ACK latency for each offered record, written only by the worker.
         static std::array<std::uint32_t, MaximumAttempts> AckLatencies{};
         /// Bootstrap-selected finite test phase observed by both managed producers.
@@ -131,11 +149,12 @@ namespace {
                     ticket < MaximumAttempts,
                     "WORKER_TICKET_BOUND"
                 );
-                SourceCoordinates[ticket] = captured.Monotonic.Nanoseconds();
+                SourceCoordinates[ticket % EvidenceSlots] = captured.Monotonic.Nanoseconds();
+                CoordinateTickets[ticket % EvidenceSlots] = ticket;
                 BuildSource(
                     Value,
                     ticket,
-                    SourceCoordinates[ticket]
+                    SourceCoordinates[ticket % EvidenceSlots]
                 );
             }
         };
@@ -327,7 +346,7 @@ namespace {
                     ++Failures;
                     return L::RecordSinkSubmission::ProviderFailure;
                 }
-                OrderedTickets[Offered++] = source.Value.Attempt.Value();
+                OrderedTickets[Offered++ % EvidenceSlots] = source.Value.Attempt.Value();
                 return L::RecordSinkSubmission::Accepted;
             }
             /// Services the same batch and records only newly confirmed durable completions.
@@ -351,9 +370,13 @@ namespace {
                         Confirmed < Offered,
                         "WORKER_NO_FALSE_COMPLETION"
                     );
-                    const auto ticket = OrderedTickets[Confirmed];
+                    const auto ticket = OrderedTickets[Confirmed % EvidenceSlots];
+                    Require(
+                        CoordinateTickets[ticket % EvidenceSlots] == ticket,
+                        "WORKER_ACK_COORDINATE_NOT_OVERWRITTEN"
+                    );
                     AckLatencies[Confirmed++] =
-                        static_cast<std::uint32_t>((now - SourceCoordinates[ticket]) / 1000U);
+                        static_cast<std::uint32_t>((now - SourceCoordinates[ticket % EvidenceSlots]) / 1000U);
                 }
                 if (Confirmed == 129U) {
                     IdleAckLatencyUs.store(static_cast<unsigned>(AckLatencies[128U]));
@@ -424,7 +447,7 @@ namespace {
                         continue;
                     }
                     const unsigned count =
-                        phase == 1U ? 80U : (phase == 2U ? (Slot == 0U ? 1U : 0U) : 1000U);
+                        phase == 1U ? 80U : (phase == 2U ? (Slot == 0U ? 1U : 0U) : RecordsPerProducer);
                     for (unsigned index = 0U; index < count; ++index) {
                         if (context.IsStopRequested()) {
                             break;
@@ -613,13 +636,14 @@ namespace {
                     );
                     const auto ticket = TypedDecoded.Attempt.Value();
                     Require(
-                        ticket < MaximumAttempts && SourceCoordinates[ticket] != 0U,
+                        ticket < MaximumAttempts && CoordinateTickets[ticket % EvidenceSlots] == ticket &&
+                            SourceCoordinates[ticket % EvidenceSlots] != 0U,
                         "WORKER_FINAL_ORIGINAL_TICKET"
                     );
                     BuildSource(
                         TypedSource,
                         ticket,
-                        SourceCoordinates[ticket]
+                        SourceCoordinates[ticket % EvidenceSlots]
                     );
                     Require(
                         L::ProjectGeneratedLogRecord<TypedSchema,
@@ -651,7 +675,7 @@ namespace {
                     std::printf(
                         "EDP_WORKER|ORIGINAL|ticket=%u|monotonic_ns=%llu\n",
                         static_cast<unsigned>(ticket),
-                        static_cast<unsigned long long>(SourceCoordinates[ticket])
+                        static_cast<unsigned long long>(SourceCoordinates[ticket % EvidenceSlots])
                     );
                     position += frame.Consumed;
                     ++count;
@@ -853,9 +877,9 @@ namespace {
             (void)first.Wake();
             (void)second.Wake();
             unsigned minimumHeap = esp_get_free_heap_size();
-            const auto end = started + 90000000000ULL;
+            const auto end = started + RecordsPerProducer * 20000000ULL + 70000000000ULL;
             while ((CompletedPhase[0U].load() != 3U || CompletedPhase[1U].load() != 3U ||
-                    report.DurableSinkCompletions.load() != 2129U) &&
+                    report.DurableSinkCompletions.load() != TotalAccepted) &&
                    C::MonotonicNow().Nanoseconds() < end && Failures.load() == 0U) {
                 minimumHeap =
                     std::min(
@@ -866,9 +890,9 @@ namespace {
             }
             const auto elapsedUs = (LastAckTime.load() - started) / 1000U;
 
-            const bool isFullyCompleted = Failures.load() == 0U && Published.load() == 2129U &&
-                                          report.DurableSinkCompletions.load() == 2129U &&
-                                          report.RecordsRetired.load() == 2129U && report.PartialSubmissions.load() == 0U;
+            const bool isFullyCompleted = Failures.load() == 0U && Published.load() == TotalAccepted &&
+                                          report.DurableSinkCompletions.load() == TotalAccepted &&
+                                          report.RecordsRetired.load() == TotalAccepted && report.PartialSubmissions.load() == 0U;
             if (!isFullyCompleted) {
                 // Failure disposition is explicit: stop, retain queued/RAM ownership, never infer a flush.
                 (void)first.RequestStop();
@@ -961,19 +985,20 @@ namespace {
             );
             std::sort(
                 AckLatencies.begin() + 129U,
-                AckLatencies.begin() + 2129U
+                AckLatencies.begin() + TotalAccepted
             );
             std::printf(
-                "EDP_WORKER|PASS|scheduled_records=2000|producers=2|target_rps=100|elapsed_us=%llu"
+                "EDP_WORKER|PASS|scheduled_records=%u|producers=2|target_rps=100|elapsed_us=%llu"
                 "|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
                 "stack=%u"
                 "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
                 "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u"
                 "|scheduled_dwell_ns=%llu|application_optimisation=%s|cpu_mhz=%u|ack_segment=%llu\n",
+                ScheduledRecords,
                 static_cast<unsigned long long>(elapsedUs),
-                static_cast<unsigned>(AckLatencies[1129U]),
-                static_cast<unsigned>(AckLatencies[2029U]),
-                static_cast<unsigned>(AckLatencies[2109U]),
+                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 50U / 100U]),
+                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 95U / 100U]),
+                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 99U / 100U]),
                 MaximumScheduleLatenessUs.load(),
                 minimumHeap,
                 StackMargins[0U].load(),
