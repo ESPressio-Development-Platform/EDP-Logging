@@ -65,7 +65,12 @@ namespace ESPressio::Logging {
 
     /// Parse one EDLS slot using only EDP-Persistence::FileStorage operations.
     /// Never repairs, seeks past corruption, mutates files or allocates memory.
-    /// The complete frame scratch is bounded by TMaximumPayloadBytes+20.
+    /// Scratch must fit TMaximumPayloadBytes+20. When the whole physical file
+    /// fits that caller-owned span, one complete read supplies all validation;
+    /// otherwise the existing bounded streaming reads remain authoritative.
+    /// No file bytes or integrity evidence survive this invocation. Caller
+    /// serializes archive mutation for a coherent observation. A failed bulk
+    /// read preserves an independently readable header but never accepts frames.
     ///
     /// @tparam TMaximumPayloadBytes Maximum EDLG payload retained temporarily.
     /// @tparam TStorage Bootstrap-owned EDP-Persistence FileStorage provider.
@@ -95,13 +100,25 @@ namespace ESPressio::Logging {
             return {EdlsSlotCondition::InvalidHeader};
         }
         std::array<std::byte, EdlsHeaderBytes> headerBuffer{};
-        if (!Detail::ReadExactEdlsBytes(
-            storage, path, 0U, std::span<std::byte>(headerBuffer)
-        )) {
+        std::span<const std::byte> headerBytes{headerBuffer};
+        std::span<const std::byte> captured{};
+        bool captureFailed = false;
+        if (size <= frameScratch.size()) {
+            const auto complete = frameScratch.first(static_cast<std::size_t>(size));
+            if (Detail::ReadExactEdlsBytes(storage, path, 0U, complete)) {
+                captured = complete;
+                headerBytes = captured.first(EdlsHeaderBytes);
+            } else {
+                captureFailed = true;
+            }
+        }
+        if (captured.empty() && !Detail::ReadExactEdlsBytes(
+                storage, path, 0U, std::span<std::byte>(headerBuffer)
+            )) {
             return {EdlsSlotCondition::ProviderFailure};
         }
         EdlsHeader header{};
-        if (ReadEdlsHeader(headerBuffer, header) != EdlsHeaderStatus::Succeeded) {
+        if (ReadEdlsHeader(headerBytes, header) != EdlsHeaderStatus::Succeeded) {
             return {EdlsSlotCondition::InvalidHeader};
         }
         if (header.Slot != expectedSlot) {
@@ -110,6 +127,13 @@ namespace ESPressio::Logging {
         EdlsSlotInspection result{
             EdlsSlotCondition::Clean,header,true,0U,EdlsHeaderBytes
         };
+        // Failed whole-file I/O cannot be promoted into a verified prefix.
+        // Retain valid identity/generation provenance for strict recovery:
+        // a foreign header must not become an apparently unknown candidate.
+        if (captureFailed) {
+            result.Condition = EdlsSlotCondition::ProviderFailure;
+            return result;
+        }
         if (frameScratch.size() < TMaximumPayloadBytes+20U) {
             return {EdlsSlotCondition::ProviderFailure};
         }
@@ -119,7 +143,7 @@ namespace ESPressio::Logging {
             return result;
         }
         const auto frameEnd = sealed ? size - EdlsSealBytes : size;
-        auto segmentChecksum = Detail::EdlgFrameCrc32C(headerBuffer);
+        auto segmentChecksum = Detail::EdlgFrameCrc32C(headerBytes);
         std::array<std::byte, 16U> frameHeader{};
         std::uint64_t position = EdlsHeaderBytes;
         while (position < frameEnd) {
@@ -127,17 +151,22 @@ namespace ESPressio::Logging {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }
-            if (!Detail::ReadExactEdlsBytes(
-                storage, path, position, std::span<std::byte>(frameHeader)
-            )) {
+            std::span<const std::byte> frameHeaderBytes{frameHeader};
+            if (!captured.empty()) {
+                frameHeaderBytes = captured.subspan(
+                    static_cast<std::size_t>(position), frameHeader.size()
+                );
+            } else if (!Detail::ReadExactEdlsBytes(
+                    storage, path, position, std::span<std::byte>(frameHeader)
+                )) {
                 result.Condition = EdlsSlotCondition::ProviderFailure;
                 return result;
             }
             const std::uint32_t length =
-                std::uint32_t(std::to_integer<std::uint8_t>(frameHeader[8U])) |
-                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeader[9U])) << 8U) |
-                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeader[10U])) << 16U) |
-                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeader[11U])) << 24U);
+                std::uint32_t(std::to_integer<std::uint8_t>(frameHeaderBytes[8U])) |
+                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeaderBytes[9U])) << 8U) |
+                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeaderBytes[10U])) << 16U) |
+                (std::uint32_t(std::to_integer<std::uint8_t>(frameHeaderBytes[11U])) << 24U);
             if (length > TMaximumPayloadBytes) {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
@@ -147,16 +176,23 @@ namespace ESPressio::Logging {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }
-            if (!Detail::ReadExactEdlsBytes(
-                storage, path, position,
-                frameScratch.first(frameBytes)
-            )) {
-                result.Condition = EdlsSlotCondition::ProviderFailure;
-                return result;
+            std::span<const std::byte> completeFrame{};
+            if (!captured.empty()) {
+                completeFrame = captured.subspan(
+                    static_cast<std::size_t>(position), frameBytes
+                );
+            } else {
+                if (!Detail::ReadExactEdlsBytes(
+                        storage, path, position, frameScratch.first(frameBytes)
+                    )) {
+                    result.Condition = EdlsSlotCondition::ProviderFailure;
+                    return result;
+                }
+                completeFrame = frameScratch.first(frameBytes);
             }
             EdlgFrameView frame{};
             if (ReadEdlgFrame(
-                std::span<const std::byte>(frameScratch.data(),frameBytes),
+                completeFrame,
                 frame,TMaximumPayloadBytes
             ) != EdlgFrameReadResult::Succeeded ||
                 frame.Consumed != frameBytes) {
@@ -165,7 +201,7 @@ namespace ESPressio::Logging {
             }
             if (sealed) {
                 segmentChecksum = Detail::EdlgFrameCrc32C(
-                    frameScratch.first(frameBytes),
+                    completeFrame,
                     segmentChecksum
                 );
             }
@@ -175,25 +211,27 @@ namespace ESPressio::Logging {
         }
         if (sealed) {
             std::array<std::byte, EdlsSealBytes> seal{};
-            if (!Detail::ReadExactEdlsBytes(
-                    storage,
-                    path,
-                    frameEnd,
-                    seal
+            std::span<const std::byte> sealBytes{seal};
+            if (!captured.empty()) {
+                sealBytes = captured.subspan(
+                    static_cast<std::size_t>(frameEnd), EdlsSealBytes
+                );
+            } else if (!Detail::ReadExactEdlsBytes(
+                    storage, path, frameEnd, seal
                 )) {
                 result.Condition = EdlsSlotCondition::ProviderFailure;
                 return result;
             }
             const auto expectedChecksum = Detail::EdlgFrameCrc32C(
-                std::span<const std::byte>(seal).first(12U),
+                sealBytes.first(12U),
                 segmentChecksum
             );
-            if (seal[0U] != std::byte{'E'} || seal[1U] != std::byte{'D'} ||
-                seal[2U] != std::byte{'L'} || seal[3U] != std::byte{'C'} ||
+            if (sealBytes[0U] != std::byte{'E'} || sealBytes[1U] != std::byte{'D'} ||
+                sealBytes[2U] != std::byte{'L'} || sealBytes[3U] != std::byte{'C'} ||
                 result.VerifiedFrames == 0U ||
-                Detail::ReadEdlsLe(seal, 4U, 4U) != result.VerifiedFrames ||
-                Detail::ReadEdlsLe(seal, 8U, 4U) != frameEnd - EdlsHeaderBytes ||
-                Detail::ReadEdlsLe(seal, 12U, 4U) != expectedChecksum) {
+                Detail::ReadEdlsLe(sealBytes, 4U, 4U) != result.VerifiedFrames ||
+                Detail::ReadEdlsLe(sealBytes, 8U, 4U) != frameEnd - EdlsHeaderBytes ||
+                Detail::ReadEdlsLe(sealBytes, 12U, 4U) != expectedChecksum) {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }

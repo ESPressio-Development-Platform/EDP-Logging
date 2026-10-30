@@ -272,3 +272,93 @@ This qualifies the complete-unACKed-segment gap and subsequent recovery/rolling
 for this native profile. It does not establish arbitrary in-write or GC-phase
 durability, scheduled multi-producer performance, flash endurance, or full
 production readiness.
+
+## Whole-segment inspection using existing caller scratch
+
+The same EdlsArchiveInspection owner now uses one complete physical ReadFileAt
+when the file fits its existing caller-owned scratch. Header/frame/seal parsing
+uses readonly spans into that buffer. Every CRC, count, length and protected
+history check remains; the existing streaming path handles larger files.
+No allocation, provider, persistent cache, format or transaction-order change
+is introduced. No file bytes or integrity evidence are reused across calls.
+
+A failed or short whole-file read cannot be promoted into verified frames.
+The inspector independently reads only the 40-byte header to retain available
+valid identity/generation/slot provenance before returning failure. In
+particular, strict Recover must continue refusing a foreign segment even when
+its larger read fails. Header errors keep their prior classifications.
+
+GCC/Clang compare whole-read and streaming outcomes for every single-bit
+corruption of a complete sealed fixture. Negative tests cover failed/short
+bulk reads and an actual strict recovery attempt that must preserve a foreign
+candidate and both acknowledged predecessors without changing NVS. Existing
+GCC/Clang batching, strict ACK, actual VFS successor/rolling and typed Task
+regressions also pass. Native performance and physical outcomes for this
+inspection change are recorded below after measurement; the initial 5.189
+records/s and earlier cut receipts above remain the unchanged baseline.
+
+### Same native workload after complete segment reads
+
+Both native environments rebuilt in 20261030T140831-ce3715f5 PASS. Profile
+factory SHA256: be8609f7217c6688013079627731a334e74b73bd9fa2b74f12227314c540e3b2.
+Cut factory SHA256: 26d2ca2e256d979a222c7fc30d5243495d95566701bd3cfa3177f7967ccebea5.
+
+Actual ESP32 run **20261030T141118-9faa651c PASS** used the same generated
+records, 16-record batches, explicit 100 ms dwell, N=2 retained segments, 8192 B
+stack, SDK/provider bindings and physical provisioning procedure.
+
+| Measurement | Per-frame inspection baseline | Complete segment reads |
+|---|---:|---:|
+| Durable original records | 256 | 256 |
+| NVS-ACKed segments | 16 | 16 |
+| Total workload time | 49.339880 s | 4.953522 s |
+| Durable record throughput | 5.189 records/s | 51.680 records/s |
+| Admission-to-ACK p50 | 3383535 us | 300615 us |
+| Admission-to-ACK p99 | 4581894 us | 479627 us |
+| Sampled minimum free heap | 278896 B | 278896 B |
+| Sampled minimum main stack headroom | 3040 B | 3056 B |
+| Retained original tickets | 225..256 | 225..256 |
+
+The measured workload is approximately 9.96 times faster. All records still
+share their segment's strict file-verification/NVS acknowledgment boundary.
+This is a synchronous full-batch sample, not sustained scheduled ingestion or
+a 100 records/s qualification.
+
+Host initial owner regressions 20261030T140341-47624421 PASS; new whole-read and
+streaming corruption/foreign-header GCC/Clang negatives 20261030T140713-e753bfdc
+PASS; GCC/Clang UBSan inspection plus actual VFS successor/rolling and genuine
+Memory/Threading typed strict Task regressions 20261030T140934-9e311a15 PASS.
+The existing host workflow now enables the same inspection UBSan option; no
+hosted execution is relied upon.
+
+Independent physical profile audit in detached sequence
+20261030T141936-ad0f5730 passed: every retained original record 225..256,
+whole seals/frame CRCs and official NVS CRC ACK16. LittleFS raw SHA256:
+7935bbfe6d50c2ae972105ec55cca9f212f8d559c93a605510a0a6256c8bdf0b.
+NVS raw SHA256:
+d252f368493957bb31bf938f67865a53f6cf92eff20204c6d265cec518873297.
+The two extracted EDLS files are byte-for-byte equal to the baseline files:
+slot0 SHA256 ffcb495b7cd6b9919765965a32d11e455b986f16dae30d02d837a47e9483c7fe;
+slot2 SHA256 c76ea4ff8511d1487835aa2a9203f0ed6ffda8e4bba08a8e3eed5302b1df6adf.
+Whole partition hashes need not match logical file hashes.
+
+The same detached sequence proceeds through a fresh GPIO17 cut and separate
+post-cut physical audit. Their exact outcome is recorded after completion;
+the earlier cut qualifies the preceding source, not this inspection change.
+
+The complete requalification sequence **20261030T141936-ad0f5730 PASS** also
+performed the fresh GPIO17 cut and separate post-cut raw audit. OFF duration was
+**8.222 s**, with confirmed OFF/ON and a new app boot epoch. Native reset 7 and
+ROM EXT_SYS_RESET/RTCWDT_RTC_RESET were observed; classification remains
+EXTERNALLY_VERIFIED_POWER_CUT, not POR_CONFIRMED. The unchanged controller
+accepted the protected-batch recovery and strict next commits.
+
+Independent post-cut physical parsing verified sealed segments 3/4, every
+original record 33..64 and official NVS CRC ACK4/incarnation 7. LittleFS SHA256:
+002042d78c081e1a2d06c224c041c68764ebbec7a5e67e6e9e3e8d2e8ff6cd4c.
+NVS SHA256:
+733eb3e7f94cbbd3f9673c19d8b3d2bce6403b21a3a91112c2d8307a383b98ac.
+Both physical evidence roots and the prior baseline remain private and intact.
+The device exited powered OFF. These are synchronous fixture results; scheduled
+worker/backpressure, retirement/write/GC cuts, endurance and full product gates
+remain separate.

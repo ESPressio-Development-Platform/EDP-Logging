@@ -289,6 +289,7 @@ jobs:
         env:
           CXX: ${{ matrix.compiler }}
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+          EDP_INSPECTION_UBSAN: "1"
         run: bash EDP-Logging/tests/run-edls-archive-inspection-tests.sh
       - name: Test real EDP-Persistence VFS provider and guarded archive successor
         env:

@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <span>
 #include <logging/EdlsArchiveInspection.hpp>
+#include <logging/EdlsPowerLossAcknowledgement.hpp>
+#include "StrictAckKeyValueFake.hpp"
 #include <logging/EdlsArchiveAppend.hpp>
 #include <logging/EdlsArchiveSuccessor.hpp>
 #include <logging/EdlsArchiveRotation.hpp>
@@ -11,8 +13,8 @@ namespace {
 namespace L=ESPressio::Logging;
 namespace P=ESPressio::Persistence;
 struct Storage {
- std::array<std::array<std::byte,128>,2> bytes{};
- std::array<std::size_t,2> length{};
+ std::array<std::array<std::byte,128>,3> bytes{};
+ std::array<std::size_t,3> length{};
  bool fault=false;
  bool failAppend=false;
  bool skewSize=false;
@@ -21,7 +23,13 @@ struct Storage {
  bool badReadback=false;
  unsigned replaceCount=0U;
  mutable unsigned sizeQueries=0;
- static std::size_t index(P::FilePathView p){return p.Data()[4]=='0'?0U:1U;}
+ /// Test-only physical-read witnesses and explicit large-read faults.
+ mutable unsigned readCalls=0U;
+ bool failWholeRead=false;
+ bool shortWholeRead=false;
+ std::size_t bulkFaultSlot=3U;
+ unsigned removeCount=0U;
+ static std::size_t index(P::FilePathView p){return static_cast<std::size_t>(p.Data()[4]-'0');}
  P::FileSizeResult GetFileSize(P::FilePathView p) const noexcept {
   if(fault)return {P::FileSizeStatus::IoFailure,{}};
   auto i=index(p);
@@ -31,12 +39,17 @@ struct Storage {
    P::FileSizeResult{P::FileSizeStatus::NotFound,{}};
  }
  P::FileReadResult ReadFileAt(P::FilePathView p,P::StorageOffset o,P::DestinationBufferView d) const noexcept {
+  ++readCalls;
   if(fault)return {P::FileReadStatus::IoFailure,0U,0U,{}};
   const auto i=index(p);
+  const bool bulk=o.RawValue==0U && d.Capacity>40U &&
+      (bulkFaultSlot==3U || bulkFaultSlot==i);
+  if(failWholeRead && bulk)return {P::FileReadStatus::IoFailure,0U,0U,{}};
   if(o.RawValue>length[i])return {P::FileReadStatus::InvalidOffset,0U,0U,{}};
   auto n=length[i]-static_cast<std::size_t>(o.RawValue);
   const auto a=n;
   if(n>d.Capacity)n=d.Capacity;
+  if(shortWholeRead && bulk && n>0U)--n;
   for(std::size_t k=0;k<n;++k)
    static_cast<std::byte*>(d.Address)[k]=bytes[i][o.RawValue+k];
   return {P::FileReadStatus::Succeeded,
@@ -44,7 +57,7 @@ struct Storage {
  }
  bool IsFileStorageReady() const noexcept { return true; }
  P::FileRemoveStatus RemoveFile(P::FilePathView p) noexcept {
-  length[index(p)]=0U;return P::FileRemoveStatus::Succeeded;
+  ++removeCount;length[index(p)]=0U;return P::FileRemoveStatus::Succeeded;
  }
  P::FileReplaceStatus ReplaceFile(P::FilePathView p,P::SourceBufferView src) noexcept {
   ++replaceCount;
@@ -85,9 +98,158 @@ struct Storage {
     L::EdlgFrameWriteResult::Succeeded);
   length[i]+=n;
  }
+
 };
+
+    /// Independent documented EDLC layout around three owner-framed CBOR records.
+    void MakeSealedThree(Storage& store) {
+        store.header(0U, 7U, std::byte{0xA6U});
+        L::EdlsHeader header{};
+        assert(L::ReadEdlsHeader(
+            std::span<const std::byte>(store.bytes[0U]).first(40U), header
+        ) == L::EdlsHeaderStatus::Succeeded);
+        header.Profile = L::EdlsContentProfile::SealedFrames;
+        assert(L::WriteEdlsHeader(header, store.bytes[0U]) ==
+            L::EdlsHeaderStatus::Succeeded);
+        const std::array<std::byte, 3U> payload{
+            std::byte{0x82U}, std::byte{0x01U}, std::byte{0x02U}
+        };
+        for (std::size_t index = 0U; index < 3U; ++index) {
+            std::size_t framed = 0U;
+            assert(L::WriteEdlgFrame(
+                L::EdlgCodec::Cbor, payload,
+                std::span<std::byte>(store.bytes[0U]).subspan(store.length[0U]),
+                framed, 16U
+            ) == L::EdlgFrameWriteResult::Succeeded);
+            store.length[0U] += framed;
+        }
+        const auto sealOffset = store.length[0U];
+        auto seal = std::span<std::byte>(store.bytes[0U]).subspan(sealOffset, 16U);
+        seal[0U] = std::byte{'E'};
+        seal[1U] = std::byte{'D'};
+        seal[2U] = std::byte{'L'};
+        seal[3U] = std::byte{'C'};
+        L::Detail::WriteEdlsLe(seal, 4U, 3U, 4U);
+        L::Detail::WriteEdlsLe(seal, 8U, sealOffset - 40U, 4U);
+        const auto checksum = L::Detail::EdlgFrameCrc32C(
+            std::span<const std::byte>(store.bytes[0U]).first(sealOffset + 12U)
+        );
+        L::Detail::WriteEdlsLe(seal, 12U, checksum, 4U);
+        store.length[0U] += 16U;
+        assert(store.length[0U] == 125U);
+    }
+
+    /// One complete read and bounded streaming must reject the same corruption.
+    void WholeAndStreamingCorruptionParity() {
+        constexpr auto path = P::FilePathView::Validate("slot0");
+        Storage store{};
+        MakeSealedThree(store);
+        std::array<std::byte, 128U> scratch{};
+        const auto inspect = [&](std::size_t capacity) {
+            store.readCalls = 0U;
+            return L::InspectEdlsSlotWithScratch<16U>(
+                store, path.Value, 0U, std::span<std::byte>(scratch).first(capacity)
+            );
+        };
+        auto captured = inspect(128U);
+        const auto capturedReads = store.readCalls;
+        auto streamed = inspect(36U);
+        assert(captured.Condition == L::EdlsSlotCondition::Clean);
+        assert(streamed.Condition == L::EdlsSlotCondition::Clean);
+        assert(captured.VerifiedFrames == 3U && streamed.VerifiedFrames == 3U);
+        assert(captured.VerifiedPrefixBytes == 125U && streamed.VerifiedPrefixBytes == 125U);
+        assert(capturedReads == 1U && store.readCalls > capturedReads);
+
+        const auto original = store.bytes[0U];
+        for (std::size_t offset = 0U; offset < store.length[0U]; ++offset) {
+            for (unsigned bit = 0U; bit < 8U; ++bit) {
+                store.bytes[0U] = original;
+                store.bytes[0U][offset] ^= static_cast<std::byte>(1U << bit);
+                captured = inspect(128U);
+                streamed = inspect(36U);
+                assert(captured.Condition != L::EdlsSlotCondition::Clean);
+                assert(captured.Condition == streamed.Condition);
+                assert(captured.HasHeader == streamed.HasHeader);
+                assert(captured.VerifiedFrames == streamed.VerifiedFrames);
+                assert(captured.VerifiedPrefixBytes == streamed.VerifiedPrefixBytes);
+                if (captured.HasHeader) {
+                    assert(captured.Header.DeviceIdentifier == streamed.Header.DeviceIdentifier);
+                    assert(captured.Header.Generation == streamed.Header.Generation);
+                    assert(captured.Header.Slot == streamed.Header.Slot);
+                    assert(captured.Header.Profile == streamed.Header.Profile);
+                }
+            }
+        }
+        store.bytes[0U] = original;
+        store.failWholeRead = true;
+        captured = inspect(128U);
+        assert(captured.Condition == L::EdlsSlotCondition::ProviderFailure);
+        assert(captured.HasHeader && captured.Header.Generation == 7U);
+        assert(captured.VerifiedFrames == 0U);
+        assert(inspect(36U).Condition == L::EdlsSlotCondition::Clean);
+        store.failWholeRead = false;
+        store.shortWholeRead = true;
+        captured = inspect(128U);
+        assert(captured.Condition == L::EdlsSlotCondition::ProviderFailure);
+        assert(captured.HasHeader && captured.Header.Profile == L::EdlsContentProfile::SealedFrames);
+        assert(captured.VerifiedFrames == 0U);
+        assert(store.bytes[0U] == original && store.removeCount == 0U);
+    }
+
+    /// Failed bulk I/O must never turn a readable foreign segment into removable unknown data.
+    void BulkFailureCannotAuthoriseForeignRemoval() {
+        using Ledger = L::StrictAckTests::TestAckKeyValueStorage;
+        using Archive = L::PowerLossAcknowledgedEdls<3U, 2U, 16U, 128U, Storage, Ledger>;
+        constexpr auto p0 = P::FilePathView::Validate("slot0");
+        constexpr auto p1 = P::FilePathView::Validate("slot1");
+        constexpr auto p2 = P::FilePathView::Validate("slot2");
+        constexpr auto key = P::KeyView::Validate("a");
+        const std::array<P::FilePathView, 3U> paths{p0.Value, p1.Value, p2.Value};
+        std::array<std::byte, 16U> identity{};
+        identity.fill(std::byte{0xA6U});
+        Storage store{};
+        Ledger ledger{};
+        Archive archive(store, ledger, paths, key.Value, identity, 1U);
+        assert(archive.InitializeEmpty().Status == L::EdlsAcknowledgedStatus::Initialized);
+        std::array<std::byte, 23U> frame{};
+        const std::array<std::byte, 3U> payload{
+            std::byte{0x82U}, std::byte{0x01U}, std::byte{0x02U}
+        };
+        std::size_t framed = 0U;
+        assert(L::WriteEdlgFrame(
+            L::EdlgCodec::Cbor, payload, frame, framed, 16U
+        ) == L::EdlgFrameWriteResult::Succeeded);
+        std::array<std::byte, 128U> scratch{};
+        assert(archive.Publish(frame, scratch).AcknowledgedGeneration == 1U);
+        assert(archive.Publish(frame, scratch).AcknowledgedGeneration == 2U);
+        store.header(2U, 999U, std::byte{0xB7U});
+        assert(store.AppendFile(
+            p2.Value, P::SourceBufferView{frame.data(), frame.size()}
+        ) == P::FileAppendStatus::Succeeded);
+        const auto before = store.bytes;
+        const auto sizes = store.length;
+        const auto stores = ledger.stores;
+        store.bulkFaultSlot = 2U;
+        for (unsigned kind = 0U; kind < 2U; ++kind) {
+            store.failWholeRead = kind == 0U;
+            store.shortWholeRead = kind == 1U;
+            const auto inspected = L::InspectEdlsSlotWithScratch<16U>(
+                store, p2.Value, 2U, scratch
+            );
+            assert(inspected.Condition == L::EdlsSlotCondition::ProviderFailure);
+            assert(inspected.HasHeader && inspected.Header.Generation == 999U);
+            assert(inspected.Header.DeviceIdentifier[0U] == std::byte{0xB7U});
+            assert(archive.Recover(scratch).Status ==
+                L::EdlsAcknowledgedStatus::ArchiveAmbiguous);
+            assert(store.removeCount == 0U && store.bytes == before && store.length == sizes);
+            assert(ledger.stores == stores && archive.Read().AcknowledgedGeneration == 2U);
+        }
+    }
+
 }
 int main(){
+    WholeAndStreamingCorruptionParity();
+    BulkFailureCannotAuthoriseForeignRemoval();
  namespace L=ESPressio::Logging;
  namespace P=ESPressio::Persistence;
  constexpr auto p0=P::FilePathView::Validate("slot0");
