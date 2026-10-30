@@ -243,3 +243,32 @@ GCC/Clang UBSan owner/deadline/typed regressions passed; clean native build
 20261030T165014-930d07b6 passed. The earlier two physical FAIL results remain
 unchanged. A new physical run and independent media audit must pass before
 claiming idle partial, concurrent scheduled or throughput qualification.
+
+## Scheduled native diagnostics: source and representation Memory topology
+
+Corrected queue physical20261030T165539-4c8c315c reached pressure PASS
+(160 attempts,128 RAM publications,32 pre-Memory deadline refusals) and
+idle partial PASS (one record, no subsequent input,100ms configured dwell,
+371270us occurrence-to-ACK), then stopped in scheduled ingestion.
+Exact diagnostic build165955-05d6c16a PASS; physical170053-0f52d972 FAIL
+showed ticket288 representation PoolCapacityUnavailable1/acquisition1,
+releaseAlreadyEmpty1 and encoded_lease_empty1, before new delivery.
+The shared EDP-Memory topology's NoWait coordination entrance may return
+CapacityUnavailable while source activity holds that topology mutex;
+this was not a new typed validation or storage failure.
+
+Bootstrap now reuses the existing native G10 pattern from g1-espidf:
+source and representation have independent EDP-Memory topologies,
+ordinary mutexes, allocators and existing portable resource instances.
+No new Memory API, allocator implementation, wait loop or provider was
+introduced. Source130 and encoded1 dedicated counts remain finite.
+Both actual runtimes initialize and tear down explicitly.
+
+Build170501-ec8f335b PASS. Physical170655-a6dc7a68 FAIL reached the same
+pressure PASS and idle100ms PASS (371508us), with no representation sink
+failure, then source admission DeadlineElapsed during scheduled phase3.
+These are partial gate results, not a successful2000-record workload,
+100records/s qualification or raw-media audit. Raw audits were not run
+after the failure; all five private evidence directories remain intact.
+An explicitly selected longer-dwell profile is the next measurement;
+default100ms and all earlier failures remain attributable configurations.

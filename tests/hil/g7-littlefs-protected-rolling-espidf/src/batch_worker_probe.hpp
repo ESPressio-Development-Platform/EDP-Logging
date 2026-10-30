@@ -115,17 +115,27 @@ namespace {
         using Mutex = Platform::FreeRTOS::Synchronization::MutexProvider;
         using Signal = Platform::FreeRTOS::Synchronization::SignalProvider;
         using Encoded = L::OwnedEncodedPayload<1024U>;
+        /// Existing source topology is shared only by producers and source reclamation.
         using MemoryTopology =
             M::MemoryTopology<Resource,
                               M::SharedReserve<0U, Resource>,
-                              M::ObjectPoolSpec<Source, M::DedicatedInstances<130U>>,
+                              M::ObjectPoolSpec<Source, M::DedicatedInstances<130U>>>;
+        /// Existing worker-exclusive representation topology avoids unrelated NoWait entrance
+        /// contention.
+        using EncodingTopology =
+            M::MemoryTopology<Resource,
+                              M::SharedReserve<0U, Resource>,
                               M::ObjectPoolSpec<Encoded, M::DedicatedInstances<1U>>>;
         using MemoryComposition = M::MemoryComposition<Resource>;
         using Allocator =
             MemoryComposition::Select<M::SharedReserveAllocationRequirement, CF::SelectUnique>;
         using MemoryRuntime = M::MemoryRuntime<MemoryTopology, MemoryComposition, Mutex, Signal>;
+        /// Same existing Memory runtime component, independently configured for the one
+        /// representation pool.
+        using EncodingMemoryRuntime =
+            M::MemoryRuntime<EncodingTopology, MemoryComposition, Mutex, Signal>;
         using SourcePool = MemoryRuntime::ObjectPoolType<Source>;
-        using EncodingPool = MemoryRuntime::ObjectPoolType<Encoded>;
+        using EncodingPool = EncodingMemoryRuntime::ObjectPoolType<Encoded>;
         using Wakes = T::BoundedWaitWakeProvider<Signal, 3U>;
         using Lifecycle = L::AdmissionLifecycleCoordinator<2U, Wakes>;
         struct QueueIdentity final {};
@@ -176,6 +186,20 @@ namespace {
                         *Deliver
                     );
                 if (result.Status != L::OwnedRepresentationStatus::SubmittedAndReleased) {
+                    std::printf(
+                        "EDP_WORKER|SINK_FAILURE|ticket=%u|representation=%u|acquisition=%u|"
+                        "release=%u"
+                        "|delivery=%u|completion=%u|archive_ack_status=%u|encoded_lease_empty=%u\n",
+                        static_cast<unsigned>(source.Value.Attempt.Value()),
+                        static_cast<unsigned>(result.Status),
+                        static_cast<unsigned>(result.Acquisition),
+                        static_cast<unsigned>(result.Release),
+                        static_cast<unsigned>(result.Submissions[0U]),
+                        static_cast<unsigned>(Deliver->LastCompletion),
+                        static_cast<unsigned>(Deliver->LastAcknowledgement.Status),
+                        EncodedLease.IsEmpty() ? 1U : 0U
+                    );
+                    std::fflush(stdout);
                     ++Failures;
                     return L::RecordSinkSubmission::ProviderFailure;
                 }
@@ -185,6 +209,14 @@ namespace {
             /// Services the same batch and records only newly confirmed durable completions.
             L::CoordinatorSinkServiceOutcome ServiceCoordinator() noexcept {
                 const auto serviced = Deliver->ServiceCoordinator();
+                if (serviced.Status == L::CoordinatorSinkServiceStatus::RecoveryRequired) {
+                    std::printf(
+                        "EDP_WORKER|SERVICE_FAILURE|completion=%u|archive_ack_status=%u\n",
+                        static_cast<unsigned>(Deliver->LastCompletion),
+                        static_cast<unsigned>(Deliver->LastAcknowledgement.Status)
+                    );
+                    std::fflush(stdout);
+                }
                 const auto now = C::MonotonicNow().Nanoseconds();
                 for (std::uint64_t n = 0U; n < serviced.DurableSinkCompletions; ++n) {
                     Require(
@@ -533,6 +565,18 @@ namespace {
                 memory.Initialize(failure) == M::MemoryTopologyInitializationResult::Succeeded,
                 "WORKER_MEMORY_INITIALIZE"
             );
+            // Reuse the existing G10 native Bootstrap pattern, not a new allocator or Memory API.
+            static Resource encodingResource{};
+            static Mutex encodingNative{};
+            static Allocator encodingAllocator{};
+            static EncodingMemoryRuntime encodingMemory(encodingNative,
+                                                        encodingAllocator,
+                                                        encodingResource);
+            Require(
+                encodingMemory.Initialize(failure) ==
+                        M::MemoryTopologyInitializationResult::Succeeded,
+                "WORKER_ENCODING_MEMORY_INITIALIZE"
+            );
             static Wakes wakes{};
             static Lifecycle lifecycle(wakes);
             static QueueMutex queueMutex{};
@@ -572,7 +616,7 @@ namespace {
                 7U
             );
             static Encoder encoder(TypedWire, TypedPositional);
-            static SourceSink sink{&memory.ObjectPoolFor<Encoded>(), &encoder, &delivery};
+            static SourceSink sink{&encodingMemory.ObjectPoolFor<Encoded>(), &encoder, &delivery};
             static L::DedicatedCoordinatorReport report{};
             static std::optional<WorkerHandle> worker{};
             static ThreadingRuntime runtime(std::make_tuple(
@@ -683,6 +727,21 @@ namespace {
                 vTaskDelay(pdMS_TO_TICKS(10U));
             }
             const auto elapsedUs = (LastAckTime.load() - started) / 1000U;
+            std::printf(
+                "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
+                "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
+                Published.load(),
+                Refused.load(),
+                Failures.load(),
+                static_cast<unsigned long long>(report.RecordsRetired.load()),
+                static_cast<unsigned long long>(report.AllSinksAccepted.load()),
+                static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
+                static_cast<unsigned long long>(report.PartialSubmissions.load()),
+                static_cast<unsigned>(report.Exit.load()),
+                CompletedPhase[0U].load(),
+                CompletedPhase[1U].load()
+            );
+            std::fflush(stdout);
             Require(
                 Failures.load() == 0U && Published.load() == 2129U &&
                         report.DurableSinkCompletions.load() == 2129U &&
@@ -728,6 +787,10 @@ namespace {
             Require(
                 memory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
                 "WORKER_MEMORY_TEARDOWN"
+            );
+            Require(
+                encodingMemory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
+                "WORKER_ENCODING_MEMORY_TEARDOWN"
             );
             std::sort(
                 AckLatencies.begin() + 129U,

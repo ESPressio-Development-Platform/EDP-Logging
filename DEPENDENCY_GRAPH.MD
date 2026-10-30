@@ -460,3 +460,14 @@ Threading ordinary mutex; all release remains original Memory/lifecycle.
 No new provider, native SDK, timer, queue, allocator, worker or reverse
 edge. New per-slot notification state and per-handle stable view are finite
 metadata, not Memory facilities. Versions remain0.1.0.
+
+## Native representation topology isolation (test/bootstrap only)
+
+The managed worker fixture configures a second existing EDP-Memory runtime
+for its worker-exclusive single representation pool, reusing the already
+qualified G10 Bootstrap composition pattern. Source producers/reclamation
+keep their existing source runtime. Each uses existing provider instances
+and explicit finite dedicated counts; no EDP-Memory source/API changed,
+no allocation implementation or provider is duplicated. This avoids
+unrelated NoWait coordination contention between the two pool roles.
+Production dependency graph and versions0.1.0 remain unchanged.
