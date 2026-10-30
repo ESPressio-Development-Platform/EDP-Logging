@@ -513,3 +513,20 @@ No production default, typed validation or durability condition changed.
 See the native README for exact hashes, stage/resource observations and
 remaining power/GC/endurance/demo gates. This finite result is not general
 production readiness or default100ms scheduling qualification.
+
+## Buildable three-target container demonstration
+
+[demos/ConfigurableBoundedEdlsBatch](../demos/ConfigurableBoundedEdlsBatch/README.MD)
+shares one application header across Arduino IDE, PlatformIO Arduino and
+PlatformIO ESP-IDF. It demonstrates count-triggered full batching, explicitly
+configured idle partial dwell, RAM-versus-durable ACK, finite two-segment
+retention and durable incarnation advancement across normal boots.
+The small CBOR values demonstrate this container; the full generated15-field
+managed path remains the separate native fixture.
+
+All three builds183532-8bfb4a6b and actual two-boot physical executions
+184352-e1b78bb7 PASS on RPI400;95 controller/media tests182456-7134fda1 PASS.
+The demo README preserves earlier build and image-verification failures,
+their measured cause, exact image hashes and corrected verify-before-boot
+ordering. No hosted Actions coverage is relied upon. Overall production,
+extended scheduled load and remaining write/GC/endurance gates remain open.

@@ -10,6 +10,7 @@ import serial
 
 CONTROL="/srv/espressio/bin/esp32-integrated"
 PATTERNS={
+    "configurable-batch-demo": re.compile(r"EDP_BATCH_DEMO\|PASS\|incarnation=[1-9][0-9]*\|dwell_ns=[0-9]+\|full_records=4\|idle_records=1\|ack_segment=[1-9][0-9]*$"),
     "batch-worker-500-o2": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|[^\n]*\|scheduled_dwell_ns=500000000\|application_optimisation=o2\|cpu_mhz=160\|"),
     "batch-worker-500": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|[^\n]*\|scheduled_dwell_ns=500000000\|"),
     "batch-worker": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|"),
@@ -43,9 +44,9 @@ def main(directory: str) -> int:
                 line=packet.decode("utf-8","replace").strip()
                 transcript.write(line+"\n")
                 transcript.flush()
-                if "EDP_PROFILE|" in line or "EDP_BATCH|" in line or "EDP_WORKER|" in line or "EDP_EDLS|HALT|" in line:
+                if "EDP_PROFILE|" in line or "EDP_BATCH|" in line or "EDP_WORKER|" in line or "EDP_EDLS|HALT|" in line or "EDP_BATCH_DEMO|" in line:
                     print("UART|"+line,flush=True)
-                if "EDP_EDLS|HALT|" in line:
+                if "EDP_EDLS|HALT|" in line or "EDP_BATCH_DEMO|FAIL|" in line:
                     return 1
                 if pattern.search(line):
                     print(f"HOST|PROFILE_QUALIFICATION=PASS|elapsed_s={time.monotonic()-start:.3f}",

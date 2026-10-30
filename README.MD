@@ -854,3 +854,14 @@ On the ESP32-WROOM-32, 256 records individually acknowledged through LittleFS ED
 ## Configurable bounded multi-record EDLS segments
 
 [Bounded batching contract](./docs/BOUNDED-EDLS-BATCHING.MD) documents optional logging/BoundedEdlsBatch.hpp: compile-time frame/byte limits, Bootstrap-configured canonical Clock dwell (zero/immediate supported), sealed segments and independent NVS durable ACK. RAM admission is not completion. Initial host qualification; native performance, relay-cut and scheduled multi-producer gates remain separate. Direct optional dependencies: EDP-BoundedTypes owned Bytes, EDP-Clock dwell, EDP-Memory byte operations, existing EDP-Persistence and System strict archive. Existing one-frame API and versions0.1.0 remain.
+
+### Current batching qualification and examples
+
+The explicit O2/500ms/160MHz managed profile completes the finite2000-record
+two-producer workload and independent actual-media/NVS audit; details and
+limits are in the [batching contract](docs/BOUNDED-EDLS-BATCHING.MD).
+The [three-target container demo](demos/ConfigurableBoundedEdlsBatch/README.MD)
+builds and passes actual two-boot tests on RPI400 for Arduino IDE, PlatformIO
+Arduino and PlatformIO ESP-IDF. RAM buffering remains distinct from durable
+ACK. Extended sustained-load and remaining reliability/production gates
+remain open; versions stay0.1.0 and tests do not rely on GitHub Actions.

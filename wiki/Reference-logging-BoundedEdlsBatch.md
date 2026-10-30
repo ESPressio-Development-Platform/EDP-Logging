@@ -40,3 +40,17 @@ UBSan, independent media and a fresh 8.220 s POR-confirmed cut. The synchronous
 segments, versus the 16-record fixture's 32. Dwell remains explicitly 100 ms.
 These resource/latency/retention trade-offs and exact hashes are in the contract;
 scheduled sustained ingestion and complete production remain unqualified.
+
+The separately selected O2/500ms/160MHz managed native fixture passes its
+finite2000-record two-producer workload, idle partial, bounded pressure,
+complete durable drain/teardown and actual LittleFS/NVS audit in
+20261030T180038-622f5b3b. This does not establish indefinite sustained rate.
+See the normative contract for measured latency, resources and retained
+earlier failures.
+
+[Buildable container demo](../demos/ConfigurableBoundedEdlsBatch/README.MD)
+now provides all three required targets. RPI400183532-8bfb4a6b builds and
+184352-e1b78bb7 two-boot physical tests PASS for Arduino IDE, PlatformIO Arduino
+and PlatformIO ESP-IDF. It uses small CBOR values, not full generated
+LogRecords; the typed managed-worker fixture is separate. Full image and
+filesystem verification precede application startup.
