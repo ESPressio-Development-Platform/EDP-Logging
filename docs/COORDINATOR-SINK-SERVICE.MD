@@ -1,8 +1,9 @@
 # Ordinary sink service on the existing dedicated coordinator
 
 Status: feature/logging-v1, version 0.1.0. Host-qualified on RPI400 with
-GCC, Clang and UBSan; native batched worker qualification is pending.
-The separately qualified synchronous native benchmark is not worker proof.
+GCC, Clang and UBSan. The explicit native O2/500ms/160MHz profile also
+passes the finite managed-worker workload and actual-media audit described
+below; other configurations and remaining reliability gates stay separate.
 
 ## One owner and one canonical deadline
 
@@ -84,4 +85,19 @@ GitHub Actions coverage dependency.
 [Bounded queue transitions](BOUNDED-QUEUE-TRANSITIONS.MD) adds an explicit
 CoordinatorQueueLockWait compile-time opt-in on the same coordinator.
 An unclaimed timeout still services sinks and preserves queued sources.
-Unconfirmed retirement never replays a sink. Native requalification pending.
+Unconfirmed retirement never replays a sink.
+
+
+## Native managed-worker evidence
+
+RPI40020261030T180038-622f5b3b PASS uses the same DedicatedCoordinator,
+generated full typed encoder/delivery, real Threading threads, separate
+existing source/representation Memory topologies, LittleFS and NVS.
+Explicit -O2/500ms/160MHz with assertions enabled completes128 pressure
+sources, one idle partial and2000 sources offered by two50Hz producers;
+all2129 retire and durably complete before finite teardown.
+The no-later-input partial ACK is717825us after occurrence with500ms dwell.
+The final raw-media audit verifies every original field of92 retained
+records and independent official NVS CRC ACK35. Native README records
+actual command proof, hashes, latency/resource limits and earlier failures.
+No new timer/worker/Memory API or weakened typed validation was needed.

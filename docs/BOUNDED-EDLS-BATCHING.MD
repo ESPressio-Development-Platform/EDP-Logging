@@ -493,3 +493,23 @@ flush-bearing delivery~641128us/call. It retains all typed validation.
 The actual application compile command uses -Og; an explicit -O2 build
 with assertions retained is the next controlled configuration experiment.
 See native fixture README for full totals, quiescence and limits.
+
+## Explicit optimised native configuration
+
+The native fixture's separately selected O2/500ms/160MHz environment passed
+a finite2000-record scheduled workload, idle partial flush, queue pressure,
+finite teardown and independent actual-media/NVS audit in RPI400 detached
+20261030T180038-622f5b3b. All2129 accepted phase records were durably completed.
+The final two retained segments contain92 independently verified original
+15-field records; ACK35. Two producers offered100records/s; complete drain
+took21.002193s, so full-run average including drain is95.23records/s.
+ACK latency p50809.995ms/p991215.160ms; configured accumulation dwell500ms
+is not a bound on storage/service/scheduler time.
+
+The build independently verifies actual -O2, enabled level2 assertions,
+unchanged160MHz CPU and exact500ms selection. Standard100ms and earlier
+Og profiles remain selectable; their prior failures are preserved.
+No production default, typed validation or durability condition changed.
+See the native README for exact hashes, stage/resource observations and
+remaining power/GC/endurance/demo gates. This finite result is not general
+production readiness or default100ms scheduling qualification.

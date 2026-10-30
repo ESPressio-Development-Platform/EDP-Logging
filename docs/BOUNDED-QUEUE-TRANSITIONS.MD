@@ -1,7 +1,8 @@
 # Bounded transitions on the existing Logging queue
 
-Status: feature/logging-v1, version0.1.0. Host-qualified; native managed
-worker requalification is pending. This extends the existing
+Status: feature/logging-v1, version0.1.0. Host-qualified; the explicit
+O2/500ms native managed-worker profile also passes its finite workload.
+This extends the existing
 TransactionalRecordQueue and its existing ordinary Threading mutex.
 
 ## Explicit deadlines and unchanged ownership
@@ -90,4 +91,13 @@ by host tests. No GitHub Actions coverage is relied upon.
 Final notification-preservation and distinct-thread mutex-contention tests
 passed GCC and Clang with UBSan in20261030T164857-8d454bf9. Actual native
 managed fixture selecting CoordinatorQueueLockWait<5000000> builds cleanly
-in20261030T165014-930d07b6. Physical repeat remains pending.
+in20261030T165014-930d07b6. Later physical results are recorded below.
+
+
+The explicit O2/500ms/160MHz managed-worker run20261030T180038-622f5b3b
+passes finite pressure128/32, idle partial flush and2000 scheduled sources
+offered at100records/s, followed by complete durable drain/teardown and
+independent actual-media/NVS audit. QueueContentions observed0 in that run;
+host distinct-owner tests remain the deliberate finite-lock-contention proof.
+Earlier native Commit Busy failures and later Og capacity failures remain
+unchanged. See native README for exact configuration and limits.

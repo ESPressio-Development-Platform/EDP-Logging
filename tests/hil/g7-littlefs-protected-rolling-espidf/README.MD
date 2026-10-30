@@ -338,3 +338,61 @@ application command has -Og twice and no NDEBUG macro. The SDK's supported
 ESP32 Kconfig also permits240MHz, but no CPU change has been made.
 Next measure an explicit -O2 configuration with assertion checks retained,
 before considering any new source-path API or weakened validation.
+
+## Controlled O2 managed-worker qualification (30 October 2026)
+
+The explicit esp32dev-batch-worker-500-o2 environment selects the existing
+500ms dwell ceiling/runtime setting and -O2 for application compilation.
+The standard100ms and debug-optimised500ms profiles remain separately
+selectable. CPU remains160MHz; SDK assertions remain enabled at level2.
+The actual PlatformIO application compile command is independently checked
+by verify_worker_compile_profile.py after compilation: exclusively -O2,
+no NDEBUG, exact worker/dwell flags and SDK CPU/assertion configuration.
+A rejected configuration cannot enter the O2 hardware runner. Seven new
+negative/control tests join the existing85 tests; detached
+20261030T175750-c0257ece passed all92 on RPI400.
+
+Native build20261030T175705-9bac48b9 PASS, including the actual command
+verification. Factory SHA256:
+365fcfa8b3907bee589c75783301ed83f95f2289c676625c5ae8702d3f8d7fee.
+
+Physical and independent raw-media sequence20261030T180038-622f5b3b PASS:
+- Pressure:160 attempts,128 RAM publications and32 finite deadline refusals,
+  with zero ACKs before the worker starts.
+- Idle partial: one record, no subsequent input, explicit500ms dwell;
+  occurrence-to-ACK717825us.
+- Scheduled: two managed producers,1000 records each at50Hz, no refused
+  scheduled records; complete drain in21002193us including final ACK.
+  This qualifies finite ingestion offered at100records/s; including drain,
+  the end-to-end2000-record average is approximately95.23records/s.
+- Admission/occurrence-to-ACK latency p50809995us, p951113851us,
+  p991215160us; maximum observed schedule lateness76027us.
+- Sampled minimum free heap160452B; stack headroom producer02916B,
+  producer12924B, worker3292B, main4748B; observed core masks3/3.
+  Source object144B, queue2592B; zero reported queue-lock contentions.
+- All2129 accepted records across pressure, idle and scheduled phases
+  were retired and durably acknowledged before explicit finite teardown.
+  NVS segment ACK35; native replay and independent physical LittleFS
+  parsing verify all15 original fields in the final retained92 records
+  across two bounded segments. This retention profile does not keep every
+  earlier ACKed source record.
+
+Actual LittleFS SHA256:
+7ae87d042033d31b6af49a997a6de9bb652874bd29641046b0b07fbfb3a00586.
+Actual NVS SHA256:
+2d12820fa3b33b54d8e3cef1ca4ce18d70f43fa8145ed2e6da17596dc7043c9e.
+Official independent Espressif page/entry/blob CRC parsing confirms ACK35
+in batchack, writer incarnation7. Raw images/UART remain private on RPI400.
+
+Scheduled-phase wall observations:2000 encoder calls607283us;
+2000 non-flushing typed delivery calls1363738us;359 service polls15487165us;
+callback wall total2138302us. Publications occurred through ordinary sink
+service in this run. Wall times include scheduling and storage waits,
+not isolated CPU utilisation. No generic typed validation, CRC/readback,
+NVS ACK ordering, provider owner or CPU frequency was changed.
+
+This is one finite successful O2/500ms workload. Earlier Og100ms/500ms
+capacity failures remain FAIL. It does not qualify default100ms scheduling,
+arbitrary in-write/GC power interruption, sustained endurance, a product CPU
+budget or all release gates. No GitHub Actions execution was used.
+All versions remain0.1.0; target was independently verified powered OFF.

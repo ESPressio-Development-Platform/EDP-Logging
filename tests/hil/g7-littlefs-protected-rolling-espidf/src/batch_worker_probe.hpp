@@ -28,6 +28,17 @@ namespace {
         /// Explicit fixture configuration; the existing default100ms profile stays separately
         /// selectable.
         constexpr std::int64_t WorkerDwellNanoseconds = EDP_WORKER_DWELL_NS;
+#if defined(EDP_WORKER_OPTIMISED_BUILD)
+        /// Actual compiler arguments are independently checked by the build runner.
+        constexpr const char* WorkerOptimisation = "o2";
+#else
+        /// Original actual compiler command uses debug optimisation.
+        constexpr const char* WorkerOptimisation = "og";
+#endif
+#if defined(NDEBUG)
+#error "Native worker qualification must retain assertion checks"
+#endif
+
         static_assert(WorkerDwellNanoseconds == 100000000LL ||
                       WorkerDwellNanoseconds == 500000000LL);
         /// Reuses the existing public compile-time ceiling and runtime dwell API.
@@ -238,11 +249,13 @@ namespace {
             /// Bootstrap reads these counters only after actual managed-thread quiescence.
             void PrintProfile() const noexcept {
                 std::printf(
-                    "EDP_WORKER|WALL_PROFILE|phase=%u|encoder_calls=%llu|encoder_us=%llu"
+                    "EDP_WORKER|WALL_PROFILE|phase=%u|application_optimisation=%s|cpu_mhz=%u|encoder_calls=%llu|encoder_us=%llu"
                     "|delivery_no_flush_calls=%llu|delivery_no_flush_us=%llu"
                     "|delivery_flush_calls=%llu|delivery_flush_us=%llu"
                     "|service_calls=%llu|service_us=%llu|callback_us=%llu\n",
                     ProfilePhase,
+                    WorkerOptimisation,
+                    static_cast<unsigned>(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ),
                     static_cast<unsigned long long>(EncoderCalls),
                     static_cast<unsigned long long>(EncoderWallNs / 1000U),
                     static_cast<unsigned long long>(DeliveryNoFlushCalls),
@@ -956,7 +969,7 @@ namespace {
                 "stack=%u"
                 "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
                 "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u"
-                "|scheduled_dwell_ns=%llu|ack_segment=%llu\n",
+                "|scheduled_dwell_ns=%llu|application_optimisation=%s|cpu_mhz=%u|ack_segment=%llu\n",
                 static_cast<unsigned long long>(elapsedUs),
                 static_cast<unsigned>(AckLatencies[1129U]),
                 static_cast<unsigned>(AckLatencies[2029U]),
@@ -973,6 +986,8 @@ namespace {
                 static_cast<unsigned>(sizeof(Source)),
                 static_cast<unsigned>(sizeof(Queue)),
                 static_cast<unsigned long long>(WorkerDwellNanoseconds),
+                WorkerOptimisation,
+                static_cast<unsigned>(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ),
                 static_cast<unsigned long long>(ack)
             );
             std::fflush(stdout);
