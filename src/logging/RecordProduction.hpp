@@ -16,6 +16,7 @@
 
 namespace ESPressio::Logging {
 
+
     // Records ONE instrumentation attempt, even if bounded admission subsequently fails.
     // These statuses never conflate publication, sink acceptance, or durable storage.
     enum class RecordProductionStatus : std::uint8_t {
@@ -31,7 +32,7 @@ namespace ESPressio::Logging {
         CommitFailed
     };
 
-    template<AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
+    template <AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
     struct RecordProductionOutcome final {
         RecordProductionStatus Status{RecordProductionStatus::AdmissionFailed};
         AttemptSequence<TWidth> Attempt{};
@@ -56,20 +57,18 @@ namespace ESPressio::Logging {
     // both scratch lease and Reservation until their ownership is resolved.
     // This is a generic producer envelope, NOT the canonical governed LogRecord
     // (which requires EDP-System's permanent TypeIdentifier).
-    template<
-        AttemptSequenceWidth TWidth,
-        std::size_t TMaximumQueueWakes,
-        std::size_t TMaximumMemoryWakes,
-        class TSequencerMutex,
-        class TTemporalProvider,
-        class TQueue,
-        class TAdmissionCoordinator,
-        class TWaitWakeProvider,
-        class TObjectPool,
-        class TLease,
-        class TStopPredicate,
-        class... TArguments
-    >
+    template <AttemptSequenceWidth TWidth,
+              std::size_t TMaximumQueueWakes,
+              std::size_t TMaximumMemoryWakes,
+              class TSequencerMutex,
+              class TTemporalProvider,
+              class TQueue,
+              class TAdmissionCoordinator,
+              class TWaitWakeProvider,
+              class TObjectPool,
+              class TLease,
+              class TStopPredicate,
+              class... TArguments>
     [[nodiscard]] RecordProductionOutcome<TWidth> ProduceRecordUntil(
         AttemptSequenceCounter<TWidth>& sequence,
         TSequencerMutex& sequencerMutex,
@@ -83,19 +82,14 @@ namespace ESPressio::Logging {
         typename TQueue::Reservation& reservation,
         ESPressio::Clock::MonotonicTimestamp deadline,
         TStopPredicate& stopRequested,
-        TArguments&&... arguments
-    ) noexcept {
-        static_assert(noexcept(stopRequested()) &&
-            std::is_same_v<decltype(stopRequested()), bool>);
-        static_assert(
-            ((
-                (std::is_arithmetic_v<std::remove_cvref_t<TArguments>> ||
-                 std::is_enum_v<std::remove_cvref_t<TArguments>>) &&
-                std::is_trivially_copyable_v<std::remove_cvref_t<TArguments>>
-            ) && ...),
-            "Generic Logging producer requires finite owned non-pointer values; "
-            "use generated owner-backed LogRecord source assembly for other types"
-        );
+        TArguments&&... arguments) noexcept {
+        static_assert(noexcept(stopRequested()) && std::is_same_v<decltype(stopRequested()), bool>);
+        static_assert((((std::is_arithmetic_v<std::remove_cvref_t<TArguments>> ||
+                         std::is_enum_v<std::remove_cvref_t<TArguments>>) &&
+                        std::is_trivially_copyable_v<std::remove_cvref_t<TArguments>>) &&
+                       ...),
+                      "Generic Logging producer requires finite owned non-pointer values; "
+                      "use generated owner-backed LogRecord source assembly for other types");
         RecordProductionOutcome<TWidth> outcome{};
 
         // The occurrence precedes ALL potentially blocking internal calls.
@@ -103,8 +97,7 @@ namespace ESPressio::Logging {
         const auto time = CaptureLogTime(temporal);
         outcome.TimeCaptured = true;
         const std::tuple<std::remove_cvref_t<TArguments>...> sourceSnapshot{
-            std::forward<TArguments>(arguments)...
-        };
+            std::forward<TArguments>(arguments)...};
         if (reservation.IsActive() || !scratch.IsEmpty()) {
             outcome.Status = RecordProductionStatus::OutputOccupied;
             return outcome;
@@ -117,14 +110,12 @@ namespace ESPressio::Logging {
             outcome.Status = RecordProductionStatus::StopRequested;
             return outcome;
         }
-        const auto acquired = sequencerMutex.Acquire(
-            Detail::RemainingRecordAdmissionWait(deadline)
-        );
+        const auto acquired =
+            sequencerMutex.Acquire(Detail::RemainingRecordAdmissionWait(deadline));
         if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
-            outcome.Status = acquired ==
-                ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut
-                ? RecordProductionStatus::SequencerTimedOut
-                : RecordProductionStatus::SequencerProviderFailure;
+            outcome.Status = acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut
+                                 ? RecordProductionStatus::SequencerTimedOut
+                                 : RecordProductionStatus::SequencerProviderFailure;
             return outcome;
         }
 
@@ -133,10 +124,9 @@ namespace ESPressio::Logging {
         const auto issued = sequence.Issue(outcome.Attempt);
         if (issued != AttemptSequenceAllocationResult::Issued) {
             const auto released = sequencerMutex.Release();
-            outcome.Status = released ==
-                ESPressio::Threading::OrdinaryMutexReleaseResult::Released
-                ? RecordProductionStatus::AttemptExhausted
-                : RecordProductionStatus::SequencerReleaseUnconfirmed;
+            outcome.Status = released == ESPressio::Threading::OrdinaryMutexReleaseResult::Released
+                                 ? RecordProductionStatus::AttemptExhausted
+                                 : RecordProductionStatus::SequencerReleaseUnconfirmed;
             return outcome;
         }
         if (sequencerMutex.Release() !=
@@ -147,12 +137,19 @@ namespace ESPressio::Logging {
 
         outcome.Admission = std::apply(
             [&](const auto&... owned) noexcept {
-                return AcquireRecordUntil<
-                    TMaximumQueueWakes, TMaximumMemoryWakes
-                >(
-                    queue, admission, wake, producerSlot, pool, scratch,
-                    reservation, deadline, stopRequested,
-                    outcome.Attempt, time, owned...
+                return AcquireRecordUntil<TMaximumQueueWakes, TMaximumMemoryWakes>(
+                    queue,
+                    admission,
+                    wake,
+                    producerSlot,
+                    pool,
+                    scratch,
+                    reservation,
+                    deadline,
+                    stopRequested,
+                    outcome.Attempt,
+                    time,
+                    owned...
                 );
             },
             sourceSnapshot
@@ -161,21 +158,32 @@ namespace ESPressio::Logging {
             outcome.Status = RecordProductionStatus::AdmissionFailed;
             return outcome;
         }
-        outcome.Commit = reservation.Commit();
+        if constexpr (requires { reservation.CommitUntil(deadline); }) {
+            outcome.Commit = reservation.CommitUntil(deadline);
+        } else {
+            // Existing custom queue contracts keep their original no-wait behavior.
+            outcome.Commit = reservation.Commit();
+        }
         outcome.Status = outcome.Commit == RecordQueueResult::Succeeded
-            ? RecordProductionStatus::Published
-            : RecordProductionStatus::CommitFailed;
+                             ? RecordProductionStatus::Published
+                             : RecordProductionStatus::CommitFailed;
         return outcome;
     }
 
     // Accepted by an output interface does NOT imply durable or physically received.
     enum class RecordSinkSubmission : std::uint8_t {
-        Accepted, Rejected, Partial, ProviderFailure
+        Accepted,
+        Rejected,
+        Partial,
+        ProviderFailure
     };
 
     enum class RecordDrainStatus : std::uint8_t {
-        Empty, AcceptedAndReclaimed, FailedAndReclaimed,
-        ClaimFailure, ReclaimUnconfirmed
+        Empty,
+        AcceptedAndReclaimed,
+        FailedAndReclaimed,
+        ClaimFailure,
+        ReclaimUnconfirmed
     };
 
     struct RecordDrainOutcome final {
@@ -191,54 +199,90 @@ namespace ESPressio::Logging {
     // Completion retires the source even on rejection/partial acceptance, and
     // the result preserves both sink health and Memory-release health.
     // A failed reclaim retains caller's claim so an uncertain lease is not lost.
-    template<class TQueue, class TSink>
-    [[nodiscard]] RecordDrainOutcome DrainOneRecord(
-        TQueue& queue,
-        typename TQueue::ConsumerClaim& owner,
-        TSink&& sink
-    ) noexcept {
-        RecordDrainOutcome outcome{};
-        if (owner.IsActive()) {
-            outcome.Pop = RecordQueueResult::OutputHandleOccupied;
-            return outcome;
-        }
-        outcome.Pop = queue.Pop(owner);
-        if (outcome.Pop == RecordQueueResult::Empty) {
-            outcome.Status = RecordDrainStatus::Empty;
-            return outcome;
-        }
-        if (outcome.Pop != RecordQueueResult::Succeeded || !owner.IsActive()) {
-            outcome.Status = RecordDrainStatus::ClaimFailure;
-            return outcome;
-        }
-        auto* lease = owner.Borrow();
-        if (lease != nullptr && !lease->IsEmpty() && lease->Get() != nullptr) {
-            static_assert(noexcept(sink(*lease->Get())));
-            static_assert(std::is_same_v<
-                decltype(sink(*lease->Get())), RecordSinkSubmission
-            >);
-            outcome.SubmissionAttempted = true;
-            outcome.Submission = sink(*lease->Get());
-        }
-        outcome.Reclaim = owner.Complete();
-        if (outcome.Reclaim != RecordQueueResult::Succeeded &&
-            outcome.Reclaim != RecordQueueResult::ReleasedNotificationFailed) {
-            outcome.Status = RecordDrainStatus::ReclaimUnconfirmed;
-        } else {
-            outcome.Status = outcome.Submission == RecordSinkSubmission::Accepted
-                ? RecordDrainStatus::AcceptedAndReclaimed
-                : RecordDrainStatus::FailedAndReclaimed;
-        }
-        return outcome;
-    }
+    namespace Detail {
 
+
+        /// One source/lease state machine shared by bounded and legacy queue locking.
+        /// @tparam TBoundedQueueWait Selects explicit canonical deadlines for native queue
+        /// transitions.
+        /// @tparam TQueue Existing canonical record queue.
+        /// @tparam TSink Synchronous source-copying callback.
+        template <bool TBoundedQueueWait, class TQueue, class TSink>
+        [[nodiscard]] RecordDrainOutcome DrainOneRecordUnderQueuePolicy(
+            TQueue& queue,
+            typename TQueue::ConsumerClaim& owner,
+            std::int64_t maximumQueueLockWaitNanoseconds,
+            TSink&& sink) noexcept {
+            RecordDrainOutcome outcome{};
+            if (owner.IsActive()) {
+                outcome.Pop = RecordQueueResult::OutputHandleOccupied;
+                return outcome;
+            }
+            if constexpr (TBoundedQueueWait) {
+                outcome.Pop =
+                    queue.PopUntil(
+                        owner,
+                        RecordQueueDeadlineAfter(maximumQueueLockWaitNanoseconds)
+                    );
+            } else {
+                outcome.Pop = queue.Pop(owner);
+            }
+            if (outcome.Pop == RecordQueueResult::Empty) {
+                outcome.Status = RecordDrainStatus::Empty;
+                return outcome;
+            }
+            if (outcome.Pop != RecordQueueResult::Succeeded || !owner.IsActive()) {
+                outcome.Status = RecordDrainStatus::ClaimFailure;
+                return outcome;
+            }
+            auto* lease = owner.Borrow();
+            if (lease != nullptr && !lease->IsEmpty() && lease->Get() != nullptr) {
+                static_assert(noexcept(sink(*lease->Get())));
+                static_assert(std::is_same_v<decltype(sink(*lease->Get())), RecordSinkSubmission>);
+                outcome.SubmissionAttempted = true;
+                outcome.Submission = sink(*lease->Get());
+            }
+            if constexpr (TBoundedQueueWait) {
+                // Sink execution is a separate application budget; this is a new retirement
+                // transition.
+                outcome.Reclaim =
+                    owner.CompleteUntil(RecordQueueDeadlineAfter(maximumQueueLockWaitNanoseconds));
+            } else {
+                outcome.Reclaim = owner.Complete();
+            }
+            if (outcome.Reclaim != RecordQueueResult::Succeeded &&
+                outcome.Reclaim != RecordQueueResult::ReleasedNotificationFailed) {
+                outcome.Status = RecordDrainStatus::ReclaimUnconfirmed;
+            } else {
+                outcome.Status = outcome.Submission == RecordSinkSubmission::Accepted
+                                     ? RecordDrainStatus::AcceptedAndReclaimed
+                                     : RecordDrainStatus::FailedAndReclaimed;
+            }
+            return outcome;
+        }
+
+    } // namespace Detail
+
+    /// Original no-wait drain entry point; bounded coordinator use shares the same implementation.
+    /// @tparam TQueue Existing canonical record queue.
+    /// @tparam TSink One synchronous source-copying sink.
+    template <class TQueue, class TSink>
+    [[nodiscard]] RecordDrainOutcome DrainOneRecord(TQueue& queue,
+                                                    typename TQueue::ConsumerClaim& owner,
+                                                    TSink&& sink) noexcept {
+        return Detail::DrainOneRecordUnderQueuePolicy<false>(
+            queue,
+            owner,
+            0,
+            std::forward<TSink>(sink)
+        );
+    }
 
     /// Per-sink outcomes remain separate from one native Memory reclaim result.
     /// TResultCount is the count of caller-composed independent delivery sinks.
-    template<std::size_t TResultCount>
-    struct RecordFanoutOutcome final {
+    template <std::size_t TResultCount> struct RecordFanoutOutcome final {
         static_assert(TResultCount >= 1U && TResultCount <= 8U,
-            "Record fanout requires 1..8 sinks");
+                      "Record fanout requires 1..8 sinks");
 
         /// Source lease ownership, sink aggregate, and native reclamation evidence.
         RecordDrainOutcome Source{};
@@ -260,7 +304,6 @@ namespace ESPressio::Logging {
             return Source.Status == RecordDrainStatus::AcceptedAndReclaimed &&
                    Attempted == TResultCount && Accepted == TResultCount;
         }
-
     };
 
     /// Deliver one source-owned record to 1..8 independently chosen sinks.
@@ -276,50 +319,79 @@ namespace ESPressio::Logging {
     ///
     /// @tparam TQueue Existing bounded transactional Logging record queue.
     /// @tparam TSinks Bootstrap-provided noexcept synchronous sink callbacks.
-    template<class TQueue, class... TSinks>
-    [[nodiscard]] RecordFanoutOutcome<sizeof...(TSinks)> DrainOneRecordToSinks(
-        TQueue& queue,
-        typename TQueue::ConsumerClaim& owner,
-        TSinks&&... sinks
-    ) noexcept {
-        constexpr std::size_t SinkCount = sizeof...(TSinks);
-        static_assert(SinkCount >= 1U && SinkCount <= 8U,
-            "Record fanout requires 1 to 8 bounded sink callbacks");
-        RecordFanoutOutcome<SinkCount> result{};
-        result.Submissions.fill(RecordSinkSubmission::ProviderFailure);
-        const auto aggregate = [&](const auto& record) noexcept -> RecordSinkSubmission {
-            std::size_t index = 0U;
-            bool anyPartial = false;
-            bool anyFailure = false;
-            const auto submit = [&](auto&& sink) noexcept {
-                using TSink = decltype(sink);
-                static_assert(noexcept(std::declval<TSink>()(record)));
-                static_assert(std::is_same_v<
-                    decltype(std::declval<TSink>()(record)), RecordSinkSubmission>);
-                const auto status = sink(record);
-                result.Submissions[index++] = status;
-                ++result.Attempted;
-                if (status == RecordSinkSubmission::Accepted) {
-                    ++result.Accepted;
-                } else {
-                    ++result.Unaccepted;
+    namespace Detail {
+
+
+        /// Shares fanout across queue locking policies without duplicating source delivery.
+        /// @tparam TBoundedQueueWait Uses bounded canonical queue transitions when explicitly
+        /// selected.
+        /// @tparam TQueue Existing canonical record queue.
+        /// @tparam TSinks Existing synchronous copying callbacks.
+        template <bool TBoundedQueueWait, class TQueue, class... TSinks>
+        [[nodiscard]] RecordFanoutOutcome<sizeof...(TSinks)> DrainOneRecordToSinksUnderQueuePolicy(
+            TQueue& queue,
+            typename TQueue::ConsumerClaim& owner,
+            std::int64_t maximumQueueLockWaitNanoseconds,
+            TSinks&&... sinks) noexcept {
+            constexpr std::size_t SinkCount = sizeof...(TSinks);
+            static_assert(SinkCount >= 1U && SinkCount <= 8U,
+                          "Record fanout requires 1 to 8 bounded sink callbacks");
+            RecordFanoutOutcome<SinkCount> result{};
+            result.Submissions.fill(RecordSinkSubmission::ProviderFailure);
+            const auto aggregate = [&](const auto& record) noexcept -> RecordSinkSubmission {
+                std::size_t index = 0U;
+                bool anyPartial = false;
+                bool anyFailure = false;
+                const auto submit = [&](auto&& sink) noexcept {
+                    using TSink = decltype(sink);
+                    static_assert(noexcept(std::declval<TSink>()(record)));
+                    static_assert(std::is_same_v<decltype(std::declval<TSink>()(record)),
+                                                 RecordSinkSubmission>);
+                    const auto status = sink(record);
+                    result.Submissions[index++] = status;
+                    ++result.Attempted;
+                    if (status == RecordSinkSubmission::Accepted) {
+                        ++result.Accepted;
+                    } else {
+                        ++result.Unaccepted;
+                    }
+                    anyPartial |= status == RecordSinkSubmission::Partial;
+                    anyFailure |= status == RecordSinkSubmission::ProviderFailure;
+                };
+                (submit(sinks), ...);
+                if (result.Accepted == SinkCount) {
+                    return RecordSinkSubmission::Accepted;
                 }
-                anyPartial |= status == RecordSinkSubmission::Partial;
-                anyFailure |= status == RecordSinkSubmission::ProviderFailure;
+                if (anyPartial || result.Accepted != 0U) {
+                    return RecordSinkSubmission::Partial;
+                }
+                return anyFailure ? RecordSinkSubmission::ProviderFailure
+                                  : RecordSinkSubmission::Rejected;
             };
-            (submit(sinks), ...);
-            if (result.Accepted == SinkCount) {
-                return RecordSinkSubmission::Accepted;
-            }
-            if (anyPartial || result.Accepted != 0U) {
-                return RecordSinkSubmission::Partial;
-            }
-            return anyFailure
-                ? RecordSinkSubmission::ProviderFailure
-                : RecordSinkSubmission::Rejected;
-        };
-        result.Source = DrainOneRecord(queue, owner, aggregate);
-        return result;
+            result.Source =
+                DrainOneRecordUnderQueuePolicy<TBoundedQueueWait>(
+                    queue,
+                    owner,
+                    maximumQueueLockWaitNanoseconds,
+                    aggregate
+                );
+            return result;
+        }
+
+    } // namespace Detail
+
+    /// Preserves the original no-wait source fanout and exactly-once sink invocation contract.
+    /// @tparam TQueue Canonical record queue owning the one source lease.
+    /// @tparam TSinks Existing synchronous copying sinks.
+    template <class TQueue, class... TSinks>
+    [[nodiscard]] RecordFanoutOutcome<sizeof...(TSinks)> DrainOneRecordToSinks(
+        TQueue& queue, typename TQueue::ConsumerClaim& owner, TSinks&&... sinks) noexcept {
+        return Detail::DrainOneRecordToSinksUnderQueuePolicy<false>(
+            queue,
+            owner,
+            0,
+            std::forward<TSinks>(sinks)...
+        );
     }
 
 } // namespace ESPressio::Logging

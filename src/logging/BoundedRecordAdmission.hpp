@@ -14,6 +14,7 @@
 
 namespace ESPressio::Logging {
 
+
     /// Results of the composed bounded queue-slot + Memory pool transaction.
     enum class RecordAdmissionStatus : std::uint8_t {
         Admitted = 0U,
@@ -40,30 +41,8 @@ namespace ESPressio::Logging {
         /// Health of wake fanout performed by a successful or late Memory grant.
         /// Admission success and wake publication are independent facts.
         AdmissionWakePublicationResult WakePublication{
-            AdmissionWakePublicationResult::NotAttempted
-        };
+            AdmissionWakePublicationResult::NotAttempted};
     };
-
-    namespace Detail {
-        /// Only a relative provider wait mechanism; semantic time remains
-        /// the caller's one canonical EDP-Clock absolute deadline.
-        [[nodiscard]] inline ESPressio::Platform::Synchronization::WaitTimeout
-        RemainingRecordAdmissionWait(
-            ESPressio::Clock::MonotonicTimestamp deadline
-        ) noexcept {
-            const auto now = ESPressio::Clock::MonotonicNow();
-            if (now >= deadline) {
-                return ESPressio::Platform::Synchronization::WaitTimeout::NoWait();
-            }
-            const auto remaining = ESPressio::Clock::Delta(now, deadline).Nanoseconds();
-            if (remaining <= 0) {
-                return ESPressio::Platform::Synchronization::WaitTimeout::NoWait();
-            }
-            return ESPressio::Platform::Synchronization::WaitTimeout::ForNanoseconds(
-                static_cast<std::uint64_t>(remaining)
-            );
-        }
-    }
 
     /// One canonical monotonic deadline covers BOTH Queue-slot and Memory
     /// availability. Always claim bounded queue-slot occupancy BEFORE the
@@ -81,17 +60,15 @@ namespace ESPressio::Logging {
     /// must fill/Commit it or let it auto-abort. On provider/failure paths a
     /// lease that could not be released remains explicitly caller-owned and
     /// ReleaseUnconfirmed is returned, never falsely claimed as reclaimed.
-    template<
-        std::size_t TMaximumQueueWakes,
-        std::size_t TMaximumMemoryWakes,
-        class TQueue,
-        class TAdmissionCoordinator,
-        class TWaitWakeProvider,
-        class TObjectPool,
-        class TLease,
-        class TStopPredicate,
-        class... TArguments
-    >
+    template <std::size_t TMaximumQueueWakes,
+              std::size_t TMaximumMemoryWakes,
+              class TQueue,
+              class TAdmissionCoordinator,
+              class TWaitWakeProvider,
+              class TObjectPool,
+              class TLease,
+              class TStopPredicate,
+              class... TArguments>
     [[nodiscard]] RecordAdmissionOutcome AcquireRecordUntil(
         TQueue& queue,
         TAdmissionCoordinator& admission,
@@ -102,12 +79,10 @@ namespace ESPressio::Logging {
         typename TQueue::Reservation& output,
         ESPressio::Clock::MonotonicTimestamp deadline,
         TStopPredicate& stopRequested,
-        TArguments&&... arguments
-    ) noexcept {
+        TArguments&&... arguments) noexcept {
         static_assert(TMaximumQueueWakes > 0U);
         static_assert(TMaximumMemoryWakes > 0U);
-        static_assert(noexcept(stopRequested()) &&
-            std::is_same_v<decltype(stopRequested()), bool>);
+        static_assert(noexcept(stopRequested()) && std::is_same_v<decltype(stopRequested()), bool>);
 
         RecordAdmissionOutcome outcome{};
         if (output.IsActive() || !scratchLease.IsEmpty()) {
@@ -134,17 +109,23 @@ namespace ESPressio::Logging {
                 return outcome;
             }
 
-            outcome.Queue = queue.ReserveSlot(
-                output, Detail::RemainingRecordAdmissionWait(deadline)
-            );
-            if (outcome.Queue == RecordQueueResult::Succeeded) break;
+            outcome.Queue =
+                queue.ReserveSlot(
+                    output,
+                    Detail::RemainingRecordAdmissionWait(deadline)
+                );
+            if (outcome.Queue == RecordQueueResult::Succeeded)
+                break;
 
             if (outcome.Queue == RecordQueueResult::CapacityUnavailable) {
                 if (queueWakes >= TMaximumQueueWakes) {
                     outcome.Status = RecordAdmissionStatus::QueueWakeRetryLimit;
                     return outcome;
                 }
-                const auto waited = waitWake.WaitUntil(producerSlot, deadline);
+                const auto waited = waitWake.WaitUntil(
+                    producerSlot,
+                    deadline
+                );
                 if (waited == ESPressio::Threading::BoundedWaitWakeResult::TimedOut) {
                     outcome.Status = RecordAdmissionStatus::DeadlineElapsed;
                     return outcome;
@@ -159,9 +140,9 @@ namespace ESPressio::Logging {
             }
 
             outcome.Status = (outcome.Queue == RecordQueueResult::Busy &&
-                ESPressio::Clock::MonotonicNow() >= deadline)
-                    ? RecordAdmissionStatus::DeadlineElapsed
-                    : RecordAdmissionStatus::QueueFailure;
+                              ESPressio::Clock::MonotonicNow() >= deadline)
+                                 ? RecordAdmissionStatus::DeadlineElapsed
+                                 : RecordAdmissionStatus::QueueFailure;
             return outcome;
         }
 
@@ -169,7 +150,8 @@ namespace ESPressio::Logging {
         // an RAII owner responsible for aborting it; explicitly attempt abort
         // before returning, and never silently swallow its provider failure.
         auto abortOutput = [&]() noexcept {
-            if (!output.IsActive()) return;
+            if (!output.IsActive())
+                return;
             const auto aborted = output.Abort();
             if (aborted == RecordQueueResult::ReleasedNotificationFailed) {
                 if (outcome.Status != RecordAdmissionStatus::ReleaseUnconfirmed) {
@@ -199,7 +181,10 @@ namespace ESPressio::Logging {
         }
 
         const auto grant = admission.template AcquireUntil<TMaximumMemoryWakes>(
-            producerSlot, pool, scratchLease, deadline,
+            producerSlot,
+            pool,
+            scratchLease,
+            deadline,
             std::forward<TArguments>(arguments)...
         );
         outcome.MemoryAttempted = true;
@@ -207,28 +192,28 @@ namespace ESPressio::Logging {
         outcome.WakePublication = grant.Notification;
 
         auto releaseScratch = [&]() noexcept {
-            if (scratchLease.IsEmpty()) return;
+            if (scratchLease.IsEmpty())
+                return;
             outcome.ReleaseAttempted = true;
             outcome.Release = admission.ReleaseAndNotify(scratchLease);
             if (outcome.Release == CoordinatedReleaseResult::MemoryProviderFailure ||
                 !scratchLease.IsEmpty()) {
                 outcome.Status = RecordAdmissionStatus::ReleaseUnconfirmed;
-            } else if (outcome.Release ==
-                CoordinatedReleaseResult::ReleasedNotificationFailed &&
-                outcome.Status != RecordAdmissionStatus::ReleaseUnconfirmed) {
+            } else if (outcome.Release == CoordinatedReleaseResult::ReleasedNotificationFailed &&
+                       outcome.Status != RecordAdmissionStatus::ReleaseUnconfirmed) {
                 outcome.Status = RecordAdmissionStatus::ReleaseNotificationFailed;
             }
         };
 
         if (grant.Admission != AdmissionWaitResult::Admitted) {
             outcome.Status = grant.Admission == AdmissionWaitResult::GrantedAfterDeadline
-                ? RecordAdmissionStatus::LateMemoryGrantReturned
-                : grant.Admission == AdmissionWaitResult::ShutdownRequested ||
-                  grant.Admission == AdmissionWaitResult::GrantedDuringShutdown
-                    ? RecordAdmissionStatus::ShutdownRequested
-                    : grant.Admission == AdmissionWaitResult::DeadlineElapsed
-                        ? RecordAdmissionStatus::DeadlineElapsed
-                        : RecordAdmissionStatus::MemoryFailure;
+                                 ? RecordAdmissionStatus::LateMemoryGrantReturned
+                             : grant.Admission == AdmissionWaitResult::ShutdownRequested ||
+                                     grant.Admission == AdmissionWaitResult::GrantedDuringShutdown
+                                 ? RecordAdmissionStatus::ShutdownRequested
+                             : grant.Admission == AdmissionWaitResult::DeadlineElapsed
+                                 ? RecordAdmissionStatus::DeadlineElapsed
+                                 : RecordAdmissionStatus::MemoryFailure;
             releaseScratch();
             abortOutput();
             return outcome;
@@ -237,16 +222,19 @@ namespace ESPressio::Logging {
         if (stopRequested() || admission.ShutdownRequested() ||
             ESPressio::Clock::MonotonicNow() >= deadline) {
             outcome.Status = (stopRequested() || admission.ShutdownRequested())
-                ? RecordAdmissionStatus::ShutdownRequested
-                : RecordAdmissionStatus::LateMemoryGrantReturned;
+                                 ? RecordAdmissionStatus::ShutdownRequested
+                                 : RecordAdmissionStatus::LateMemoryGrantReturned;
             releaseScratch();
             abortOutput();
             return outcome;
         }
 
-        outcome.Queue = queue.AttachLease(
-            output, scratchLease, Detail::RemainingRecordAdmissionWait(deadline)
-        );
+        outcome.Queue =
+            queue.AttachLease(
+                output,
+                scratchLease,
+                Detail::RemainingRecordAdmissionWait(deadline)
+            );
         if (outcome.Queue != RecordQueueResult::Succeeded) {
             outcome.Status = RecordAdmissionStatus::QueueFailure;
             releaseScratch();
@@ -258,12 +246,10 @@ namespace ESPressio::Logging {
         // timeout, but finish moving/unlocking the owned Memory lease after
         // the caller's canonical Clock deadline. An on-time Memory grant
         // alone is not permission to admit the record late.
-        const bool stoppedAfterAttach = stopRequested() ||
-            admission.ShutdownRequested();
+        const bool stoppedAfterAttach = stopRequested() || admission.ShutdownRequested();
         if (stoppedAfterAttach || ESPressio::Clock::MonotonicNow() >= deadline) {
-            outcome.Status = stoppedAfterAttach
-                ? RecordAdmissionStatus::ShutdownRequested
-                : RecordAdmissionStatus::DeadlineElapsed;
+            outcome.Status = stoppedAfterAttach ? RecordAdmissionStatus::ShutdownRequested
+                                                : RecordAdmissionStatus::DeadlineElapsed;
             // Scratch is already empty; the queue Reservation owns the
             // exact Memory lease now. Abort through the queue's original
             // lifecycle so release + wake failures remain explicit.

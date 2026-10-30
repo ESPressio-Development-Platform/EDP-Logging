@@ -8,9 +8,12 @@
 
 namespace ESPressio::Logging {
 
+
     /// Whether an ordinary sink can continue after servicing owned pending data.
     enum class CoordinatorSinkServiceStatus : std::uint8_t {
+        /// The existing owner can continue and may expose a pending deadline.
         Ready = 0U,
+        /// Pending publication requires explicit Bootstrap reconciliation.
         RecoveryRequired = 1U
     };
 
@@ -29,10 +32,10 @@ namespace ESPressio::Logging {
     };
 
     /// Optional callback on an existing ordinary sink; no execution provider is created.
-    template<class TSink>
+    /// @tparam TSink Existing ordinary synchronous callback optionally exposing service.
+    template <class TSink>
     concept CoordinatorServiceSink = requires(TSink& sink) {
-        { sink.ServiceCoordinator() } noexcept ->
-            std::same_as<CoordinatorSinkServiceOutcome>;
+        { sink.ServiceCoordinator() } noexcept -> std::same_as<CoordinatorSinkServiceOutcome>;
     };
 
 } // namespace ESPressio::Logging

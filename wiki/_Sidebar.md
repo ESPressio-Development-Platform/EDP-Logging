@@ -50,3 +50,5 @@
 - [Bounded EDLS batching](Reference-logging-BoundedEdlsBatch)
 
 - [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)
+
+- [Bounded queue transitions](Reference-logging-BoundedQueueTransitions.md)

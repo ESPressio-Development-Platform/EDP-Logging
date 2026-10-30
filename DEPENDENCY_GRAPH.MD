@@ -447,3 +447,16 @@ typed delivery and batching. No concrete SDK import enters production
 Logging; no competing queue, worker, timer, allocator or reverse edge is
 added. Native concurrent qualification is pending after a confirmed
 NoWait queue Commit Busy result; versions remain0.1.0.
+
+## Existing queue canonical bounded transitions (30 October)
+
+TransactionalRecordQueue now explicitly includes the already-required
+abstract EDP-Clock canonical API and standard optional; Clock was already
+in its declared admission/wake closure. The existing remaining-budget
+conversion moved from BoundedRecordAdmission to shared BoundedAdmission.
+DedicatedCoordinator uses the same Clock only for explicit positive
+CoordinatorQueueLockWait opt-in. All locking remains the original
+Threading ordinary mutex; all release remains original Memory/lifecycle.
+No new provider, native SDK, timer, queue, allocator, worker or reverse
+edge. New per-slot notification state and per-handle stable view are finite
+metadata, not Memory facilities. Versions remain0.1.0.

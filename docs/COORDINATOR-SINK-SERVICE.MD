@@ -78,3 +78,10 @@ tests/run-generated-edls-batch-service-integration-tests.sh with CXX.
 These are host control-flow/provider tests, not physical power-loss
 or native scheduling evidence. All execution was on RPI400, with no
 GitHub Actions coverage dependency.
+
+## Finite queue contention (2026-10-30)
+
+[Bounded queue transitions](BOUNDED-QUEUE-TRANSITIONS.MD) adds an explicit
+CoordinatorQueueLockWait compile-time opt-in on the same coordinator.
+An unclaimed timeout still services sinks and preserves queued sources.
+Unconfirmed retirement never replays a sink. Native requalification pending.

@@ -12,8 +12,10 @@ done
 
 OUTPUT="$(mktemp)"
 trap 'rm -f "$OUTPUT"' EXIT
-for suite in TransactionalRecordQueueTests TransactionalRecordQueueMemoryTests; do
-  "${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+FLAGS=()
+if test "${EDP_QUEUE_UBSAN:-0}" = 1; then FLAGS=(-fsanitize=undefined -fno-sanitize-recover=all); fi
+for suite in TransactionalRecordQueueTests TransactionalRecordQueueMemoryTests TransactionalRecordQueueDeadlineTests; do
+  "${CXX:-c++}" "${FLAGS[@]}" -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
     -I"$ROOT/src" -I"$ROOT/tests" \
     -I"$SIBLINGS/EDP-Memory" -I"$SIBLINGS/EDP-Memory/src" \
     -I"$SIBLINGS/EDP-Threading/src" -I"$SIBLINGS/EDP-Clock/src" \

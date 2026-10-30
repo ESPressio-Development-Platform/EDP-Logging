@@ -6,13 +6,14 @@
 
 namespace {
 
+
     /// Existing real Memory runtime, queue and admission lifecycle owned by one test.
     struct ServiceFixture final {
         Resource ResourceOwner{};
         TestSupport::TestMutexProvider Native{};
-        MemoryComposition::Select<
-            M::SharedReserveAllocationRequirement,
-            ESPressio::System::CompositionFramework::SelectUnique> Allocator{};
+        MemoryComposition::Select<M::SharedReserveAllocationRequirement,
+                                  ESPressio::System::CompositionFramework::SelectUnique>
+            Allocator{};
         Runtime2 Memory;
         Wake WakeOwner{};
         Life Lifecycle;
@@ -23,15 +24,22 @@ namespace {
         Temporal Time{};
 
         ServiceFixture()
-            : Memory(Native, Allocator, ResourceOwner),
-              Lifecycle(WakeOwner), Records(QueueMutex, Lifecycle) {
+            : Memory(
+                Native,
+                Allocator,
+                ResourceOwner
+            ), Lifecycle(WakeOwner),
+              Records(
+                  QueueMutex,
+                  Lifecycle
+              ) {
             M::MemoryTopologyInitializationFailure failure{};
             assert(Memory.Initialize(failure) == M::MemoryTopologyInitializationResult::Succeeded);
         }
         ~ServiceFixture() {
             assert(Rec::Live.load() == 0);
-            assert(Lifecycle.ShutdownUntil<8U>(
-                DeadlineAfter(std::chrono::milliseconds(300))).Status ==
+            assert(
+                Lifecycle.ShutdownUntil<8U>(DeadlineAfter(std::chrono::milliseconds(300))).Status ==
                 L::AdmissionShutdownStatus::Quiescent);
             assert(Memory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded);
         }
@@ -39,11 +47,21 @@ namespace {
             Lease scratch;
             Queue::Reservation reservation;
             const auto running = []() noexcept -> bool { return false; };
-            const auto produced = L::ProduceRecordUntil<
-                L::AttemptSequenceWidth::Bits32, 4U, 4U>(
-                Sequence, SequenceMutex, Time, Records, Lifecycle, WakeOwner, 0U,
-                Memory.ObjectPoolFor<Rec>(), scratch, reservation,
-                DeadlineAfter(std::chrono::milliseconds(300)), running, value);
+            const auto produced = L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits32, 4U, 4U>(
+                Sequence,
+                SequenceMutex,
+                Time,
+                Records,
+                Lifecycle,
+                WakeOwner,
+                0U,
+                Memory.ObjectPoolFor<Rec>(),
+                scratch,
+                reservation,
+                DeadlineAfter(std::chrono::milliseconds(300)),
+                running,
+                value
+            );
             assert(produced.Status == L::RecordProductionStatus::Published);
         }
     };
@@ -99,16 +117,13 @@ namespace {
         [](const void* opaque) noexcept {
             return static_cast<const ServiceContext*>(opaque)->Stop;
         },
-        [](void*) noexcept -> T::ThreadWaitResult {
-            return T::ThreadWaitResult::ProviderFailure;
-        },
+        [](void*) noexcept -> T::ThreadWaitResult { return T::ThreadWaitResult::ProviderFailure; },
         [](void* opaque, C::Duration duration) noexcept -> T::ThreadWaitResult {
             auto& state = *static_cast<ServiceContext*>(opaque);
             ++state.RelativeWaits;
             assert(duration.Nanoseconds() == 5000000);
             assert(state.Report->RecordsRetired.load() == state.ExpectedRetired);
-            assert(state.Report->DurableSinkCompletions.load() ==
-                state.ExpectedDurableAtFallback);
+            assert(state.Report->DurableSinkCompletions.load() == state.ExpectedDurableAtFallback);
             state.Stop = true;
             return T::ThreadWaitResult::TimedOut;
         },
@@ -127,8 +142,7 @@ namespace {
                 state.Second->Due = true;
             }
             return T::ThreadWaitResult::TimedOut;
-        }
-    };
+        }};
 
     /// An idle input queue still services copied data at its anchored absolute deadline.
     void IdleDeadlineAndPerSinkCounts() {
@@ -138,8 +152,12 @@ namespace {
         first.Deadline = 400U;
         second.Deadline = 200U;
         L::DedicatedCoordinatorReport report{};
-        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink, ServicedSink>
-            coordinator(fixture.Records, report, first, second);
+        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink, ServicedSink> coordinator(
+            fixture.Records,
+            report,
+            first,
+            second
+        );
         ServiceContext state{};
         state.ExpectedDeadline = 200U;
         state.ExpectedRetired = 1U;
@@ -147,7 +165,10 @@ namespace {
         state.Report = &report;
         state.First = &first;
         state.Second = &second;
-        T::ThreadContext context(&state, ServiceOperations);
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
         coordinator(context);
         assert(first.LastValue == 1 && second.LastValue == 1);
         assert(first.Pending == 0U && second.Pending == 0U);
@@ -167,14 +188,21 @@ namespace {
         sink.Deadline = 500U;
         sink.CompleteAfter = 2U;
         L::DedicatedCoordinatorReport report{};
-        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink>
-            coordinator(fixture.Records, report, sink);
+        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink> coordinator(
+            L::CoordinatorQueueLockWait<5000000>{},
+            fixture.Records,
+            report,
+            sink
+        );
         ServiceContext state{};
         state.ExpectedRetired = 2U;
         state.ExpectedDurableAtFallback = 2U;
         state.Report = &report;
         state.First = &sink;
-        T::ThreadContext context(&state, ServiceOperations);
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
         coordinator(context);
         assert(sink.Polls >= 3U);
         assert(state.AbsoluteWaits == 0U && state.RelativeWaits == 1U);
@@ -188,12 +216,18 @@ namespace {
         ServicedSink sink{};
         sink.Fatal = true;
         L::DedicatedCoordinatorReport report{};
-        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink>
-            coordinator(fixture.Records, report, sink);
+        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink> coordinator(
+            fixture.Records,
+            report,
+            sink
+        );
         ServiceContext state{};
         state.Report = &report;
         state.First = &sink;
-        T::ThreadContext context(&state, ServiceOperations);
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
         coordinator(context);
         assert(sink.Polls == 1U && sink.Pending == 1U);
         assert(report.DurableSinkCompletions.load() == 0U);
@@ -209,22 +243,81 @@ namespace {
         ServicedSink sink{};
         sink.Deadline = 200U;
         L::DedicatedCoordinatorReport report{};
-        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink>
-            coordinator(fixture.Records, report, sink);
+        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink> coordinator(
+            fixture.Records,
+            report,
+            sink
+        );
         ServiceContext state{};
         state.FailAbsoluteWait = true;
         state.ExpectedDeadline = 200U;
         state.ExpectedRetired = 1U;
         state.Report = &report;
         state.First = &sink;
-        T::ThreadContext context(&state, ServiceOperations);
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
         coordinator(context);
         assert(state.AbsoluteWaits == 1U && sink.Pending == 1U);
         assert(report.Exit.load() == L::DedicatedCoordinatorExit::WakeProviderFailure);
         assert(report.DurableSinkCompletions.load() == 0U);
     }
 
-} // deterministic control-flow tests using existing Memory queue ownership
+    /// Finite queue contention leaves its source untouched and still services ordinary sinks.
+    void BoundedQueueContentionRetainsSource() {
+        ServiceFixture fixture{};
+        fixture.Produce(71);
+        ServicedSink sink{};
+        sink.CompleteAfter = 1U;
+        L::DedicatedCoordinatorReport report{};
+        L::DedicatedCoordinator<1U, 5000000, Queue, ServicedSink> coordinator(
+            L::CoordinatorQueueLockWait<1000000>{},
+            fixture.Records,
+            report,
+            sink
+        );
+        std::atomic<bool> locked{false};
+        std::atomic<bool> unlock{false};
+        std::thread holder([&]() {
+            assert(fixture.QueueMutex.Acquire(
+                       ESPressio::Platform::Synchronization::WaitTimeout::NoWait()) ==
+                   T::OrdinaryMutexAcquireResult::Acquired);
+            locked.store(true);
+            while (!unlock.load()) {
+                std::this_thread::yield();
+            }
+            assert(fixture.QueueMutex.Release() == T::OrdinaryMutexReleaseResult::Released);
+        });
+        while (!locked.load()) {
+            std::this_thread::yield();
+        }
+        ServiceContext state{};
+        state.Report = &report;
+        state.First = &sink;
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
+        coordinator(context);
+        assert(report.QueueContentions.load() == 1U);
+        assert(report.RecordsRetired.load() == 0U && sink.Accepted == 0U);
+        assert(sink.Polls == 1U && state.RelativeWaits == 1U);
+        assert(report.Exit.load() == L::DedicatedCoordinatorExit::CooperativeStop);
+        unlock.store(true);
+        holder.join();
+        Queue::ConsumerClaim claim{};
+        const auto drained = L::DrainOneRecord(
+            fixture.Records,
+            claim,
+            sink
+        );
+        assert(drained.Status == L::RecordDrainStatus::AcceptedAndReclaimed);
+        assert(sink.Accepted == 1U && sink.LastValue == 71);
+        assert(sink.ServiceCoordinator().DurableSinkCompletions == 1U);
+    }
+
+} // namespace
 
 int main() {
     static CanonicalClock clock;
@@ -233,5 +326,6 @@ int main() {
     ServiceAfterConsumedBudget();
     ServiceFailureStops();
     AbsoluteWaitFailureStops();
+    BoundedQueueContentionRetainsSource();
     std::puts("EXISTING_COORDINATOR_ABSOLUTE_SERVICE_AND_COMPLETION_NEGATIVES=PASS");
 }

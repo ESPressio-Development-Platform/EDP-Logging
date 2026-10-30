@@ -51,3 +51,10 @@ Tests run with `g++` and `clang++` on RPI400 in mandatory persisted detached run
 ## Queue-before-Memory extension (new partial composition)
 
 ReserveSlot(output, nativeRemaining) claims a bounded queue index and establishes exclusive move-only RAII ownership in the AwaitingMemory phase, before any physical EDP-Memory lease exists. AttachLease(output, lease, nativeRemaining) transfers the EDP-Memory NoWait acquired lease into that reservation under the injected EDP-Threading mutex and transitions to Reserved. Both accept the remaining EDP-Platform mutex timeout from the higher-domain canonical EDP-Clock deadline; Queue creates no parallel timebase. Aborting AwaitingMemory retires the empty slot and notifies existing producer slots without performing a Memory lease release. The optional [composed bounded admission owner](BOUNDED-RECORD-ADMISSION.MD) now provides a single queue-plus-Memory budget; the low-level queue alone remains a transaction primitive, not the complete Logging producer.
+
+## Explicit bounded transitions (2026-10-30)
+
+[Bounded queue transitions](BOUNDED-QUEUE-TRANSITIONS.MD) documents the
+implemented original-deadline commit, late native-grant refusal,
+retained retirement ownership and explicit existing coordinator opt-in.
+Native managed-worker requalification remains pending.

@@ -289,4 +289,5 @@ int main() {
     TestMoveOnlyRaiiTransactionAndConsumerClaim();
     TestQueueSlotReservationBeforeMemoryOwnership();
     TestCompileTimeMemoryBudgetAndEmptyLease();
+    return 0;
 }

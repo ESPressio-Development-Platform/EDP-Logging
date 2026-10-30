@@ -132,3 +132,10 @@ queue are reused. The historical fixed WaitFor description above applies
 when no sink offers a pending deadline. Native batched worker qualification
 is pending. Original-flash restoration mentioned in historical HIL notes
 is waived by the user's explicit current disposable-firmware instruction.
+
+## Bounded queue locking (2026-10-30)
+
+[Bounded queue transitions](BOUNDED-QUEUE-TRANSITIONS.MD) documents the
+implemented original-deadline commit, late native-grant refusal,
+retained retirement ownership and explicit existing coordinator opt-in.
+Native managed-worker requalification remains pending.

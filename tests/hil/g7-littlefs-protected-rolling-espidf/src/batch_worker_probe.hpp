@@ -13,7 +13,9 @@
 
 namespace {
 
+
     namespace BatchWorkerHIL {
+
 
         namespace T = ESPressio::Threading;
         namespace M = ESPressio::Memory;
@@ -60,7 +62,7 @@ namespace {
         static std::atomic<unsigned> MaximumScheduleLatenessUs{0U};
 
         /// Assembles the original generated fifteen-field record without shared projection scratch.
-        static void BuildSource(TypedRecord &record,
+        static void BuildSource(TypedRecord& record,
                                 std::uint32_t ticket,
                                 std::uint64_t coordinate) noexcept {
             record = TypedRecord{};
@@ -151,11 +153,11 @@ namespace {
         /// Bootstrap adapter keeps encoding, typed delivery and deadline service in one owner.
         struct SourceSink final {
             /// Existing EDP-Memory pool owns the temporary encoded representation.
-            EncodingPool *Pool;
+            EncodingPool* Pool;
             /// Existing generated canonical-CBOR encoder with worker-exclusive scratch.
-            Encoder *Encode;
+            Encoder* Encode;
             /// Existing typed batch delivery, called and serviced only by this coordinator.
-            Delivery *Deliver;
+            Delivery* Deliver;
             /// Stable Memory lease retained if a provider cannot confirm reclamation.
             EncodingPool::LeaseType EncodedLease{};
             /// Number of successfully copied frames represented by telemetry order.
@@ -163,7 +165,7 @@ namespace {
             /// Consumed-once count of records with an independently confirmed strict archive ACK.
             unsigned Confirmed{0U};
             /// Encodes once and copies to the existing bounded batch before source retirement.
-            L::RecordSinkSubmission operator()(const Source &source) noexcept {
+            L::RecordSinkSubmission operator()(const Source& source) noexcept {
                 WorkerCoreMask.fetch_or(1U << xPortGetCoreID());
                 const auto result =
                     L::EncodeOnceAndSubmitToSinks<L::EdlgCodec::Cbor, 1024U>(
@@ -207,12 +209,12 @@ namespace {
             /// Existing Logging coordinator over the canonical queue and source sink.
             Coordinator Inner;
             /// Binds the already-configured coordinator into the native test wrapper.
-            explicit MeasuredCoordinator(Coordinator &&inner) noexcept : Inner(std::move(inner)) {}
+            explicit MeasuredCoordinator(Coordinator&& inner) noexcept : Inner(std::move(inner)) {}
             /// Transfers the pointer-only callable into the existing Threading binding.
-            MeasuredCoordinator(MeasuredCoordinator &&) noexcept = default;
+            MeasuredCoordinator(MeasuredCoordinator&&) noexcept = default;
             /// Executes only inside the existing managed Threading context and publishes final
             /// stack evidence.
-            void operator()(T::ThreadContext &context) noexcept {
+            void operator()(T::ThreadContext& context) noexcept {
                 Inner(context);
                 StackMargins[2U].store(uxTaskGetStackHighWaterMark(nullptr));
             }
@@ -236,22 +238,22 @@ namespace {
             /// Unique admission/wake slot assigned to this producer.
             unsigned Slot;
             /// Canonical Logging transactional queue, never a second transport.
-            Queue *Records;
+            Queue* Records;
             /// Existing admission shutdown and outstanding-lease owner.
-            Lifecycle *Life;
+            Lifecycle* Life;
             /// Existing bounded Threading wake owner for producer capacity changes.
-            Wakes *WakeOwner;
+            Wakes* WakeOwner;
             /// Existing Memory source pool, acquired only after queue capacity reservation.
-            SourcePool *Pool;
+            SourcePool* Pool;
             /// Existing ordinary mutex protects per-incarnation ticket issuance.
-            SequencerMutex *Sequencer;
+            SequencerMutex* Sequencer;
             /// Existing non-rewinding attempt sequencer shared by the two producers.
-            L::AttemptSequenceCounter<L::AttemptSequenceWidth::Bits16> *Sequence;
+            L::AttemptSequenceCounter<L::AttemptSequenceWidth::Bits16>* Sequence;
             /// Stable handle populated before producer activation, used only for advisory wake.
-            std::optional<WorkerHandle> *Worker;
+            std::optional<WorkerHandle>* Worker;
             /// Executes only inside the existing managed Threading context and publishes final
             /// stack evidence.
-            void operator()(T::ThreadContext &context) noexcept {
+            void operator()(T::ThreadContext& context) noexcept {
                 unsigned completed = 0U;
                 Capture capture{};
                 while (!context.IsStopRequested()) {
@@ -371,7 +373,7 @@ namespace {
         /// Waits from unmanaged Bootstrap within one finite canonical deadline.
         /// @tparam TPredicate Read-only completion predicate for the current test gate.
         template <class TPredicate>
-        static void Await(TPredicate predicate, unsigned milliseconds, const char *why) {
+        static void Await(TPredicate predicate, unsigned milliseconds, const char* why) {
             const auto deadline = After(static_cast<std::uint64_t>(milliseconds) * 1000000ULL);
             while (!predicate() && C::MonotonicNow().Nanoseconds() < deadline.Nanoseconds()) {
                 vTaskDelay(pdMS_TO_TICKS(10U));
@@ -384,7 +386,7 @@ namespace {
 
         /// Reopens every retained frame and compares all canonical bytes with original source
         /// evidence.
-        static void VerifyFinalMedia(Store &store, std::uint64_t ack) {
+        static void VerifyFinalMedia(Store& store, std::uint64_t ack) {
             const auto history =
                 L::InspectEdlsArchiveWithScratch<3U, 1024U>(
                     store,
@@ -398,7 +400,7 @@ namespace {
             );
             unsigned count = 0U, segments = 0U;
             for (unsigned slot = 0U; slot < 3U; ++slot) {
-                const auto &item = history.Slots[slot];
+                const auto& item = history.Slots[slot];
                 if (item.Condition == L::EdlsSlotCondition::Empty)
                     continue;
                 Require(
@@ -507,8 +509,8 @@ namespace {
 
         /// Composes existing domain owners and executes pressure, idle, schedule and shutdown
         /// gates.
-        [[noreturn]] static void Run(Store &store,
-                                     Bytes &bytes,
+        [[noreturn]] static void Run(Store& store,
+                                     Bytes& bytes,
                                      nvs_handle_t session,
                                      esp_err_t phase) {
             Require(
@@ -574,8 +576,9 @@ namespace {
             static L::DedicatedCoordinatorReport report{};
             static std::optional<WorkerHandle> worker{};
             static ThreadingRuntime runtime(std::make_tuple(
-                T::BindDedicatedThread<CoordinatorIdentity>(
-                    MeasuredCoordinator(Coordinator(
+                T::BindDedicatedThread<CoordinatorIdentity>(MeasuredCoordinator(
+                    Coordinator(
+                        L::CoordinatorQueueLockWait<5000000>{},
                         queue,
                         report,
                         sink
@@ -732,11 +735,14 @@ namespace {
             );
             std::printf(
                 "EDP_WORKER|PASS|scheduled_records=2000|producers=2|target_rps=100|elapsed_us=%llu"
-                "|p50_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_stack=%u"
-                "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u|ack_"
+                "|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
+                "stack=%u"
+                "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
+                "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u|ack_"
                 "segment=%llu\n",
                 static_cast<unsigned long long>(elapsedUs),
                 static_cast<unsigned>(AckLatencies[1129U]),
+                static_cast<unsigned>(AckLatencies[2029U]),
                 static_cast<unsigned>(AckLatencies[2109U]),
                 MaximumScheduleLatenessUs.load(),
                 minimumHeap,
@@ -745,12 +751,17 @@ namespace {
                 StackMargins[2U].load(),
                 ProducerCoreMask.load(),
                 WorkerCoreMask.load(),
+                static_cast<unsigned long long>(report.QueueContentions.load()),
+                static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
+                static_cast<unsigned>(sizeof(Source)),
+                static_cast<unsigned>(sizeof(Queue)),
                 static_cast<unsigned long long>(ack)
             );
             std::fflush(stdout);
             for (;;)
                 vTaskDelay(pdMS_TO_TICKS(1000U));
         }
+
     } // namespace BatchWorkerHIL
 
 } // anonymous namespace

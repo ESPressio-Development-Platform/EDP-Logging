@@ -230,3 +230,16 @@ raw-media audits, controller power guard and power-off traps remain.
 The current user explicitly waived preservation/restoration of attached
 ESP32 firmware, so diagnostic repeat02 used disposable and logged that
 waiver. This does not waive any durability or electrical-cut criterion.
+
+## Existing bounded queue transitions implemented (30 October continuation)
+
+The native Bootstrap now explicitly selects CoordinatorQueueLockWait<5000000>
+on the same DedicatedCoordinator. ProduceRecordUntil uses its original
+commit deadline. The existing queue rejects late grants, preserves stable
+source views and retains release-once retirement plus notification failures
+across metadata-finalization timeout. See
+[bounded transition contract](../../../docs/BOUNDED-QUEUE-TRANSITIONS.MD).
+GCC/Clang UBSan owner/deadline/typed regressions passed; clean native build
+20261030T165014-930d07b6 passed. The earlier two physical FAIL results remain
+unchanged. A new physical run and independent media audit must pass before
+claiming idle partial, concurrent scheduled or throughput qualification.

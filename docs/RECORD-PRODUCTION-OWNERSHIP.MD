@@ -122,3 +122,10 @@ Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
 reclamation contract. Host coverage uses one sole sink across direct
 drain, finite quantum and DedicatedCoordinator stop/wake. No durability
 or physical-transport claim follows from sink acceptance.
+
+## Producer commit deadline (2026-10-30)
+
+[Bounded queue transitions](BOUNDED-QUEUE-TRANSITIONS.MD) documents the
+implemented original-deadline commit, late native-grant refusal,
+retained retirement ownership and explicit existing coordinator opt-in.
+Native managed-worker requalification remains pending.
