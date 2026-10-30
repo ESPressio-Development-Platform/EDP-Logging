@@ -403,3 +403,6 @@ The existing `TypedCborProtectedEdlsTaskDelivery` generated 15-field TypedEnvelo
 `tests/GeneratedEdlsStrictAckTaskIntegrationTests.cpp` reuses the actual existing EDP-Memory pool, bounded lease ownership, owner-generated Localisation schema and full 15-field canonical CBOR source, EDP-Threading deferred Task executor, POSIX genuine EDP-Persistence FileStorage and explicit PowerLoss-capability EDP-Persistence KeyValueStorage fake. It validates 17 separately Task-delivered generations, cross-boot incarnation 7->8, exact rolling physical latest two EDLS segments, no ACK on pending admission, terminal ACK only AFTER NVS commit, no false Accepted if KeyValueStorage StoreValue fails, correct failure terminal and retries after safe candidate reclamation. This is genuine C++ owner-composition testing but **not yet** proof of a deployed ESP32 scheduling, flash/worker stack, or wear budget; native HIL separately exercises strict typed NVS and EDLS on the physical chip.
 
 Versions 0.1.0 unchanged; no new allocator, thread, codec, persistence store or SDK imports in production Logging code.
+
+
+Revalidated 2026-10-30: post-retirement duplicate scan removal changes no includes, capabilities or mandatory/optional dependency edges; existing abstract Persistence ownership is retained.

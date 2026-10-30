@@ -631,16 +631,20 @@ namespace ESPressio::Logging {
             result.Status=EdlsProtectedRollingStatus::RetirementRejected;
             return result;
         }
+        // This complete post-delete inspection already independently reads
+        // every retained segment and validates its EDLS header and every
+        // EDLG frame CRC. Repeating the same full read with
+        // ConfirmProtectedRollingPredecessors immediately afterwards cannot
+        // strengthen a caller-serialized result: there is no intervening
+        // storage mutation. Keep all pre-retirement CRC verification and
+        // perform this *post*-retirement validation exactly once.
         const auto after = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,TProtectedSlots,TPayloadMaximum
         >(storage,paths,scratch);
         if (after.Status!=EdlsProtectedRollingStatus::NoPendingRetirement ||
             after.Occupied!=TProtectedSlots ||
             after.NewestGeneration!=before.NewestGeneration ||
-            after.OldestGeneration!=before.OldestGeneration+1U ||
-            !Detail::ConfirmProtectedRollingPredecessorsWithScratch<
-                TPhysicalSlots,TPayloadMaximum
-            >(storage,paths,after.Inspected,scratch)) {
+            after.OldestGeneration!=before.OldestGeneration+1U) {
             result.Status=EdlsProtectedRollingStatus::RetirementUnconfirmed;
             return result;
         }

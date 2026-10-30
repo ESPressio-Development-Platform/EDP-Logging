@@ -109,3 +109,8 @@ budget**. The reusable scratch must not alias the caller's live EDLG source
 span. This fixes a real physically observed panic (4 KiB payload in native
 HIL) without relaxing frame/header validation, finite N+1 retention,
 PowerLoss constraints or EDP version 0.1.0.
+
+
+## Post-retirement CRC scan reuse
+
+The exclusive retirement owner retains complete pre-delete CRC proofs and one full post-delete CRC/contiguous-generation inspection. It omits only the immediately repeated second post-delete scan, with no intervening storage mutation. Strict NVS ACK-before-retirement ordering remains unchanged. See [measured qualification](../docs/EDLS-POSTRETIRE-SCAN-OPTIMISATION-2026-10-29.MD).

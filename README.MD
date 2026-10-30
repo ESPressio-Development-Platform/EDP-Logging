@@ -844,3 +844,8 @@ RPI400 user-authorised ESP32-WROOM-32 native ESP-IDF 5.5.5 test-only `esp32dev-t
 ### Measured real ESP32 per-record Publish bottleneck (28 October 2026)
 
 On the ESP32-WROOM-32, 256 records individually acknowledged through LittleFS EDLS and PowerLoss-atomic NVS show that **87.37%** of observed runtime comes from repeated file reads and file-size queries (13,734 reads + 7,143 size calls), versus **1.64%** for NVS StoreValue/ReadValue. All 256 full 15-field records and NVS ACK256 passed independent raw physical flash CRC audits. See [measured 256-record provider latency report](docs/EDLS-PUBLISH-256-RECORD-PROVIDER-LATENCY-2026-10-28.MD). No production algorithm or semantic changes were made. Versions 0.1.0.
+
+
+### Qualified post-retirement scan reduction
+
+[Physical benchmark and power-cut qualification](./docs/EDLS-POSTRETIRE-SCAN-OPTIMISATION-2026-10-29.MD): redundant immediate post-delete CRC scan removed under exclusive ownership; strict per-record NVS ACK order preserved. Controlled 256-record WROOM benchmark: 1.970 durable records/sec. Overall production acceptance remains incomplete.
