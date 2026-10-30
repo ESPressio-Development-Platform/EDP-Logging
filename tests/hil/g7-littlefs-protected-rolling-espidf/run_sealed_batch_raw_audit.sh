@@ -2,17 +2,25 @@
 set -Eeuo pipefail
 OWNER="${EDP_PROFILE_AGENT_ID:?RPI400 lock owner required}"
 EVIDENCE="${EDP_PROFILE_EVIDENCE_DIR:?Existing private physical-run evidence required}"
-KIND="${EDP_BATCH_AUDIT_KIND:?profile or power-cut required}"
+KIND="${EDP_BATCH_AUDIT_KIND:?profile, power-cut, profile64 or power-cut64 required}"
 PROJECT="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$PROJECT/../../.." && pwd)"
 case "$KIND" in
     profile)
-        OLDER=15; NEWER=16
+        OLDER=15; NEWER=16; RECORDS=16
         RECEIPT="EDP_BATCH|PASS|records=256|ack_segment=16|window=15,16|first=225|last=256|"
         ;;
     power-cut)
-        OLDER=3; NEWER=4
+        OLDER=3; NEWER=4; RECORDS=16
         RECEIPT="EDP_BATCH|REPLAY|ack_segment=4|records_per_segment=16|first=33|last=64"
+        ;;
+    profile64)
+        OLDER=3; NEWER=4; RECORDS=64
+        RECEIPT="EDP_BATCH|PASS|records=256|ack_segment=4|window=3,4|first=129|last=256|"
+        ;;
+    power-cut64)
+        OLDER=3; NEWER=4; RECORDS=64
+        RECEIPT="EDP_BATCH|REPLAY|ack_segment=4|records_per_segment=64|first=129|last=256"
         ;;
     *) echo "Unsupported batch audit: $KIND" >&2; exit 2 ;;
 esac
@@ -31,7 +39,7 @@ sha256sum "$EVIDENCE/postbatch-littlefs.img" "$EVIDENCE/postbatch-nvs.img" | tee
 /srv/espressio/cache/platformio/penv/bin/littlefs-python extract --block-size 4096 \
     "$EVIDENCE/postbatch-littlefs.img" "$EVIDENCE/extracted" >"$EVIDENCE/extract.log" 2>&1
 PYTHONPATH="$ROOT/tools" python3 "$PROJECT/audit_typed_extracted_edls.py" \
-    "$EVIDENCE/extracted" --older "$OLDER" --newer "$NEWER" --records-per-segment 16
+    "$EVIDENCE/extracted" --older "$OLDER" --newer "$NEWER" --records-per-segment "$RECORDS"
 PYTHONPATH="$ROOT/tools" python3 "$PROJECT/audit_strict_nvs_watermark.py" \
     "$EVIDENCE/postbatch-nvs.img" --namespace batchack --ack "$NEWER" --incarnation 7 \
     --nvs-parser-dir /srv/espressio/cache/platformio/packages/framework-espidf/components/nvs_flash/nvs_partition_tool

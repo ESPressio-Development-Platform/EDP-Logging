@@ -244,6 +244,78 @@ namespace {
         assert(owner.Recover(f.Scratch).Status == L::EdlsAcknowledgedStatus::ArchiveAmbiguous);
     }
 
+    /// Maximum supported count and partial deadline share the same real VFS/NVS transaction.
+    void SixtyFourRecordConfiguration() {
+        Fixture f{};
+        MakeFrame(f.Frame);
+        const auto identity = MakeIdentity();
+        using LargeArchive = L::PowerLossAcknowledgedEdls<
+            3U, 2U, 32U, 2104U, Files, Ledger>;
+        using LargeBatch = L::BoundedEdlsBatch<
+            64U, 2048U, LargeArchive, TestClock, Bytes>;
+        std::array<std::byte, 2104U> scratch{};
+        LargeArchive archive(f.Storage, f.Watermark, Paths, Key.Value, identity, 7U);
+        assert(archive.InitializeEmpty().Status == L::EdlsAcknowledgedStatus::Initialized);
+        LargeBatch batch(archive, f.Clock, scratch);
+        assert(batch.ConfigureDwell(C::Duration::FromNanoseconds(100000000)) ==
+            L::EdlsBatchConfigurationStatus::Configured);
+        for (std::uint64_t generation = 1U; generation <= 4U; ++generation) {
+            for (std::size_t record = 0U; record < 64U; ++record) {
+                assert(batch.Offer(f.Frame).Status == L::EdlsBatchStatus::Buffered);
+            }
+            assert(archive.Read().AcknowledgedGeneration == generation - 1U);
+            assert(batch.Offer(f.Frame).Status == L::EdlsBatchStatus::FlushRequired);
+            const auto committed = batch.Service();
+            assert(committed.Status == L::EdlsBatchStatus::DurablyAcknowledged);
+            assert(committed.AcknowledgedRecords == 64U);
+            assert(committed.Archive.AcknowledgedGeneration == generation);
+            Files reopened(f.Directory, f.ByteOperations);
+            const auto actual = L::InspectEdlsArchiveWithScratch<3U, 32U>(
+                reopened, Paths, scratch);
+            assert(actual.Condition == L::EdlsArchiveCondition::Unambiguous);
+            std::size_t retained = 0U;
+            for (const auto& slot : actual.Slots) {
+                if (slot.Condition == L::EdlsSlotCondition::Empty) {
+                    continue;
+                }
+                assert(slot.Condition == L::EdlsSlotCondition::Clean);
+                assert(slot.Header.Profile == L::EdlsContentProfile::SealedFrames);
+                assert(slot.VerifiedFrames == 64U);
+                assert(slot.Header.Generation <= generation);
+                assert(slot.Header.Generation >= (generation > 1U ? generation - 1U : 1U));
+                ++retained;
+            }
+            assert(retained == (generation == 1U ? 1U : 2U));
+        }
+        assert(batch.ConfigureDwell(C::Duration::FromNanoseconds(50000000)) ==
+            L::EdlsBatchConfigurationStatus::Configured);
+        f.Clock.Tick = 25000000U;
+        assert(batch.Offer(f.Frame).Status == L::EdlsBatchStatus::Buffered);
+        f.Clock.Tick = 26000000U;
+        assert(batch.Offer(f.Frame).Status == L::EdlsBatchStatus::Buffered);
+        assert(batch.NextFlushDeadline()->Nanoseconds() == 75000000U);
+        f.Clock.Tick = 74999999U;
+        assert(batch.Service().Status == L::EdlsBatchStatus::Waiting);
+        assert(archive.Read().AcknowledgedGeneration == 4U);
+        f.Clock.Tick = 75000000U;
+        const auto partial = batch.Service();
+        assert(partial.AcknowledgedRecords == 2U);
+        assert(partial.Archive.AcknowledgedGeneration == 5U);
+        const auto actual = L::InspectEdlsArchiveWithScratch<3U, 32U>(
+            f.Storage, Paths, scratch);
+        std::size_t records = 0U;
+        for (const auto& slot : actual.Slots) {
+            if (slot.Condition == L::EdlsSlotCondition::Empty) {
+                continue;
+            }
+            assert(slot.Condition == L::EdlsSlotCondition::Clean);
+            assert((slot.Header.Generation == 4U && slot.VerifiedFrames == 64U) ||
+                (slot.Header.Generation == 5U && slot.VerifiedFrames == 2U));
+            records += slot.VerifiedFrames;
+        }
+        assert(records == 66U && f.Watermark.stores == 6U);
+    }
+
     /// The unchanged NVS ledger representation cannot adopt a file-body profile.
     void WatermarkProfileIsIndependent() {
         Fixture f{};
@@ -355,6 +427,7 @@ namespace {
 
 int main() {
     TimingAndRetention();
+    SixtyFourRecordConfiguration();
     WatermarkProfileIsIndependent();
     RefusalAndClock();
     FailedAndUncertainAcknowledgement();

@@ -49,7 +49,7 @@ def verify_record(packet: Frame, ticket: int) -> tuple[int, ...]:
     return tuple(fp)
 
 def audit(root: Path, expected=EXPECTED, *, records_per_segment: int=1) -> tuple[int,int]:
-    if records_per_segment not in (1,16):
+    if records_per_segment not in (1,16,64):
         raise ValueError("unsupported qualified fixture record count")
     if not root.is_dir() or root.is_symlink():
         raise ValueError("missing independently extracted filesystem")
@@ -64,10 +64,11 @@ def audit(root: Path, expected=EXPECTED, *, records_per_segment: int=1) -> tuple
         if not path.is_file() or path.is_symlink():
             raise ValueError("retained typed archive file invalid")
         data=path.read_bytes()
-        if records_per_segment==16:
+        if records_per_segment>1:
             header,frames=parse_sealed_segment(
-                data,max_payload=1024,max_records=16,max_segment_bytes=4152)
-            if len(frames)!=16:
+                data,max_payload=1024,max_records=records_per_segment,
+                max_segment_bytes=records_per_segment*256+56)
+            if len(frames)!=records_per_segment:
                 raise ValueError("incomplete sealed fixture batch")
         else:
             if not 65<=len(data)<=1200:
@@ -94,7 +95,7 @@ if __name__=="__main__":
     parser.add_argument("directory",type=Path)
     parser.add_argument("--older",type=int,default=3)
     parser.add_argument("--newer",type=int,default=4)
-    parser.add_argument("--records-per-segment",type=int,choices=(1,16),default=1)
+    parser.add_argument("--records-per-segment",type=int,choices=(1,16,64),default=1)
     args=parser.parse_args()
     if args.older<1 or args.newer!=args.older+1 or args.newer%3!=1:
         raise SystemExit("require consecutive generations with newest physical slot0")

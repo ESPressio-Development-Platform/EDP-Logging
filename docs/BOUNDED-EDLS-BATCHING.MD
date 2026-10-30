@@ -362,3 +362,53 @@ Both physical evidence roots and the prior baseline remain private and intact.
 The device exited powered OFF. These are synchronous fixture results; scheduled
 worker/backpressure, retirement/write/GC cuts, endurance and full product gates
 remain separate.
+
+## Explicit 16-record and 64-record native configurations
+
+The production batching API already supports a maximum count from 1 through
+64. The native fixture now selects two explicit configurations without changing
+production code. Its default remains 16 records. Both select the same explicit
+100 ms dwell and retain two acknowledged SEGMENTS plus one physical spare.
+
+| Native configuration | Body byte cap | Complete segment/scratch cap | Maximum retained records |
+|---|---:|---:|---:|
+| 16 records | 4096 B | 4152 B | 32 |
+| 64 records | 16384 B | 16440 B | 128 |
+
+These are fixture budgets for the fixed generated schema. A different source
+schema may hit the byte cap before the count cap. The application still chooses
+both production bounds independently, and partial deadline flushes may retain
+fewer records. Native scratch/readback/batch buffers remain static outside the
+8192 B main task stack; actual heap/stack figures require measurement.
+
+Build the larger fixture with EDP_LFS_BUILD_ENV=esp32dev-sealed-batch-64 using
+the existing typed build helper. Its cut variant is
+esp32dev-sealed-batch-64-cut. The same physical profile runner selects
+EDP_PROFILE_BUILD_ENV=esp32dev-sealed-batch-64. The same relay runner uses
+typed_ack_gap with the explicit 64-cut environment; electrical acceptance rules
+are unchanged.
+
+The 256-record larger workload has four strict segment ACKs, retaining
+segments 3/4 with original tickets 129..256. The cut first protects segments 1/2
+(tickets 1..128), leaves complete candidate 3 (129..192) unACKed, then recovers
+and strictly commits 3/4 (129..256). Segment generation is never a record counter.
+Independent raw audit selects EDP_BATCH_AUDIT_KIND=profile64 or power-cut64 and
+requires exactly 64 complete CRC-valid original typed records per retained
+segment. The default 16-record audit remains separately selectable.
+
+Host large-bound coverage additionally commits full 64-record segments through
+actual POSIX VFS and the explicit atomic-NVS fake, rejects the next unconsumed
+input on fullness, and verifies a partial two-record flush at a newly configured
+50 ms first-admission deadline. Independent Python negatives check every record
+in a 64-record segment and reject count/ticket reinterpretation. Actual native
+build/runtime/resource/cut results follow after execution.
+
+Large-configuration host validation 20261030T144419-2b28a733 PASS: GCC/Clang
+UBSan full 64 and partial-deadline real-VFS cases plus 74 controller/audit tests.
+Native build 20261030T143752-db3e7c35 PASS compiled all four environments:
+default 16 benchmark/cut and explicit 64 benchmark/cut. PlatformIO rebuilt shared
+SDK dependencies; this was build time, not a physical runtime result. Detached
+sequence 20261030T145734-fce800f4 waits for that PASS before provisioning, then
+runs the 64-record benchmark, independent raw profile audit, fresh electrical
+cut and independent post-cut raw audit. Physical outcomes remain pending at
+this source checkpoint; no 64-record throughput/resource result is inferred.

@@ -7,6 +7,7 @@ BUILD_ENV="${EDP_PROFILE_BUILD_ENV:-esp32dev-typed-strict-profile}"
 case "$BUILD_ENV" in
     esp32dev-typed-strict-profile) export EDP_PROFILE_KIND=single-record ;;
     esp32dev-sealed-batch) export EDP_PROFILE_KIND=sealed-batch ;;
+    esp32dev-sealed-batch-64) export EDP_PROFILE_KIND=sealed-batch-64 ;;
     *) echo "Unsupported profile build: $BUILD_ENV" >&2; exit 2 ;;
 esac
 IMAGE="$PROJECT/.pio/build/$BUILD_ENV/firmware.factory.bin"
@@ -34,7 +35,9 @@ echo SEEDED_LITTLEFS_VERIFIED=PASS
 "$CONTROL" hold-reset
 python3 -u "$PROJECT/monitor_edls_provider_profile.py" "$EVIDENCE/monitor"
 "$CONTROL" status
-if test "$EDP_PROFILE_KIND" = sealed-batch; then
+if test "$EDP_PROFILE_KIND" = sealed-batch-64; then
+    grep -Fq 'EDP_BATCH|PASS|records=256|ack_segment=4|window=3,4|first=129|last=256|' "$EVIDENCE/monitor/serial.txt"
+elif test "$EDP_PROFILE_KIND" = sealed-batch; then
     grep -Fq 'EDP_BATCH|PASS|records=256|ack_segment=16|window=15,16|first=225|last=256|' "$EVIDENCE/monitor/serial.txt"
 else
     grep -Fq 'EDP_PROFILE|PASS|count=256|ack=256|window=255,256' "$EVIDENCE/monitor/serial.txt"

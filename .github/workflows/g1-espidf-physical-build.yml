@@ -138,7 +138,7 @@ jobs:
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: |
-          for environment in esp32dev-sealed-batch esp32dev-sealed-batch-cut; do
+          for environment in esp32dev-sealed-batch esp32dev-sealed-batch-cut esp32dev-sealed-batch-64 esp32dev-sealed-batch-64-cut; do
             EDP_LFS_BUILD_ENV="$environment" bash tests/hil/g7-littlefs-protected-rolling-espidf/build_typed_strict.sh
           done
       - name: Build test-only timed strict EDLS real-provider attribution firmware (compile only)

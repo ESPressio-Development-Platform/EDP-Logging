@@ -160,3 +160,13 @@ terminal string was not recognised; the corrected firmware reuses the existing
 STRICT_TYPED15_NVS_ACK_AFTER_CUT marker. No host acceptance predicate changed.
 See docs/BOUNDED-EDLS-BATCHING.MD and the living handoff for exact firmware/media
 hashes, measurements and remaining gates.
+
+The same fixture has explicit esp32dev-sealed-batch-64 and
+esp32dev-sealed-batch-64-cut environments. EDP_TEST_BATCH_RECORDS selects 64;
+default remains 16. Each fixture budgets 256 framed bytes per maximum record:
+body cap 16384 B and total/scratch cap 16440 B for 64, outside the 8192 B stack.
+The 256-record workload ACKs four segments and retains original tickets
+129..256 in segments 3/4. The same relay protocol protects records 1..128 before
+its complete unACKed third segment. Select profile64 or power-cut64 in the raw
+auditor; it checks every one of the 64 original frames per retained segment.
+See the batching contract for current results, resource budgets and limitations.

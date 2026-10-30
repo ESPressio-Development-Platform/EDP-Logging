@@ -12,6 +12,7 @@ CONTROL="/srv/espressio/bin/esp32-integrated"
 PATTERNS={
     "single-record": re.compile(r"EDP_PROFILE\|PASS\|count=256\|ack=256\|window=255,256\|"),
     "sealed-batch": re.compile(r"EDP_BATCH\|PASS\|records=256\|ack_segment=16\|window=15,16\|first=225\|last=256\|"),
+    "sealed-batch-64": re.compile(r"EDP_BATCH\|PASS\|records=256\|ack_segment=4\|window=3,4\|first=129\|last=256\|"),
 }
 
 def control(command: str, *, expected_power: str|None=None) -> str:

@@ -9,18 +9,29 @@
 
 namespace {
 
+    // Explicit native configurations of the existing bounded production API.
+#ifndef EDP_TEST_BATCH_RECORDS
+#define EDP_TEST_BATCH_RECORDS 16U
+#endif
+    constexpr std::uint32_t SealedRecords = EDP_TEST_BATCH_RECORDS;
+    static_assert(SealedRecords == 16U || SealedRecords == 64U);
+    constexpr std::size_t SealedBodyBytes = 256U * SealedRecords;
+    constexpr std::size_t SealedSegmentBytes =
+        SealedBodyBytes + L::EdlsHeaderBytes + L::EdlsSealBytes;
+    constexpr std::uint32_t SealedSegments = 256U / SealedRecords;
+
     struct SealedNvsBinding final {};
     using SealedNvs = E::NvsKeyValueStorage<SealedNvsBinding, Bytes>;
     using SealedArchive = L::PowerLossAcknowledgedEdls<
-        3U, 2U, 1024U, 4152U, Store, SealedNvs>;
+        3U, 2U, 1024U, SealedSegmentBytes, Store, SealedNvs>;
     using NativeTimebase = ESPressio::Platform::ESPIDF::Timing::EspTimerMonotonicTimebaseProvider;
     using NativeClock = C::MonotonicClockProvider<NativeTimebase>;
-    using SealedBatch = L::BoundedEdlsBatch<16U, 4096U, SealedArchive, NativeClock, Bytes>;
+    using SealedBatch = L::BoundedEdlsBatch<SealedRecords, SealedBodyBytes, SealedArchive, NativeClock, Bytes>;
     constexpr auto SealedAckKey = P::KeyView::Validate("edlsack");
-    static std::array<std::byte, 4152U> SealedScratch{};
-    static std::array<std::byte, 4152U> SealedReadback{};
-    static ESPressio::Bounded::Bytes<4096U, Bytes> UnacknowledgedFrames{};
-    static std::array<std::uint64_t, 16U> AdmissionCoordinates{};
+    static std::array<std::byte, SealedSegmentBytes> SealedScratch{};
+    static std::array<std::byte, SealedSegmentBytes> SealedReadback{};
+    static ESPressio::Bounded::Bytes<SealedBodyBytes, Bytes> UnacknowledgedFrames{};
+    static std::array<std::uint64_t, SealedRecords> AdmissionCoordinates{};
     static std::array<std::uint32_t, 256U> RecordLatencies{};
 
     /// Reuse the existing generated fifteen-field owner fixture and canonical codec.
@@ -58,7 +69,7 @@ namespace {
             }
             Require(item.Condition == L::EdlsSlotCondition::Clean &&
                 item.Header.Profile == L::EdlsContentProfile::SealedFrames &&
-                item.VerifiedFrames == 16U &&
+                item.VerifiedFrames == SealedRecords &&
                 item.Header.Generation >= firstSegment &&
                 item.Header.Generation <= lastSegment &&
                 item.Header.DeviceIdentifier == DeviceIdentifier &&
@@ -69,8 +80,8 @@ namespace {
                 read.BytesTransferred == item.VerifiedPrefixBytes, "BATCH_READBACK_SIZE");
             std::size_t position = L::EdlsHeaderBytes;
             const auto bodyEnd = read.BytesTransferred - L::EdlsSealBytes;
-            const auto firstTicket = (item.Header.Generation - 1U) * 16U + 1U;
-            for (std::uint32_t index = 0U; index < 16U; ++index) {
+            const auto firstTicket = (item.Header.Generation - 1U) * SealedRecords + 1U;
+            for (std::uint32_t index = 0U; index < SealedRecords; ++index) {
                 L::EdlgFrameView frame{};
                 Require(position < bodyEnd &&
                     L::ReadEdlgFrame(std::span<const std::byte>(
@@ -105,18 +116,18 @@ namespace {
         Require(present == lastSegment - firstSegment + 1U, "BATCH_WINDOW_COUNT");
     }
 
-    /// Offer one known full16-record batch; RAM admission is explicitly not ACK.
-    static auto CommitSealedSixteen(SealedBatch& batch, SealedArchive& archive,
+    /// Offer one known full bounded batch; RAM admission is explicitly not ACK.
+    static auto CommitSealedBatch(SealedBatch& batch, SealedArchive& archive,
                                     std::uint32_t segment) {
         const auto oldAck = archive.Read().AcknowledgedGeneration;
-        for (std::uint32_t index = 0U; index < 16U; ++index) {
-            const auto bytes = EncodeSealedRecord((segment - 1U) * 16U + index + 1U);
+        for (std::uint32_t index = 0U; index < SealedRecords; ++index) {
+            const auto bytes = EncodeSealedRecord((segment - 1U) * SealedRecords + index + 1U);
             Require(batch.Offer(std::span<const std::byte>(TypedEdlg.data(), bytes)).Status ==
                 L::EdlsBatchStatus::Buffered, "BATCH_RAM_ADMISSION");
         }
         Require(archive.Read().AcknowledgedGeneration == oldAck, "BATCH_NO_RAM_ACK");
         const auto result = batch.Service();
-        Require(result.AcknowledgedRecords == 16U &&
+        Require(result.AcknowledgedRecords == SealedRecords &&
             result.Archive.AcknowledgedGeneration == segment &&
             result.Status == L::EdlsBatchStatus::DurablyAcknowledged,
             "BATCH_STRICT_DURABLE_COMPLETION");
@@ -146,12 +157,15 @@ namespace {
                 L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
                 "BATCH_REMOVE_ONLY_UNACKED");
             VerifySealedWindow(store, 1U, 2U);
-            CommitSealedSixteen(batch, archive, 3U);
-            CommitSealedSixteen(batch, archive, 4U);
+            CommitSealedBatch(batch, archive, 3U);
+            CommitSealedBatch(batch, archive, 4U);
             VerifySealedWindow(store, 3U, 4U);
             std::printf("EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n");
             std::printf("EDP_EDLS|TYPED_STRICT_ACK_REPLAY_VERIFIED|all_15_fields=1|ack=4|window=3,4\n");
-            std::printf("EDP_BATCH|REPLAY|ack_segment=4|records_per_segment=16|first=33|last=64\n");
+            std::printf("EDP_BATCH|REPLAY|ack_segment=4|records_per_segment=%u|first=%u|last=%u\n",
+                static_cast<unsigned>(SealedRecords),
+                static_cast<unsigned>(2U * SealedRecords + 1U),
+                static_cast<unsigned>(4U * SealedRecords));
             std::printf("EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT\n");
             std::fflush(stdout);
             for (;;) { vTaskDelay(pdMS_TO_TICKS(1000U)); }
@@ -162,21 +176,21 @@ namespace {
             "BATCH_GENESIS_ACK0");
 #if defined(EDP_TEST_SEALED_BATCH_CUT)
         for (std::uint32_t segment = 1U; segment <= 2U; ++segment) {
-            CommitSealedSixteen(batch, archive, segment);
+            CommitSealedBatch(batch, archive, segment);
             std::printf("EDP_BND|ACK|gen=%u\n", segment);
         }
         VerifySealedWindow(store, 1U, 2U);
         Require(nvs_set_u8(session, "armed", 1U) == ESP_OK &&
             nvs_commit(session) == ESP_OK, "BATCH_CUT_ARM");
         nvs_close(session);
-        for (std::uint32_t ticket = 33U; ticket <= 48U; ++ticket) {
+        for (std::uint32_t ticket = 2U * SealedRecords + 1U; ticket <= 3U * SealedRecords; ++ticket) {
             const auto framed = EncodeSealedRecord(ticket);
             Require(UnacknowledgedFrames.Append(
                 reinterpret_cast<const std::uint8_t*>(TypedEdlg.data()), framed) ==
                 ESPressio::Bounded::BytesAppendResult::Succeeded, "BATCH_CANDIDATE_BYTES");
         }
         const auto candidate = L::PublishEdlsSuccessorIntoEmptySlotWithScratch<
-            3U, 1024U, 4152U, Store, 16U>(
+            3U, 1024U, SealedSegmentBytes, Store, SealedRecords>(
                 store, Paths, DeviceIdentifier, 7U,
                 std::span<const std::byte>(
                     reinterpret_cast<const std::byte*>(UnacknowledgedFrames.Data()),
@@ -197,9 +211,9 @@ namespace {
         std::uint32_t minimumHeap = UINT32_MAX;
         std::uint32_t minimumStack = UINT32_MAX;
         const auto started = clock.Now().Nanoseconds();
-        for (std::uint32_t segment = 1U; segment <= 16U; ++segment) {
-            for (std::uint32_t index = 0U; index < 16U; ++index) {
-                const auto ticket = (segment - 1U) * 16U + index + 1U;
+        for (std::uint32_t segment = 1U; segment <= SealedSegments; ++segment) {
+            for (std::uint32_t index = 0U; index < SealedRecords; ++index) {
+                const auto ticket = (segment - 1U) * SealedRecords + index + 1U;
                 const auto framed = EncodeSealedRecord(ticket);
                 AdmissionCoordinates[index] = clock.Now().Nanoseconds();
                 Require(batch.Offer(std::span<const std::byte>(
@@ -210,27 +224,32 @@ namespace {
             const auto result = batch.Service();
             const auto commitFinished = clock.Now().Nanoseconds();
             Require(result.Status == L::EdlsBatchStatus::DurablyAcknowledged &&
-                result.AcknowledgedRecords == 16U &&
+                result.AcknowledgedRecords == SealedRecords &&
                 result.Archive.AcknowledgedGeneration == segment,
                 "BATCH_LOAD_DURABLE_ACK");
-            for (std::size_t index = 0U; index < 16U; ++index) {
+            for (std::size_t index = 0U; index < SealedRecords; ++index) {
                 RecordLatencies[completed++] = static_cast<std::uint32_t>(
                     (commitFinished - AdmissionCoordinates[index]) / 1000U);
             }
             minimumHeap = std::min(minimumHeap, esp_get_free_heap_size());
             minimumStack = std::min(minimumStack,
                 static_cast<std::uint32_t>(uxTaskGetStackHighWaterMark(nullptr)));
-            std::printf("EDP_BATCH|COMMIT|segment=%u|records=16|commit_us=%llu\n",
-                segment, static_cast<unsigned long long>((commitFinished - commitStarted) / 1000U));
+            std::printf("EDP_BATCH|COMMIT|segment=%u|records=%u|commit_us=%llu\n",
+                segment, static_cast<unsigned>(SealedRecords),
+                static_cast<unsigned long long>((commitFinished - commitStarted) / 1000U));
             std::fflush(stdout);
         }
         const auto elapsed = (clock.Now().Nanoseconds() - started) / 1000U;
-        Require(completed == 256U && archive.Read().AcknowledgedGeneration == 16U,
+        Require(completed == 256U && archive.Read().AcknowledgedGeneration == SealedSegments,
             "BATCH_LOAD_FINAL_ACK");
-        VerifySealedWindow(store, 15U, 16U);
+        VerifySealedWindow(store, SealedSegments - 1U, SealedSegments);
         std::sort(RecordLatencies.begin(), RecordLatencies.end());
-        std::printf("EDP_BATCH|PASS|records=256|ack_segment=16|window=15,16|first=225|last=256"
+        std::printf("EDP_BATCH|PASS|records=256|ack_segment=%u|window=%u,%u|first=%u|last=256"
             "|elapsed_us=%llu|p50_us=%u|p99_us=%u|min_heap=%u|min_stack=%u|dwell_ns=100000000\n",
+            static_cast<unsigned>(SealedSegments),
+            static_cast<unsigned>(SealedSegments - 1U),
+            static_cast<unsigned>(SealedSegments),
+            static_cast<unsigned>((SealedSegments - 2U) * SealedRecords + 1U),
             static_cast<unsigned long long>(elapsed), RecordLatencies[128U],
             RecordLatencies[253U], minimumHeap, minimumStack);
         std::fflush(stdout);
