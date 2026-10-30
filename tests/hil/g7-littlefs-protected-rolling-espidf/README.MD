@@ -151,3 +151,12 @@ values, and uses Espressif's official NVS page/entry/blob CRC parser. Expected
 windows are segments15/16 (records225..256) or segments3/4 (records33..64).
 Raw images and UART remain private. Test outcomes and exact run IDs are recorded
 in the living handoff; a build alone is not physical qualification.
+
+Corrected sealed-batch cut 20261030T135327-96bdbd46 PASS: GPIO17 OFF 8.221 s,
+EXTERNALLY_VERIFIED_POWER_CUT, native reset 10 / ROM 6 SDIO_RESET; final ACK4 and
+segments 3/4 contain all original records 33..64. Independent actual raw media
+audit 20261030T135804-8e1a4cfe PASS. First attempt remains FAIL because its new
+terminal string was not recognised; the corrected firmware reuses the existing
+STRICT_TYPED15_NVS_ACK_AFTER_CUT marker. No host acceptance predicate changed.
+See docs/BOUNDED-EDLS-BATCHING.MD and the living handoff for exact firmware/media
+hashes, measurements and remaining gates.

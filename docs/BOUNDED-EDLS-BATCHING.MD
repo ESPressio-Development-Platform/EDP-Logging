@@ -1,8 +1,8 @@
 # Configurable bounded EDLS record batching
 
 Status: feature/logging-v1, version 0.1.0. Host-qualified implementation plus
-a native synchronous ESP32 benchmark and independent raw-media audit. Real
-relay-cut recovery and scheduled multi-producer qualification remain separate gates.
+a native synchronous ESP32 benchmark, complete-unACKed-segment relay cut and
+independent raw-media audits. Scheduled multi-producer qualification remains open.
 
 ## Ownership and finite capacity
 
@@ -157,7 +157,7 @@ Python sealed-owner/tooling and 64 existing HIL controller negatives:
 20261030T130912-034c600a PASS. The subsequent CLI-specific run is recorded in
 the living handoff after completion. No hosted Actions execution is relied on.
 
-Remaining gates include real VDD cuts at unACKed and retirement boundaries,
+Remaining gates include VDD cuts during retirement and physical write/GC activity,
 finite scheduled multi-producer worker/backpressure, physical capacity/GC and
 flash endurance. The following native result is a bounded measurement, not
 complete production qualification.
@@ -244,3 +244,31 @@ Corrected native build 20261030T134734-937d4516 PASS, factory SHA256:
 61c26e23821b28b0de902634649eb7392544b3c3e077dfb65fc52c52a7d6a0cf.
 A fresh physical repeat and independent audit are required before that gate
 can pass.
+
+### Corrected electrical cut and independent media qualification
+
+Corrected physical run **20261030T135327-96bdbd46 PASS** used the unchanged
+shared controller and acceptance rules, a fresh 2 MiB backup, verified firmware
+61c26e23821b28b0de902634649eb7392544b3c3e077dfb65fc52c52a7d6a0cf and verified
+LittleFS seed. The controller confirmed GPIO17 OFF for **8.221 s**, ON and a new
+boot epoch. Native reset was 10, ROM reset 6 SDIO_RESET; the honest classification
+is **EXTERNALLY_VERIFIED_POWER_CUT**, not POR_CONFIRMED.
+
+Before cut, segments 1/2 each contained 16 original records with NVS ACK2; the
+complete sealed candidate 3 was still unACKed. Recovery verified the protected
+batches, removed only that unACKed candidate, then strictly committed segments 3/4.
+Final retained source tickets are 33..64, with all 16 original frames in each
+segment. Only the test fixture completion string changed after the first run.
+
+Independent actual raw-media run **20261030T135804-8e1a4cfe PASS** revalidated
+whole seals, every EDLG CRC and all fifteen typed-field bindings for records 33..64,
+plus official NVS page/entry/blob CRC ACK4, namespace batchack, incarnation 7.
+LittleFS SHA256: 9f27a0628fd6163db51ffb87d65f1af76a6c1747a233912505a53e736526501e.
+NVS SHA256: 733eb3e7f94cbbd3f9673c19d8b3d2bce6403b21a3a91112c2d8307a383b98ac.
+These match the first attempt's independently audited final media; its failed
+controller verdict remains unchanged. ESP32 exited powered OFF.
+
+This qualifies the complete-unACKed-segment gap and subsequent recovery/rolling
+for this native profile. It does not establish arbitrary in-write or GC-phase
+durability, scheduled multi-producer performance, flash endurance, or full
+production readiness.

@@ -15,3 +15,9 @@ NVS segment ACKs, 5.189 records/s. Independent physical raw LittleFS/NVS audit
 passed on 30 October. Full measurements and qualification limits are in the
 normative contract. Scheduled multi-producer use and 100 records/s remain
 unqualified.
+
+Corrected native GPIO17 cut (8.221 s OFF) and independent raw media audit PASS:
+NVS ACK2 and both protected 16-record batches survived a complete unACKed third
+segment; recovery then retained segments 3/4, records 33..64, NVS ACK4. Shared
+electrical qualification rules are unchanged. Detailed run IDs and the earlier
+failed fixture protocol attempt remain in the normative contract and handoff.
