@@ -472,3 +472,15 @@ host-qualified optional service path in the existing DedicatedCoordinator
 and typed delivery. Idle partial batches expose canonical WaitUntil
 deadlines even without new input. Native worker, sustained producer
 and backpressure qualification remains pending.
+
+## Managed worker capacity boundary (30 October)
+
+The separately selected native worker500ms profile uses the existing
+compile-time dwell ceiling/runtime configuration and independent existing
+source/representation Memory topologies. It passes finite queue pressure
+and idle partial flushing, but the target100records/s scheduled workload
+reaches queue-capacity admission deadlines before Memory acquisition.
+The100ms profile also remains unqualified for that sustained target.
+These are retained failed workloads, not throughput claims. Native fixture
+README and the living handoff contain exact runs and forthcoming per-stage
+profiling. Generic typed validation, ACK order and all versions0.1.0 remain.

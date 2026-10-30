@@ -11,6 +11,10 @@
 #include <synchronization/SpinLockProvider.hpp>
 #include <tuple>
 
+#ifndef EDP_WORKER_DWELL_NS
+#define EDP_WORKER_DWELL_NS 100000000LL
+#endif
+
 namespace {
 
 
@@ -21,6 +25,19 @@ namespace {
         namespace M = ESPressio::Memory;
         namespace Platform = ESPressio::Platform;
         namespace CF = S::CompositionFramework;
+        /// Explicit fixture configuration; the existing default100ms profile stays separately
+        /// selectable.
+        constexpr std::int64_t WorkerDwellNanoseconds = EDP_WORKER_DWELL_NS;
+        static_assert(WorkerDwellNanoseconds == 100000000LL ||
+                      WorkerDwellNanoseconds == 500000000LL);
+        /// Reuses the existing public compile-time ceiling and runtime dwell API.
+        using WorkerBatch = L::BoundedEdlsBatch<SealedRecords,
+                                                SealedBodyBytes,
+                                                SealedArchive,
+                                                NativeClock,
+                                                Bytes,
+                                                WorkerDwellNanoseconds>;
+
         struct CoordinatorIdentity final {};
         using WorkerHandle = T::Thread<CoordinatorIdentity>;
         /// Creates a bounded test deadline in the already-bound canonical monotonic origin.
@@ -150,7 +167,7 @@ namespace {
                                                                2U,
                                                                1024U,
                                                                SealedSegmentBytes,
-                                                               SealedBatch,
+                                                               WorkerBatch,
                                                                S::Identity::RuntimeIncarnationId,
                                                                C::ClockEra>;
         using Encoder = L::GeneratedLogRecordCborEncoder<TypedSchema,
@@ -241,7 +258,8 @@ namespace {
             /// Existing Logging coordinator over the canonical queue and source sink.
             Coordinator Inner;
             /// Binds the already-configured coordinator into the native test wrapper.
-            explicit MeasuredCoordinator(Coordinator&& inner) noexcept : Inner(std::move(inner)) {}
+            explicit MeasuredCoordinator(Coordinator&& inner) noexcept
+                : Inner(std::move(inner)) {}
             /// Transfers the pointer-only callable into the existing Threading binding.
             MeasuredCoordinator(MeasuredCoordinator&&) noexcept = default;
             /// Executes only inside the existing managed Threading context and publishes final
@@ -303,7 +321,7 @@ namespace {
                                    C::MonotonicNow().Nanoseconds() < due) {
                                 Require(
                                     context.WaitUntil(C::MonotonicTimestamp::FromNanoseconds(
-                                            due)) != T::ThreadWaitResult::ProviderFailure,
+                                        due)) != T::ThreadWaitResult::ProviderFailure,
                                     "WORKER_PRODUCER_ABSOLUTE_WAIT"
                                 );
                             }
@@ -356,12 +374,16 @@ namespace {
                             ++Failures;
                             std::printf(
                                 "EDP_WORKER|PRODUCER_FAILURE|phase=%u|status=%u|admission=%"
-                                        "u|commit=%u|reservation_active=%u\n",
+                                "u|commit=%u|reservation_active=%u|queue=%u|memory=%u|"
+                                "memory_attempted=%u\n",
                                 phase,
                                 static_cast<unsigned>(produced.Status),
                                 static_cast<unsigned>(produced.Admission.Status),
                                 static_cast<unsigned>(produced.Commit),
-                                reservation.IsActive() ? 1U : 0U
+                                reservation.IsActive() ? 1U : 0U,
+                                static_cast<unsigned>(produced.Admission.Queue),
+                                static_cast<unsigned>(produced.Admission.Memory),
+                                produced.Admission.MemoryAttempted ? 1U : 0U
                             );
                         }
                         Require(
@@ -427,7 +449,7 @@ namespace {
                 );
             Require(
                 history.Condition == L::EdlsArchiveCondition::Unambiguous &&
-                        history.NextGeneration == ack + 1U,
+                    history.NextGeneration == ack + 1U,
                 "WORKER_FINAL_MEDIA_HISTORY"
             );
             unsigned count = 0U, segments = 0U;
@@ -437,9 +459,9 @@ namespace {
                     continue;
                 Require(
                     item.Condition == L::EdlsSlotCondition::Clean &&
-                            item.Header.Generation >= ack - 1U && item.Header.Generation <= ack &&
-                            item.Header.DeviceIdentifier == DeviceIdentifier &&
-                            item.Header.RuntimeIncarnation == 7U,
+                        item.Header.Generation >= ack - 1U && item.Header.Generation <= ack &&
+                        item.Header.DeviceIdentifier == DeviceIdentifier &&
+                        item.Header.RuntimeIncarnation == 7U,
                     "WORKER_FINAL_PROTECTED_IDENTITY"
                 );
                 const auto read = store.ReadFileAt(
@@ -459,9 +481,9 @@ namespace {
                     Require(
                         L::ReadEdlgFrame(
                             std::span<const std::byte>(
-                                    SealedReadback.data() + position,
-                                    end - position
-                                ),
+                                SealedReadback.data() + position,
+                                end - position
+                            ),
                             frame,
                             1024U
                         ) == L::EdlgFrameReadResult::Succeeded,
@@ -472,7 +494,7 @@ namespace {
                             frame.Payload,
                             TypedDecoded
                         )
-                                .IsSuccessful(),
+                            .IsSuccessful(),
                         "WORKER_FINAL_TYPED_DECODE"
                     );
                     const auto ticket = TypedDecoded.Attempt.Value();
@@ -487,14 +509,14 @@ namespace {
                     );
                     Require(
                         L::ProjectGeneratedLogRecord<TypedSchema,
-                                                         L::AttemptSequenceWidth::Bits16,
-                                                         S::Identity::RuntimeIncarnationId,
-                                                         C::ClockEra>(
-                                                             TypedSource,
-                                                             TypedWire,
-                                                             TypedPositional
-                                                         )
-                                .IsSuccessful(),
+                                                     L::AttemptSequenceWidth::Bits16,
+                                                     S::Identity::RuntimeIncarnationId,
+                                                     C::ClockEra>(
+                                                         TypedSource,
+                                                         TypedWire,
+                                                         TypedPositional
+                                                     )
+                            .IsSuccessful(),
                         "WORKER_ORIGINAL_PROJECT"
                     );
                     const auto encoded =
@@ -504,12 +526,12 @@ namespace {
                         );
                     Require(
                         encoded.IsSuccessful() &&
-                                encoded.BytesWritten == frame.Payload.size() &&
-                                std::equal(
-                                    frame.Payload.begin(),
-                                    frame.Payload.end(),
-                                    TypedCbor.begin()
-                                ),
+                            encoded.BytesWritten == frame.Payload.size() &&
+                            std::equal(
+                                frame.Payload.begin(),
+                                frame.Payload.end(),
+                                TypedCbor.begin()
+                            ),
                         "WORKER_EXACT_ORIGINAL_FIFTEEN_FIELDS"
                     );
                     std::printf(
@@ -574,7 +596,7 @@ namespace {
                                                         encodingResource);
             Require(
                 encodingMemory.Initialize(failure) ==
-                        M::MemoryTopologyInitializationResult::Succeeded,
+                    M::MemoryTopologyInitializationResult::Succeeded,
                 "WORKER_ENCODING_MEMORY_INITIALIZE"
             );
             static Wakes wakes{};
@@ -600,10 +622,10 @@ namespace {
                 archive.InitializeEmpty().Status == L::EdlsAcknowledgedStatus::Initialized,
                 "WORKER_ACK_GENESIS"
             );
-            static SealedBatch batch(archive, clock, SealedScratch);
+            static WorkerBatch batch(archive, clock, SealedScratch);
             Require(
-                batch.ConfigureDwell(C::Duration::FromNanoseconds(100000000)) ==
-                        L::EdlsBatchConfigurationStatus::Configured,
+                batch.ConfigureDwell(C::Duration::FromNanoseconds(WorkerDwellNanoseconds)) ==
+                    L::EdlsBatchConfigurationStatus::Configured,
                 "WORKER_CONFIGURE_DWELL"
             );
             static Delivery delivery(
@@ -646,7 +668,7 @@ namespace {
             ));
             Require(
                 runtime.Initialize() == T::ThreadingInitializationResult::Succeeded &&
-                        runtime.Start() == T::ThreadingStartResult::Succeeded,
+                    runtime.Start() == T::ThreadingStartResult::Succeeded,
                 "WORKER_THREADING_INITIALIZE"
             );
             worker.emplace(runtime.ThreadHandle<CoordinatorIdentity>());
@@ -654,7 +676,7 @@ namespace {
             auto second = runtime.ThreadHandle<ProducerBIdentity>();
             Require(
                 first.Start() == T::ThreadStartResult::Started &&
-                        second.Start() == T::ThreadStartResult::Started,
+                    second.Start() == T::ThreadStartResult::Started,
                 "WORKER_PRODUCERS_START"
             );
             Phase.store(1U);
@@ -667,8 +689,8 @@ namespace {
             );
             Require(
                 Published.load() == 128U && Refused.load() == 32U && Failures.load() == 0U &&
-                        report.DurableSinkCompletions.load() == 0U &&
-                        archive.Read().AcknowledgedGeneration == 0U,
+                    report.DurableSinkCompletions.load() == 0U &&
+                    archive.Read().AcknowledgedGeneration == 0U,
                 "WORKER_PRESSURE_RAM_NOT_DURABLE"
             );
             std::printf("EDP_WORKER|PRESSURE|attempts=160|published=128|deadline_refused=32|ack_"
@@ -701,12 +723,14 @@ namespace {
                 "WORKER_IDLE_NO_NEW_INPUT"
             );
             Require(
-                IdleAckLatencyUs.load() >= 100000U,
+                static_cast<std::uint64_t>(IdleAckLatencyUs.load()) >=
+                    static_cast<std::uint64_t>(WorkerDwellNanoseconds / 1000),
                 "WORKER_DWELL_NOT_EARLY"
             );
             std::printf(
-                "EDP_WORKER|IDLE|partial_records=1|subsequent_input=0|dwell_ns=100000000|"
-                        "ack_latency_us=%u\n",
+                "EDP_WORKER|IDLE|partial_records=1|subsequent_input=0|dwell_ns=%llu|"
+                "ack_latency_us=%u\n",
+                static_cast<unsigned long long>(WorkerDwellNanoseconds),
                 IdleAckLatencyUs.load()
             );
             const auto started = C::MonotonicNow().Nanoseconds() + 100000000ULL;
@@ -744,15 +768,15 @@ namespace {
             std::fflush(stdout);
             Require(
                 Failures.load() == 0U && Published.load() == 2129U &&
-                        report.DurableSinkCompletions.load() == 2129U &&
-                        report.RecordsRetired.load() == 2129U &&
-                        report.PartialSubmissions.load() == 0U,
+                    report.DurableSinkCompletions.load() == 2129U &&
+                    report.RecordsRetired.load() == 2129U &&
+                    report.PartialSubmissions.load() == 0U,
                 "WORKER_SCHEDULED_ALL_DURABLE"
             );
             Require(
                 first.RequestStop() == T::ThreadStopRequestResult::Accepted &&
-                        second.RequestStop() == T::ThreadStopRequestResult::Accepted &&
-                        worker->RequestStop() == T::ThreadStopRequestResult::Accepted,
+                    second.RequestStop() == T::ThreadStopRequestResult::Accepted &&
+                    worker->RequestStop() == T::ThreadStopRequestResult::Accepted,
                 "WORKER_STOP_REQUEST"
             );
             (void)first.Wake();
@@ -765,8 +789,8 @@ namespace {
             );
             Require(
                 report.Exit.load() == L::DedicatedCoordinatorExit::CooperativeStop &&
-                        report.SinkServiceFailures.load() == 0U && StackMargins[0U].load() > 0U &&
-                        StackMargins[1U].load() > 0U && StackMargins[2U].load() > 0U,
+                    report.SinkServiceFailures.load() == 0U && StackMargins[0U].load() > 0U &&
+                    StackMargins[1U].load() > 0U && StackMargins[2U].load() > 0U,
                 "WORKER_STOP_REPORT"
             );
             const auto ack = archive.Read().AcknowledgedGeneration;
@@ -776,12 +800,12 @@ namespace {
             );
             Require(
                 runtime.BeginShutdown() == T::ThreadingShutdownResult::Accepted &&
-                        runtime.FinalizeShutdown() == T::ThreadingFinalizationResult::Completed,
+                    runtime.FinalizeShutdown() == T::ThreadingFinalizationResult::Completed,
                 "WORKER_NATIVE_FINALIZE"
             );
             Require(
                 lifecycle.ShutdownUntil<16U>(After(1000000000U)).Status ==
-                        L::AdmissionShutdownStatus::Quiescent,
+                    L::AdmissionShutdownStatus::Quiescent,
                 "WORKER_ADMISSION_QUIESCENT"
             );
             Require(
@@ -801,8 +825,8 @@ namespace {
                 "|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
                 "stack=%u"
                 "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
-                "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u|ack_"
-                "segment=%llu\n",
+                "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u"
+                "|scheduled_dwell_ns=%llu|ack_segment=%llu\n",
                 static_cast<unsigned long long>(elapsedUs),
                 static_cast<unsigned>(AckLatencies[1129U]),
                 static_cast<unsigned>(AckLatencies[2029U]),
@@ -818,6 +842,7 @@ namespace {
                 static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
                 static_cast<unsigned>(sizeof(Source)),
                 static_cast<unsigned>(sizeof(Queue)),
+                static_cast<unsigned long long>(WorkerDwellNanoseconds),
                 static_cast<unsigned long long>(ack)
             );
             std::fflush(stdout);

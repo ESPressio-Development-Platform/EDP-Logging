@@ -68,6 +68,17 @@ class WorkerMediaTests(unittest.TestCase):
             self.assertIsNone(pattern.search(bad))
 
 
+
+    def test_500ms_profile_requires_explicit_exact_dwell_receipt(self):
+        pattern=PATTERNS["batch-worker-500"]
+        configured=self.text.replace("|ack_segment=5","|scheduled_dwell_ns=500000000|ack_segment=5")
+        self.assertIsNotNone(pattern.search(configured))
+        for bad in (self.text,configured.replace("500000000","100000000"),
+                    configured.replace("500000000","5000000000"),
+                    configured.replace("producers=2","producers=1")):
+            self.assertIsNone(pattern.search(bad))
+
+
 class WorkerMonitorPowerTests(unittest.TestCase):
     def test_power_is_verified_before_serial_open(self):
         from unittest.mock import patch

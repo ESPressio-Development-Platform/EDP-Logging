@@ -272,3 +272,36 @@ These are partial gate results, not a successful2000-record workload,
 after the failure; all five private evidence directories remain intact.
 An explicitly selected longer-dwell profile is the next measurement;
 default100ms and all earlier failures remain attributable configurations.
+
+## Explicit500ms configuration and capacity result
+
+esp32dev-batch-worker-500 reuses the existing BoundedEdlsBatch template
+ceiling and ConfigureDwell500ms. The ordinary worker profile remains
+separately selectable at100ms. All phases, including the single idle
+record, use the selected dwell; terminal and host runner require the exact
+scheduled_dwell_ns and matching idle marker. No production default or
+wire/archive behavior changed.
+
+85 host/controller/audit/dwell negatives passed in172055-72ad142c; native
+new-environment build171750-4cb95781 passed cleanly. Factory SHA256
+2ced5974eeb9a0829e57c103afb10ff60db4d70f33962ce3091d446ce0cbba1b.
+
+Parent172745-bc464f09 failed before hardware use: its show0|rg-q
+prerequisite hit BrokenPipe because this appliance helper prints full
+logs for zero tail. Corrected private parent uses completed status
+capture; no appliance helper or project acceptance criterion was changed.
+
+Physical172959-735fd90a FAIL after verified factory/seed. Pressure PASS
+(128 publications/32 deadline refusals); one500ms idle partial/no later
+input PASS with808409us occurrence-to-ACK. Scheduled phase3 then failed:
+AdmissionFailed8/DeadlineElapsed1, queueCapacityUnavailable2,
+memory_attempted0. Observed published628/retired500/durable436; these
+are diagnostic concurrent observations, not a coherent final snapshot.
+No representation failure, no full2000-record success and no raw worker
+audit. Private evidence07 intact;06 had no hardware/evidence phase.
+A longer dwell alone did not qualify the target100records/s workload.
+
+Next measure actual per-stage wall cost and evaluate a supported native
+CPU configuration or an owner-preserving source-path optimisation. Keep
+generic typed validation and all durability checks intact; do not hide
+capacity refusals or claim a successful sustained rate.

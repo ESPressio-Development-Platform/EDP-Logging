@@ -9,6 +9,7 @@ case "$BUILD_ENV" in
     esp32dev-sealed-batch) export EDP_PROFILE_KIND=sealed-batch ;;
     esp32dev-sealed-batch-64) export EDP_PROFILE_KIND=sealed-batch-64 ;;
     esp32dev-batch-worker) export EDP_PROFILE_KIND=batch-worker ;;
+    esp32dev-batch-worker-500) export EDP_PROFILE_KIND=batch-worker-500 ;;
     *) echo "Unsupported profile build: $BUILD_ENV" >&2; exit 2 ;;
 esac
 IMAGE="$PROJECT/.pio/build/$BUILD_ENV/firmware.factory.bin"
@@ -46,10 +47,13 @@ echo SEEDED_LITTLEFS_VERIFIED=PASS
 "$CONTROL" hold-reset
 python3 -u "$PROJECT/monitor_edls_provider_profile.py" "$EVIDENCE/monitor"
 "$CONTROL" status
-if test "$EDP_PROFILE_KIND" = batch-worker; then
+if test "$EDP_PROFILE_KIND" = batch-worker || test "$EDP_PROFILE_KIND" = batch-worker-500; then
     grep -Fq 'EDP_WORKER|PASS|scheduled_records=2000|producers=2|target_rps=100|' "$EVIDENCE/monitor/serial.txt"
     grep -Fq 'EDP_WORKER|PRESSURE|attempts=160|published=128|deadline_refused=32|ack_records=0' "$EVIDENCE/monitor/serial.txt"
-    grep -Fq 'EDP_WORKER|IDLE|partial_records=1|subsequent_input=0|dwell_ns=100000000|' "$EVIDENCE/monitor/serial.txt"
+    EXPECTED_DWELL_NS=100000000
+    if test "$EDP_PROFILE_KIND" = batch-worker-500; then EXPECTED_DWELL_NS=500000000; fi
+    grep -Fq "EDP_WORKER|IDLE|partial_records=1|subsequent_input=0|dwell_ns=$EXPECTED_DWELL_NS|" "$EVIDENCE/monitor/serial.txt"
+    grep -Fq "|scheduled_dwell_ns=$EXPECTED_DWELL_NS|" "$EVIDENCE/monitor/serial.txt"
 elif test "$EDP_PROFILE_KIND" = sealed-batch-64; then
     grep -Fq 'EDP_BATCH|PASS|records=256|ack_segment=4|window=3,4|first=129|last=256|' "$EVIDENCE/monitor/serial.txt"
 elif test "$EDP_PROFILE_KIND" = sealed-batch; then
