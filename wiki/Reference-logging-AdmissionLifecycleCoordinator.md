@@ -6,7 +6,7 @@
 
 - `AdmissionShutdownStatus : uint8_t`: `Quiescent=0`, `DeadlineElapsed=1`, `WakeRetryLimitReached=2`, `DrainWaitProviderFailure=3`.
 - `AdmissionShutdownResult`: `Status`, separate `WakePublication` (Published/ProviderFailure), and diagnostic `ActiveAdmissions`.
-- `AdmissionLifecycleCoordinator<TProducerCount,TWaitWakeProvider>`: noncopyable and nonmovable; borrows Bootstrap-selected EDP-Threading BoundedWaitWake owner with at least **TProducerCount+1 slots**. Last slot reserved for one exclusive shutdown drainer. Owns atomics `_shuttingDown` and `_activeAdmissions`, and the existing `AdmissionWakeCoordinator` (no C++ heap, no extra task).
+- `AdmissionLifecycleCoordinator<TProducerCount,TWaitWakeProvider,TAtomicWordProvider=void>`: noncopyable and nonmovable; borrows Bootstrap-selected EDP-Threading BoundedWaitWake owner with at least **TProducerCount+1 slots**. Last slot reserved for one exclusive shutdown drainer. Owns atomics `_shuttingDown` and `_activeAdmissions`, and the existing `AdmissionWakeCoordinator` (no C++ heap, no extra task).
 
 ## Methods
 
@@ -31,3 +31,19 @@ TrackAdmission() returns an internal noncopyable scope which registers an active
 ## Producer slot validity helper
 
 ValidProducerSlot(slot) is public static constexpr, no state mutation: true iff slot is below TProducerCount; false for shutdown-drainer slot TProducerCount and out-of-range slots. The bounded record composer uses it before the queue stage so a producer never borrows the shutdown-drainer Threading wait point.
+
+
+## Canonical atomic binding
+
+The existing coordinator optionally selects the existing Platform AtomicWord32
+provider for its lifecycle words. Default void keeps the standard-atomic
+always-lock-free assertion. Private AdmissionAtomicWordSelection chooses storage;
+LoadAcquire, InitializeWord, PublishShutdown and ChangeActiveCount preserve
+ordering over the selected operations. Scope registration/destruction and the
+same drainer remain one algorithm. See [contract](../docs/ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD).
+
+GCC/Clang UBSan, standard and canonical Portable bindings, contended accounting,
+real Memory and shutdown cases pass 20261031T000433-77e1c128.
+Broader producer/queue/typed-Task/VFS regressions pass 000929-5a3dd6bc.
+Actual three-target typed worker two-boot tests pass 001504-eee39309 with the
+existing ESP-IDF hardware word and internal-DRAM qualification.

@@ -869,3 +869,14 @@ remain open; versions stay0.1.0 and tests do not rely on GitHub Actions.
 The [qualification ledger](docs/LOGGING-QUALIFICATION-STATUS.MD) now records
 the passing6000-record/60-second managed workload and independent raw-media
 audit, alongside remaining production gates and preserved failed attempts.
+
+### Full typed worker example and lifecycle atomic selection
+
+[TypedManagedBatchWorker](demos/TypedManagedBatchWorker/README.MD) now builds
+and passes real two-boot tests on Arduino IDE, PlatformIO Arduino and ESP-IDF.
+It verifies nine queued sources, RAM retirement before the final durable ACK,
+exact retained fifteen-field records and confirmed teardown.
+The [existing lifecycle coordinator](docs/ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD)
+accepts an explicit existing Platform AtomicWord32 provider while retaining
+the legacy standard-atomic requirement and SDK compiler settings.
+Remaining interruption/endurance/product gates stay in the qualification ledger.

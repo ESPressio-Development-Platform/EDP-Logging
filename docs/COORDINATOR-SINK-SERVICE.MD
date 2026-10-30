@@ -101,3 +101,14 @@ The final raw-media audit verifies every original field of92 retained
 records and independent official NVS CRC ACK35. Native README records
 actual command proof, hashes, latency/resource limits and earlier failures.
 No new timer/worker/Memory API or weakened typed validation was needed.
+
+## Full typed three-target example
+
+[demos/TypedManagedBatchWorker](../demos/TypedManagedBatchWorker/README.MD)
+provides Arduino IDE, PlatformIO Arduino and ESP-IDF projects sharing the same
+application. All three builds and actual two-boot tests pass on RPI400:
+20261031T001504-eee39309. The example explicitly observes RAM publication,
+retirement while an idle partial remains volatile, durable completion,
+exact original fifteen-field replay and real Threading/Memory teardown.
+Canonical lifecycle atomic selection supports the Arduino SDK's compiler
+atomic configuration without changing SDK flags or adding a worker.

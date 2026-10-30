@@ -7,7 +7,7 @@ demonstrate the container; they are not generated fifteen-field LogRecords.
 The separate native managed-worker fixture exercises that complete typed path.
 
 All library versions remain 0.1.0. Place EDP-Logging beside the dependency
-repositories listed in DEPENDENCIES.MD. The three required projects share
+repositories listed in DEPENDENCY_GRAPH.MD. The three required projects share
 Arduino_IDE/src/BatchDemo.hpp; no copied batch, codec, storage provider or worker.
 
 | Target | Project |

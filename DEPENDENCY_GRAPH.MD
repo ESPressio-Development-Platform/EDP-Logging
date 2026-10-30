@@ -43,7 +43,7 @@ The optional `BoundedAdmission` source is a partial reusable algorithm with fake
 
 ### Additional optional G1 admission shutdown and drain
 
-`#include <logging/AdmissionLifecycleCoordinator.hpp>` activates exactly the **same** Clock, Memory, Threading, Platform abstract EDP dependency set as the prior bounded-admission/wake coordinator and adds **only** standard C++20 lock-free atomics. The concrete `TWaitWakeProvider` must be chosen through Bootstrap and supply one independent extra EDP-Threading drain slot (capacity at least producer-count + 1). No new direct/transitive EDP edge, concrete implementation import, Memory finite acquisition or circular dependency exists. The coordinator remains excluded from `ESPressio_Logging.hpp`. No old EDP-* source was modified by this branch.
+`#include <logging/AdmissionLifecycleCoordinator.hpp>` activates exactly the **same** Clock, Memory, Threading, Platform abstract EDP dependency set as the prior bounded-admission/wake coordinator and selects either the original always-lock-free standard C++20 words or an explicitly supplied existing Platform AtomicWord32 provider through its public abstract contract. The concrete `TWaitWakeProvider` must be chosen through Bootstrap and supply one independent extra EDP-Threading drain slot (capacity at least producer-count + 1). No new direct/transitive EDP edge, concrete implementation import, Memory finite acquisition or circular dependency exists. The coordinator remains excluded from `ESPressio_Logging.hpp`. No old EDP-* source was modified by this branch.
 
 ### Additional optional G1 tracked RAII lease ownership
 
@@ -471,3 +471,16 @@ and explicit finite dedicated counts; no EDP-Memory source/API changed,
 no allocation implementation or provider is duplicated. This avoids
 unrelated NoWait coordination contention between the two pool roles.
 Production dependency graph and versions0.1.0 remain unchanged.
+
+
+## Optional canonical admission lifecycle atomic binding (31 October 2026)
+
+AdmissionLifecycleCoordinator<ProducerCount, WaitWakeProvider, AtomicWordProvider>
+uses the already-declared direct abstract Platform dependency for the canonical
+AtomicWord32 contract. The third parameter defaults to void, retaining the
+original standard-atomic always-lock-free requirement. Explicit Bootstrap
+selection uses the existing supplied word, validated capability/properties and
+load/store/CAS operations. No concrete SDK/provider or new dependency edge is
+introduced into neutral Logging. Concrete ESP-IDF selection belongs only to
+the typed demo application; Portable selection belongs only to host tests.
+See docs/ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD.

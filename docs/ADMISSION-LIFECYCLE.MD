@@ -31,3 +31,15 @@ The public TrackAdmission() method returns a noncopyable RAII admission scope, c
 ## Producer-slot validation for composed outer admission
 
 ValidProducerSlot(slot) noexcept is a public static constexpr predicate over [0, TProducerCount), excluding the reserved shutdown-drainer slot TProducerCount. Higher-domain consumers MUST reject invalid producer slots before a Queue wait; the older AcquireUntil already rejects them internally, but that is too late for a queue-before-Memory composer. No capacity, signal, timing or dependency change accompanies this additive method.
+
+## Explicit canonical atomic binding
+
+The same coordinator now accepts an optional third TAtomicWordProvider template
+parameter. void preserves the original always-lock-free standard requirement.
+Bootstrap may select an existing canonical Platform AtomicWord32 provider;
+the public contract validates four-byte, lock-free, noncopyable storage and
+noexcept operations. Counter scope, shutdown ordering and drain semantics remain
+the same. See [binding contract](ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD) for private
+state, source compatibility, lock-free versus wait-free limits and evidence.
+The Arduino SDK's disabled compiler atomics are handled by explicit provider
+selection; its global compiler flag and the legacy assertion remain intact.

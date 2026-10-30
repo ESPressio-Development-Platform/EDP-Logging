@@ -1,0 +1,8 @@
+.pio/
+**/.pio/
+PlatformIO_ESP-IDF/sdkconfig*
+!PlatformIO_ESP-IDF/sdkconfig.defaults
+PlatformIO_ESP-IDF/dependencies.lock
+PlatformIO_ESP-IDF/managed_components/
+Arduino_IDE/.build/
+Arduino_IDE/src/generated/

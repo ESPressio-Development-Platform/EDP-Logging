@@ -2,6 +2,11 @@
 #include <cassert>
 #include <chrono>
 #include <thread>
+#include <array>
+#include <latch>
+#if defined(EDP_TEST_CANONICAL_ADMISSION_ATOMIC)
+#include <concurrency/AtomicWord32Provider.hpp>
+#endif
 
 #define EDP_LOGGING_G1_LIFECYCLE_TEST_INCLUDE
 #include "AdmissionWakeCoordinatorTests.cpp"
@@ -13,7 +18,48 @@ namespace {
     using WakeOwner = ESPressio::Threading::BoundedWaitWakeProvider<
         TestSupport::TestSignalProvider, 3U
     >;
-    using Lifecycle = ESPressio::Logging::AdmissionLifecycleCoordinator<2U, WakeOwner>;
+#if defined(EDP_TEST_CANONICAL_ADMISSION_ATOMIC)
+    using SelectedAtomic = ESPressio::Platform::Portable::Concurrency::AtomicWord32Provider;
+#else
+    using SelectedAtomic = void;
+#endif
+    using Lifecycle = ESPressio::Logging::AdmissionLifecycleCoordinator<2U, WakeOwner, SelectedAtomic>;
+
+    /// Exercises contended scope updates and exact final drain in both atomic bindings.
+    void TestConcurrentScopeAccounting() {
+        using StressWakes = ESPressio::Threading::BoundedWaitWakeProvider<
+            TestSupport::TestSignalProvider, 5U>;
+        StressWakes wakes;
+        ESPressio::Logging::AdmissionLifecycleCoordinator<4U, StressWakes, SelectedAtomic>
+            lifecycle(wakes);
+        std::latch ready(4U);
+        std::latch release(1U);
+        std::array<std::thread, 4U> threads;
+        for (auto& thread : threads) {
+            thread = std::thread([&] {
+                for (unsigned index = 0U; index < 2000U; ++index) {
+                    auto scope = lifecycle.TrackAdmission();
+                    std::this_thread::yield();
+                }
+                auto scope = lifecycle.TrackAdmission();
+                ready.count_down();
+                release.wait();
+            });
+        }
+        ready.wait();
+        assert(lifecycle.ActiveAdmissions() == 4U);
+        assert(!lifecycle.ShutdownRequested());
+        static_cast<void>(lifecycle.RequestShutdown());
+        assert(lifecycle.ShutdownRequested());
+        release.count_down();
+        for (auto& thread : threads) {
+            thread.join();
+        }
+        assert(lifecycle.ActiveAdmissions() == 0U);
+        assert(lifecycle.ShutdownUntil<8U>(DeadlineAfter(std::chrono::seconds(1))).Status ==
+            ESPressio::Logging::AdmissionShutdownStatus::Quiescent);
+    }
+
 
     void TestConcurrentShutdownReleasesBlockedAdmission() {
         namespace Logging = ESPressio::Logging;
@@ -190,7 +236,7 @@ namespace {
                 return Threading::BoundedWaitWakeResult::TimedOut;
             }
         } owner;
-        Logging::AdmissionLifecycleCoordinator<2U, FaultedWaitWake> lifecycle(owner);
+        Logging::AdmissionLifecycleCoordinator<2U, FaultedWaitWake, SelectedAtomic> lifecycle(owner);
 
         struct Lease { bool Occupied{false}; } lease;
         struct Pool {
@@ -241,6 +287,7 @@ namespace {
 int main() {
     const CanonicalClock clock;
     assert(ESPressio::Clock::BindMonotonicClock(clock));
+    TestConcurrentScopeAccounting();
     // Reuse all original G1 tests so the included real Memory owner fixture
     // cannot silently omit prior owner/negative coverage.
     TestLatchedWakeBeforeWait();

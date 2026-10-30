@@ -4,7 +4,13 @@ OWNER="${EDP_PROFILE_AGENT_ID:?held RPI400 owner required}"
 EVIDENCE="${EDP_PROFILE_EVIDENCE_DIR:?unique private evidence directory required}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
-DEMO="$ROOT/demos/ConfigurableBoundedEdlsBatch"
+DEMO_KIND="${2:-container}"
+case "$DEMO_KIND" in
+    container) DEMO_NAME=ConfigurableBoundedEdlsBatch; PROFILE_KIND=configurable-batch-demo ;;
+    typed-managed) DEMO_NAME=TypedManagedBatchWorker; PROFILE_KIND=typed-managed-batch-demo ;;
+    *) echo "Unsupported demo kind: $DEMO_KIND" >&2; exit 2 ;;
+esac
+DEMO="$ROOT/demos/$DEMO_NAME"
 TARGET="${1:?espidf, platformio-arduino or arduino-ide}"
 case "$TARGET" in
     espidf) IMAGE="$DEMO/PlatformIO_ESP-IDF/.pio/build/esp32dev/firmware.factory.bin" ;;
@@ -50,9 +56,9 @@ flash_held verify-flash 0x170000 "$SEED" >"$EVIDENCE/verify-littlefs.log" 2>&1
 echo INDEPENDENT_IMAGE_AND_FILESYSTEM_VERIFICATION_BEFORE_BOOT=PASS
 for boot in 1 2; do
     "$CONTROL" hold-reset
-    EDP_PROFILE_KIND=configurable-batch-demo python3 -u "$HERE/monitor_edls_provider_profile.py" "$EVIDENCE/boot$boot"
+    EDP_PROFILE_KIND="$PROFILE_KIND" python3 -u "$HERE/monitor_edls_provider_profile.py" "$EVIDENCE/boot$boot"
 done
-python3 - "$EVIDENCE" <<'PY'
+python3 - "$EVIDENCE" "$DEMO_KIND" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -60,15 +66,26 @@ root = Path(sys.argv[1])
 receipts = []
 for boot in (1, 2):
     text = (root / f"boot{boot}/serial.txt").read_text()
-    matches = re.findall(
-        r"^EDP_BATCH_DEMO\|PASS\|incarnation=([1-9][0-9]*)\|dwell_ns=([0-9]+)"
-        r"\|full_records=4\|idle_records=1\|ack_segment=([1-9][0-9]*)$", text, re.M)
+    if sys.argv[2] == "typed-managed":
+        if text.count("EDP_TYPED_WORKER_DEMO|RAM|published=9|durable=0") != 1 or \
+                text.count("EDP_TYPED_WORKER_DEMO|RAM_RETIRED|retired=9|durable=8") != 1:
+            raise SystemExit("DEMO_CROSS_BOOT=FAIL missing distinct volatile/retired evidence")
+        matches = re.findall(
+            r"^EDP_TYPED_WORKER_DEMO\|PASS\|incarnation=([1-9][0-9]*)\|records=9"
+            r"\|durable=9\|retired=9\|ack_segment=([1-9][0-9]*)"
+            r"\|retained_records=5\|dwell_ns=([0-9]+)$", text, re.M)
+        matches = [(incarnation, dwell, ack) for incarnation, ack, dwell in matches]
+    else:
+        matches = re.findall(
+            r"^EDP_BATCH_DEMO\|PASS\|incarnation=([1-9][0-9]*)\|dwell_ns=([0-9]+)"
+            r"\|full_records=4\|idle_records=1\|ack_segment=([1-9][0-9]*)$", text, re.M)
     if len(matches) != 1:
         raise SystemExit("DEMO_CROSS_BOOT=FAIL invalid receipt count")
     receipts.append(tuple(map(int, matches[0])))
 first, second = receipts
-if first[0] != 1 or second[0] != 2 or first[2] != 2 or second[2] != 4 or first[1] != second[1]:
+expected_first_ack = 3 if sys.argv[2] == "typed-managed" else 2
+if first[0] != 1 or second[0] != 2 or first[2] != expected_first_ack or second[2] != 2 * expected_first_ack or first[1] != second[1]:
     raise SystemExit(f"DEMO_CROSS_BOOT=FAIL {receipts}")
-print(f"DEMO_CROSS_BOOT=PASS incarnation=1,2 ack=2,4 dwell_ns={first[1]}")
+print(f"DEMO_CROSS_BOOT=PASS incarnation=1,2 ack={first[2]},{second[2]} dwell_ns={first[1]}")
 PY
 echo BATCH_DEMO_PHYSICAL_RUNTIME=PASS
