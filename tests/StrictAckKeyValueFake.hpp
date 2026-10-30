@@ -28,6 +28,8 @@ namespace ESPressio::Logging::StrictAckTests {
         std::array<std::array<std::byte,512U>,8U> bytes{};
         std::array<std::size_t,8U> sizes{};
         bool failStore{false};
+        /// Test-only lost response after an actually committed atomic write.
+        bool commitThenFail{false};
         bool failRead{false};
         bool tornValue{false};
         std::size_t stores{0U};
@@ -70,7 +72,9 @@ namespace ESPressio::Logging::StrictAckTests {
             for(std::size_t j=0U;j<source.Size;++j)
                 bytes[i][j]=static_cast<const std::byte*>(source.Address)[j];
             sizes[i]=source.Size;
-            return PK::KeyValueStoreStatus::Succeeded;
+            return commitThenFail
+                ? PK::KeyValueStoreStatus::IoFailure
+                : PK::KeyValueStoreStatus::Succeeded;
         }
         [[nodiscard]] PK::KeyValueRemoveStatus RemoveKey(PK::KeyView key) noexcept {
             sizes[Which(key)]=0U;

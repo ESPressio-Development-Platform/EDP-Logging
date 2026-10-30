@@ -79,6 +79,7 @@ namespace ESPressio::Logging {
                        before.Header.DeviceIdentifier &&
                    after.Header.RuntimeIncarnation ==
                        before.Header.RuntimeIncarnation &&
+                   after.Header.Profile == before.Header.Profile &&
                    after.VerifiedFrames == before.VerifiedFrames &&
                    after.VerifiedPrefixBytes == before.VerifiedPrefixBytes;
         }
@@ -481,7 +482,7 @@ namespace ESPressio::Logging {
                     continue;
                 }
                 if (current.Condition != EdlsSlotCondition::Clean ||
-                    !current.HasHeader) {
+                    !current.HasHeader || current.VerifiedFrames == 0U) {
                     return result;
                 }
                 const auto generation = current.Header.Generation;

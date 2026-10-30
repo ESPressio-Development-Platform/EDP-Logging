@@ -22,3 +22,6 @@ All results are read-only candidates. NextGeneration does NOT reserve
 generation, authorize writes, guarantee retention, prove a complete
 immutable history or certify power interruption. The caller prevents
 concurrent mutation; provider-specific concurrency/retention applies.
+
+
+Profile1 additionally requires its exact EOF seal, count, framed length and whole CRC after individual frame checks. Missing complete-record suffix is DamagedTail, with no repair/resynchronisation. See [sealed batch contract](../docs/BOUNDED-EDLS-BATCHING.MD).

@@ -114,3 +114,6 @@ PowerLoss constraints or EDP version 0.1.0.
 ## Post-retirement CRC scan reuse
 
 The exclusive retirement owner retains complete pre-delete CRC proofs and one full post-delete CRC/contiguous-generation inspection. It omits only the immediately repeated second post-delete scan, with no intervening storage mutation. Strict NVS ACK-before-retirement ordering remains unchanged. See [measured qualification](../docs/EDLS-POSTRETIRE-SCAN-OPTIMISATION-2026-10-29.MD).
+
+
+Protected plans require at least one verified frame per occupied segment. Predecessor comparison includes its content profile. Retention counts segments, not records. See [bounded batching](Reference-logging-BoundedEdlsBatch).

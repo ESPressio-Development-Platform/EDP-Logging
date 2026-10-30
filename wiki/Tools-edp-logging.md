@@ -19,3 +19,6 @@ summary on overflow. Incomparable means no trusted common era/
 synchronization projection; Overlaps means the supported intervals
 overlap, not an arbitrary total-order tie breaker. Neither outcome
 permits UTC inference or lost-message conclusions.
+
+
+Sealed batch inspection: archive.SegmentHeader adds profile=0. parse_sealed_segment checks bounded full body, count, length and whole CRC via existing framing reader; default1MiB/64-record limit. CLI --archive validates seal before any records are emitted, even with --forensic. archive_recovery.inspect_slot never promotes a sealed prefix. NVS evidence remains necessary for ACK.

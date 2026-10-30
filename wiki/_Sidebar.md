@@ -46,3 +46,5 @@
 
 - [PowerLoss EDLS snapshot reference](Reference-logging-PowerLossEdlsSnapshots)
 - [PowerLoss EDLS historical journal](Reference-logging-PowerLossEdlsJournal)
+
+- [Bounded EDLS batching](Reference-logging-BoundedEdlsBatch)

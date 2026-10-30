@@ -13,7 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Sequence
 
-from .archive import SEGMENT_HEADER_SIZE, SegmentHeader, SegmentHeaderError, parse_segment_header
+from .archive import SEGMENT_HEADER_SIZE, SegmentHeader, SegmentHeaderError, parse_segment_header, parse_sealed_segment
 from .framing import Frame, FrameIssue, FrameStatus, scan_stream
 
 
@@ -57,8 +57,9 @@ def inspect_slot(
     expected_slot: int,
     *,
     max_payload: int = 65_536,
+    max_segment_bytes: int = 1_048_576,
 ) -> SlotInspection:
-    """Inspect one physical slot without seeking, modifying it, or buffering its body."""
+    """Inspect read-only; sealed bodies use explicitly bounded whole-file validation."""
     if type(expected_slot) is not int or not 0 <= expected_slot <= 0xFFFF:
         raise ValueError("physical slot index outside u16 range")
     if not 0 <= max_payload <= 0xFFFFFFFF:
@@ -80,6 +81,26 @@ def inspect_slot(
             if header.slot != expected_slot:
                 return SlotInspection(
                     expected_slot, path, SlotState.SlotMismatch, header, 0, SEGMENT_HEADER_SIZE, None
+                )
+
+            if header.profile == 1:
+                # A sealed batch has no independently acceptable partial prefix.
+                if type(max_segment_bytes) is not int or max_segment_bytes < 76:
+                    raise ValueError("invalid sealed segment byte bound")
+                body = source.read(max_segment_bytes + 1 - SEGMENT_HEADER_SIZE)
+                try:
+                    _, frames = parse_sealed_segment(
+                        raw + body, max_payload=max_payload,
+                        max_segment_bytes=max_segment_bytes,
+                    )
+                except SegmentHeaderError:
+                    return SlotInspection(
+                        expected_slot, path, SlotState.DamagedTail,
+                        header, 0, SEGMENT_HEADER_SIZE, None,
+                    )
+                return SlotInspection(
+                    expected_slot, path, SlotState.Clean, header,
+                    len(frames), SEGMENT_HEADER_SIZE + len(body), None,
                 )
 
             count = 0

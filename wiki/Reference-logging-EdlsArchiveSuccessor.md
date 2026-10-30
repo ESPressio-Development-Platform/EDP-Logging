@@ -27,3 +27,8 @@ next inspection must fail closed until authenticated repair.
 NoEmptySlot is expected once all bounded slots hold earlier retained
 history. Automatic destructive circular rotation remains deliberately
 absent pending certified provider atomicity and retention policy.
+
+
+## Sealed bounded frame sequences
+
+The same successor owner adds trailing template TMaximumFrames (default1, maximum64). Multi-frame opt-in validates all frames, writes profile1 plus EDLC count/length/whole CRC and independently compares complete attempted frame bytes. Caller scratch fits header+body+seal. One-frame defaults preserve profile0. See [wire/ownership contract](../docs/BOUNDED-EDLS-BATCHING.MD).

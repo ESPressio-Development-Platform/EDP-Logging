@@ -22,12 +22,24 @@ namespace ESPressio::Logging {
         ChecksumMismatch = 5
     };
 
+    /// Explicit EDLS v1 content-profile discriminator in the former reserved byte.
+    enum class EdlsContentProfile : std::uint8_t {
+        Unsealed = 0U,
+        SealedFrames = 1U
+    };
+
+    /// Exact completion seal for an immutable multi-record segment.
+    inline constexpr std::size_t EdlsSealBytes = 16U;
+
     /// Value-only representation of a validated EDLS segment-header record.
     struct EdlsHeader final {
         std::uint16_t Slot = 0U;
         std::uint64_t Generation = 0U;
         std::array<std::byte, 16U> DeviceIdentifier{};
         std::uint32_t RuntimeIncarnation = 0U;
+
+        /// Whether exact complete-record count/length and whole-segment CRC are sealed.
+        EdlsContentProfile Profile{EdlsContentProfile::Unsealed};
     };
 
     namespace Detail {
@@ -89,7 +101,9 @@ namespace ESPressio::Logging {
         const EdlsHeader& header,
         std::span<std::byte> destination
     ) noexcept {
-        if (!Detail::ValidEdlsIdentity(header)) {
+        if (!Detail::ValidEdlsIdentity(header) ||
+            (header.Profile != EdlsContentProfile::Unsealed &&
+             header.Profile != EdlsContentProfile::SealedFrames)) {
             return EdlsHeaderStatus::InvalidArguments;
         }
         if (destination.size() < EdlsHeaderBytes) {
@@ -101,7 +115,7 @@ namespace ESPressio::Logging {
         destination[2U] = std::byte{'L'};
         destination[3U] = std::byte{'S'};
         destination[4U] = std::byte{1U};
-        destination[5U] = std::byte{0U};
+        destination[5U] = std::byte{static_cast<std::uint8_t>(header.Profile)};
 
         Detail::WriteEdlsLe(destination, 6U, header.Slot, 2U);
         Detail::WriteEdlsLe(destination, 8U, header.Generation, 8U);
@@ -140,7 +154,7 @@ namespace ESPressio::Logging {
         if (source[4U] != std::byte{1U}) {
             return EdlsHeaderStatus::UnsupportedVersion;
         }
-        if (source[5U] != std::byte{0U}) {
+        if (source[5U] != std::byte{0U} && source[5U] != std::byte{1U}) {
             return EdlsHeaderStatus::MalformedHeader;
         }
         const auto expected = Detail::EdlgFrameCrc32C(source.first(36U));
@@ -152,6 +166,9 @@ namespace ESPressio::Logging {
         }
 
         EdlsHeader parsed{};
+        parsed.Profile = static_cast<EdlsContentProfile>(
+            std::to_integer<std::uint8_t>(source[5U])
+        );
         parsed.Slot = static_cast<std::uint16_t>(Detail::ReadEdlsLe(source, 6U, 2U));
         parsed.Generation = Detail::ReadEdlsLe(source, 8U, 8U);
         for (std::size_t index = 0U; index < 16U; ++index) {

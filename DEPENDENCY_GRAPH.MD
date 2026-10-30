@@ -406,3 +406,8 @@ Versions 0.1.0 unchanged; no new allocator, thread, codec, persistence store or 
 
 
 Revalidated 2026-10-30: post-retirement duplicate scan removal changes no includes, capabilities or mandatory/optional dependency edges; existing abstract Persistence ownership is retained.
+
+
+## Optional bounded EDLS batching (30 October 2026)
+
+Including logging/BoundedEdlsBatch.hpp directly consumes EDP-BoundedTypes and EDP-Clock plus existing strict-archive EDP-Persistence/System. Bytes owns the inline finite frame buffer and consumes EDP-Memory and its existing portable default provider. No mandatory dependency is added to the minimal umbrella, nor a concrete SDK/Mesh/Serial edge. Application-selected Threading scheduling remains external. Existing transitive graphs above were revalidated for these headers.

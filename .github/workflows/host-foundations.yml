@@ -312,3 +312,10 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/EDP-Logging/tools
         run: python3 -m unittest discover -s EDP-Logging/tests/hil/g7-littlefs-protected-rolling-espidf -p "test_*.py" -v
+
+      - name: Verify configurable sealed batching and uncertain ACK negatives
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+          EDP_BATCH_UBSAN: "1"
+        run: bash EDP-Logging/tests/run-bounded-edls-batch-tests.sh

@@ -113,10 +113,17 @@ namespace ESPressio::Logging {
         if (frameScratch.size() < TMaximumPayloadBytes+20U) {
             return {EdlsSlotCondition::ProviderFailure};
         }
+        const bool sealed = header.Profile == EdlsContentProfile::SealedFrames;
+        if (sealed && size < EdlsHeaderBytes + 20U + EdlsSealBytes) {
+            result.Condition = EdlsSlotCondition::DamagedTail;
+            return result;
+        }
+        const auto frameEnd = sealed ? size - EdlsSealBytes : size;
+        auto segmentChecksum = Detail::EdlgFrameCrc32C(headerBuffer);
         std::array<std::byte, 16U> frameHeader{};
         std::uint64_t position = EdlsHeaderBytes;
-        while (position < size) {
-            if (size - position < 20U) {
+        while (position < frameEnd) {
+            if (frameEnd - position < 20U) {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }
@@ -136,7 +143,7 @@ namespace ESPressio::Logging {
                 return result;
             }
             const auto frameBytes = static_cast<std::size_t>(length) + 20U;
-            if (frameBytes > size - position) {
+            if (frameBytes > frameEnd - position) {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }
@@ -156,9 +163,41 @@ namespace ESPressio::Logging {
                 result.Condition = EdlsSlotCondition::DamagedTail;
                 return result;
             }
+            if (sealed) {
+                segmentChecksum = Detail::EdlgFrameCrc32C(
+                    frameScratch.first(frameBytes),
+                    segmentChecksum
+                );
+            }
             position += frameBytes;
             ++result.VerifiedFrames;
             result.VerifiedPrefixBytes = position;
+        }
+        if (sealed) {
+            std::array<std::byte, EdlsSealBytes> seal{};
+            if (!Detail::ReadExactEdlsBytes(
+                    storage,
+                    path,
+                    frameEnd,
+                    seal
+                )) {
+                result.Condition = EdlsSlotCondition::ProviderFailure;
+                return result;
+            }
+            const auto expectedChecksum = Detail::EdlgFrameCrc32C(
+                std::span<const std::byte>(seal).first(12U),
+                segmentChecksum
+            );
+            if (seal[0U] != std::byte{'E'} || seal[1U] != std::byte{'D'} ||
+                seal[2U] != std::byte{'L'} || seal[3U] != std::byte{'C'} ||
+                result.VerifiedFrames == 0U ||
+                Detail::ReadEdlsLe(seal, 4U, 4U) != result.VerifiedFrames ||
+                Detail::ReadEdlsLe(seal, 8U, 4U) != frameEnd - EdlsHeaderBytes ||
+                Detail::ReadEdlsLe(seal, 12U, 4U) != expectedChecksum) {
+                result.Condition = EdlsSlotCondition::DamagedTail;
+                return result;
+            }
+            result.VerifiedPrefixBytes = size;
         }
         return result;
     }

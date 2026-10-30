@@ -849,3 +849,8 @@ On the ESP32-WROOM-32, 256 records individually acknowledged through LittleFS ED
 ### Qualified post-retirement scan reduction
 
 [Physical benchmark and power-cut qualification](./docs/EDLS-POSTRETIRE-SCAN-OPTIMISATION-2026-10-29.MD): redundant immediate post-delete CRC scan removed under exclusive ownership; strict per-record NVS ACK order preserved. Controlled 256-record WROOM benchmark: 1.970 durable records/sec. Overall production acceptance remains incomplete.
+
+
+## Configurable bounded multi-record EDLS segments
+
+[Bounded batching contract](./docs/BOUNDED-EDLS-BATCHING.MD) documents optional logging/BoundedEdlsBatch.hpp: compile-time frame/byte limits, Bootstrap-configured canonical Clock dwell (zero/immediate supported), sealed segments and independent NVS durable ACK. RAM admission is not completion. Initial host qualification; native performance, relay-cut and scheduled multi-producer gates remain separate. Direct optional dependencies: EDP-BoundedTypes owned Bytes, EDP-Clock dwell, EDP-Memory byte operations, existing EDP-Persistence and System strict archive. Existing one-frame API and versions0.1.0 remain.

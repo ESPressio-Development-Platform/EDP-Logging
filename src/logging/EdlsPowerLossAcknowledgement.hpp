@@ -233,6 +233,7 @@ namespace ESPressio::Logging {
                     scratch);
                 const auto& found=before[slot];
                 if(found.Condition==EdlsSlotCondition::Clean &&
+                   found.VerifiedFrames>0U &&
                    found.HasHeader &&
                    found.Header.DeviceIdentifier==identity_ &&
                    found.Header.Generation>=first &&
@@ -257,6 +258,7 @@ namespace ESPressio::Logging {
                 }
                 candidate=slot;
                 olderCommitted=found.Condition==EdlsSlotCondition::Clean &&
+                    found.VerifiedFrames>0U &&
                     found.HasHeader &&
                     ack>=TProtectedSlots &&
                     found.Header.Generation==first-1U;
@@ -333,6 +335,8 @@ namespace ESPressio::Logging {
             };
         }
 
+    private:
+
         /// Strict two-provider commit order:
         ///  1. reserve previously physically ABSENT EDLS path;
         ///  2. publish and CRC-readback new immutable EDLS successor;
@@ -343,7 +347,9 @@ namespace ESPressio::Logging {
         /// Never report accepted before step 4. Failed watermark persistence
         /// leaves the old protected window intact and a safely unacknowledged
         /// candidate that Recover can resolve after a restart.
-        [[nodiscard]] EdlsAcknowledgedObservation Publish(
+        /// @tparam TMaximumFrames Maximum records in this immutable segment.
+        template<std::size_t TMaximumFrames>
+        [[nodiscard]] EdlsAcknowledgedObservation PublishFrameSequence(
             std::span<const std::byte> completeEdlg,
             std::span<std::byte> scratch
         ) noexcept {
@@ -385,7 +391,8 @@ namespace ESPressio::Logging {
             if(prior.Occupied>=TPhysicalSlots)
                 return {EdlsAcknowledgedStatus::NoPhysicalReserve,ack};
             const auto posted=PublishEdlsSuccessorIntoEmptySlotWithScratch<
-                TPhysicalSlots,TPayloadMaximum,TSegmentMaximum>(
+                TPhysicalSlots,TPayloadMaximum,TSegmentMaximum,
+                TFileStorage,TMaximumFrames>(
                 *files_,paths_,identity_,incarnation_,completeEdlg,
                 scratch,&prior.Inspected);
             if(posted.Status!=EdlsSuccessorStatus::PublishedAndVerified ||
@@ -427,6 +434,45 @@ namespace ESPressio::Logging {
                 ack+1U,posted.Slot
             };
         }
+    public:
+
+        /// Maximum canonical payload bytes in each individual EDLG frame.
+        [[nodiscard]] static constexpr std::size_t MaximumFramePayloadBytes() noexcept {
+            return TPayloadMaximum;
+        }
+
+        /// Maximum total immutable segment size, including its EDLS header.
+        [[nodiscard]] static constexpr std::size_t MaximumSegmentBytes() noexcept {
+            return TSegmentMaximum;
+        }
+
+        /// Publish exactly one complete EDLG frame using the existing transaction.
+        [[nodiscard]] EdlsAcknowledgedObservation Publish(
+            std::span<const std::byte> completeEdlg,
+            std::span<std::byte> scratch
+        ) noexcept {
+            return PublishFrameSequence<1U>(
+                completeEdlg,
+                scratch
+            );
+        }
+
+        /// Commit one explicit bounded sequence of complete canonical frames.
+        /// AcknowledgedGeneration names the SEGMENT, never a record count.
+        /// All frames in this generation share the same durable ACK boundary.
+        /// Scratch must not alias frames and must fit the complete segment.
+        /// @tparam TMaximumFrames Compile-time frame-count bound, 1..64.
+        template<std::size_t TMaximumFrames>
+        [[nodiscard]] EdlsAcknowledgedObservation PublishBatch(
+            std::span<const std::byte> completeFrames,
+            std::span<std::byte> scratch
+        ) noexcept {
+            return PublishFrameSequence<TMaximumFrames>(
+                completeFrames,
+                scratch
+            );
+        }
+
     };
 
 } // namespace ESPressio::Logging

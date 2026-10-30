@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Sequence
 
-from .archive import SEGMENT_HEADER_SIZE, SegmentHeaderError, parse_segment_header
+from .archive import SEGMENT_HEADER_SIZE, SegmentHeaderError, parse_segment_header, parse_sealed_segment
 from .framing import Frame, scan_stream
 from .record_structure import EnvelopeError, PreservedFloat, inspect_typed_envelope
 from .schema import SchemaError, decode_declared_arguments, load_generated_schema
@@ -152,14 +152,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     with source_owner as source:
         base = 0
+        sealed_frames = None
         if args.archive:
             try:
-                header = parse_segment_header(source.read(SEGMENT_HEADER_SIZE))
+                raw_header = source.read(SEGMENT_HEADER_SIZE)
+                header = parse_segment_header(raw_header)
+                if header.profile == 1:
+                    _, sealed_frames = parse_sealed_segment(
+                        raw_header + source.read(1_048_576 + 1 - SEGMENT_HEADER_SIZE),
+                        max_payload=args.max_payload,
+                    )
             except SegmentHeaderError as error:
                 print(json.dumps({"kind": "segment-error", "message": str(error)}))
                 return 2
             print(json.dumps({
                 "kind": "segment",
+                "sealed": header.profile == 1,
                 "slot": header.slot,
                 "generation": header.generation,
                 "incarnation": header.incarnation,
@@ -167,13 +175,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             }))
             base = SEGMENT_HEADER_SIZE
 
-        for event in scan_stream(
+        for event in (sealed_frames if sealed_frames is not None else scan_stream(
             source,
             max_payload=args.max_payload,
             forensic=args.forensic,
             resync_limit=args.resync_limit,
             base_offset=base,
-        ):
+        )):
             if isinstance(event, Frame):
                 report = {
                     "kind": "frame",

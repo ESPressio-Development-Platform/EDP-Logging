@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <limits>
 
 #include <ESPressio_Persistence.hpp>
 
@@ -62,11 +63,14 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum EDLG payload scratch (1..4096).
     /// @tparam TSlotMaximum Hard upper byte count for one physical slot.
     /// @tparam TStorage Application-composed abstract FileStorage provider.
+    /// @tparam TMaximumFrames Explicit opt-in maximum frames per segment; default one.
+    /// Multi-frame callers supply non-aliased scratch sufficient for the whole segment.
     template<
         std::size_t TSlots,
         std::size_t TPayloadMaximum,
         std::size_t TSlotMaximum,
-        class TStorage
+        class TStorage,
+        std::size_t TMaximumFrames = 1U
     >
     [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlotWithScratch(
         TStorage& storage,
@@ -79,33 +83,55 @@ namespace ESPressio::Logging {
     ) noexcept {
         using namespace ESPressio::Persistence;
         static_assert(TSlots>=2U && TSlots<=64U);
+        static_assert(TMaximumFrames >= 1U && TMaximumFrames <= 64U);
         static_assert(TPayloadMaximum>=1U && TPayloadMaximum<=4096U);
         static_assert(TSlotMaximum>=EdlsHeaderBytes+20U);
         static_assert(ESPressio::Persistence::Detail::HasMandatoryFileStorageOperations<TStorage>);
         EdlsSuccessorOutcome<TSlots> outcome{};
         EdlsHeader header{};
+        constexpr std::size_t sealBytes = TMaximumFrames > 1U ? EdlsSealBytes : 0U;
+        if constexpr (TMaximumFrames > 1U) {
+            header.Profile = EdlsContentProfile::SealedFrames;
+        }
         header.DeviceIdentifier=deviceIdentifier;
         header.RuntimeIncarnation=runtimeIncarnation;
         if (!Detail::ValidEdlsIdentity(EdlsHeader{
                 0U, 1U, deviceIdentifier, runtimeIncarnation
             }) ||
-            completeEdlg.size()>TPayloadMaximum+20U) {
+            completeEdlg.empty() ||
+            (TMaximumFrames == 1U && completeEdlg.size()>TPayloadMaximum+20U)) {
             outcome.Status=EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }
-        EdlgFrameView parsed{};
-        if (ReadEdlgFrame(
-                completeEdlg,parsed,TPayloadMaximum
-            )!=EdlgFrameReadResult::Succeeded ||
-            parsed.Consumed!=completeEdlg.size()) {
-            outcome.Status=EdlsSuccessorStatus::InvalidIdentityOrFrame;
-            return outcome;
+        // The SAME canonical reader validates every record before any file
+        // mutation. Default callers still require exactly one complete frame.
+        std::size_t frameCount = 0U;
+        std::size_t position = 0U;
+        while (position < completeEdlg.size()) {
+            if (frameCount == TMaximumFrames) {
+                outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
+                return outcome;
+            }
+            EdlgFrameView parsed{};
+            if (ReadEdlgFrame(
+                    completeEdlg.subspan(position),
+                    parsed,
+                    TPayloadMaximum
+                ) != EdlgFrameReadResult::Succeeded) {
+                outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
+                return outcome;
+            }
+            position += parsed.Consumed;
+            ++frameCount;
         }
-        if (completeEdlg.size()>TSlotMaximum-EdlsHeaderBytes) {
+        if (TSlotMaximum < EdlsHeaderBytes + sealBytes ||
+            completeEdlg.size()>TSlotMaximum-EdlsHeaderBytes-sealBytes ||
+            completeEdlg.size()>std::numeric_limits<std::uint32_t>::max()) {
             outcome.Status=EdlsSuccessorStatus::SlotCapacityExceeded;
             return outcome;
         }
-        if (callerScratch.size()<EdlsHeaderBytes+TPayloadMaximum+20U) {
+        if (callerScratch.size()<EdlsHeaderBytes+TPayloadMaximum+20U ||
+            callerScratch.size()<EdlsHeaderBytes+completeEdlg.size()+sealBytes) {
             outcome.Status=EdlsSuccessorStatus::SlotCapacityExceeded;
             return outcome;
         }
@@ -161,7 +187,7 @@ namespace ESPressio::Logging {
         }
         // The checked archive scan is complete before this scratch is
         // reused for immutable successor assembly; there is NO live borrow.
-        auto buffer=callerScratch.first(EdlsHeaderBytes+TPayloadMaximum+20U);
+        auto buffer=callerScratch.first(EdlsHeaderBytes+completeEdlg.size()+sealBytes);
         if (WriteEdlsHeader(header,buffer)!=EdlsHeaderStatus::Succeeded) {
             outcome.Status=EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
@@ -169,7 +195,18 @@ namespace ESPressio::Logging {
         for (std::size_t i=0U;i<completeEdlg.size();++i) {
             buffer[EdlsHeaderBytes+i]=completeEdlg[i];
         }
-        const auto used=EdlsHeaderBytes+completeEdlg.size();
+        const auto sealOffset = EdlsHeaderBytes + completeEdlg.size();
+        if constexpr (TMaximumFrames > 1U) {
+            buffer[sealOffset] = std::byte{'E'};
+            buffer[sealOffset + 1U] = std::byte{'D'};
+            buffer[sealOffset + 2U] = std::byte{'L'};
+            buffer[sealOffset + 3U] = std::byte{'C'};
+            Detail::WriteEdlsLe(buffer, sealOffset + 4U, frameCount, 4U);
+            Detail::WriteEdlsLe(buffer, sealOffset + 8U, completeEdlg.size(), 4U);
+            const auto checksum = Detail::EdlgFrameCrc32C(buffer.first(sealOffset + 12U));
+            Detail::WriteEdlsLe(buffer, sealOffset + 12U, checksum, 4U);
+        }
+        const auto used=sealOffset+sealBytes;
         outcome.Native=storage.ReplaceFile(
             paths[outcome.Slot],SourceBufferView{buffer.data(),used}
         );
@@ -186,12 +223,43 @@ namespace ESPressio::Logging {
             verification.Header.Generation!=header.Generation ||
             verification.Header.DeviceIdentifier!=header.DeviceIdentifier ||
             verification.Header.RuntimeIncarnation!=header.RuntimeIncarnation ||
-            verification.VerifiedFrames!=1U ||
+            verification.Header.Profile!=header.Profile ||
+            verification.VerifiedFrames!=frameCount ||
             verification.VerifiedPrefixBytes!=used ||
             measured.Status!=FileSizeStatus::Succeeded ||
             measured.Size.RawValue!=used) {
             outcome.Status=EdlsSuccessorStatus::ReadbackUnconfirmed;
             return outcome;
+        }
+        if constexpr (TMaximumFrames > 1U) {
+            if (!Detail::ReadExactEdlsBytes(
+                    storage,
+                    paths[outcome.Slot],
+                    0U,
+                    callerScratch.first(used)
+                )) {
+                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
+                return outcome;
+            }
+            EdlsHeader actual{};
+            if (ReadEdlsHeader(
+                    callerScratch.first(EdlsHeaderBytes),
+                    actual
+                ) != EdlsHeaderStatus::Succeeded ||
+                actual.Slot != header.Slot ||
+                actual.Generation != header.Generation ||
+                actual.DeviceIdentifier != header.DeviceIdentifier ||
+                actual.RuntimeIncarnation != header.RuntimeIncarnation ||
+                actual.Profile != header.Profile) {
+                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
+                return outcome;
+            }
+            for (std::size_t index = 0U; index < completeEdlg.size(); ++index) {
+                if (callerScratch[EdlsHeaderBytes + index] != completeEdlg[index]) {
+                    outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
+                    return outcome;
+                }
+            }
         }
         outcome.Status=EdlsSuccessorStatus::PublishedAndVerified;
         return outcome;
