@@ -29,4 +29,7 @@ accepts 1–8 synchronous copying sinks; see issue #7 for the previously
 incorrect two-sink minimum. An accepted callback must have independently
 copied its output before return; asynchronous sink borrowing is not yet an
 implemented G10 feature.
-\n[Bounded EDLS batching](Reference-logging-BoundedEdlsBatch) documents configurable canonical dwell, finite owned records and sealed-segment durable ACK.
+
+[Bounded EDLS batching](Reference-logging-BoundedEdlsBatch) documents configurable canonical dwell, finite owned records and sealed-segment durable ACK.
+
+- [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)

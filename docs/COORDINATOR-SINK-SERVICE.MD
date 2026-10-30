@@ -1,0 +1,80 @@
+# Ordinary sink service on the existing dedicated coordinator
+
+Status: feature/logging-v1, version 0.1.0. Host-qualified on RPI400 with
+GCC, Clang and UBSan; native batched worker qualification is pending.
+The separately qualified synchronous native benchmark is not worker proof.
+
+## One owner and one canonical deadline
+
+An existing synchronous source sink may optionally implement
+noexcept ServiceCoordinator() returning CoordinatorSinkServiceOutcome.
+The coordinator polls after every healthy bounded quantum, including
+BudgetConsumed, so continuous input does not suppress service.
+Queue claim/reclaim failures retain their existing fatal behavior.
+
+Ready may return an optional Clock::MonotonicTimestamp NextDeadline.
+When input is empty, the same EDP-Threading ThreadContext waits until the
+earliest sink deadline. With no deadline the existing finite WaitFor
+fallback applies. Bootstrap must bind batch and Threading waits to the
+same canonical monotonic origin. No timer, second worker, queue, signal,
+clock provider or allocator is created. Service time and scheduler
+lateness are separate from the configured accumulation dwell.
+
+DurableSinkCompletions is a newly confirmed, consumed-once record delta
+for that sink. The atomic coordinator report sums these per-sink deltas.
+Two sinks completing the same record count twice. RecordsRetired and
+AllSinksAccepted still describe source reclamation and submission only.
+
+RecoveryRequired increments SinkServiceFailures and exits with
+SinkServiceRecoveryRequired. The coordinator does not retry uncertain
+publication. Stop does not implicitly flush or make pending RAM durable;
+Bootstrap must choose its explicit bounded shutdown disposition.
+
+## Generated typed batch delivery
+
+The existing TypedCborProtectedEdlsTaskDelivery accepts an explicitly
+configured BoundedEdlsBatch target. It reuses the same generated schema,
+all typed identity checks, canonical re-encoding and CRC frame writer.
+A successful callback copies the frame into bounded RAM and reports
+BufferedForBatch. Task Accepted, source retirement and independent copy
+release therefore do not imply file or NVS durability.
+
+On FlushRequired the incoming frame was not consumed: the callback
+flushes the prior batch once and reoffers only after a confirmed ACK.
+Both that path and ServiceCoordinator accumulate only the archive's
+confirmed AcknowledgedRecords, including acknowledged pending-retirement
+segments. The next service poll consumes the accumulated delta once.
+An uncertain file/NVS result emits no ACK for that publication, leaves
+the batch recovery-required and refuses automatic retries.
+
+This callback is noncopyable and nonmovable for batch targets because
+it owns consumable completion deltas. Legacy nonbatch targets retain
+their existing value semantics and do not expose ServiceCoordinator.
+
+The typed delivery takes encoded bytes, whereas DedicatedCoordinator
+calls source-record sinks. Bootstrap's existing source callback must
+encode with EncodeOnceAndSubmitToSinks and forward ServiceCoordinator
+to the delivery. Both operations must run in the same serialized
+ordinary owner. Do not poll an asynchronously executing Task delivery
+from a different thread without an explicit owner synchronization
+contract. The optional callback alone supplies no cross-thread safety.
+
+## Evidence and reusable runners
+
+RPI400 detached 20261030T153923-67d59a82 passed GCC and Clang with
+UBSan: actual Memory queue, canonical earliest absolute idle wait,
+service under continuous input, per-sink counting, fatal recovery and
+wait-provider failure. Run tests/run-coordinator-sink-service-tests.sh
+with the compiler as its first argument.
+
+Detached 20261030T154316-d9e41c72 passed GCC and Clang with UBSan:
+actual Memory pool and Task handle ABI, generated full typed CBOR,
+real POSIX-backed VFS, atomic NVS fake, RAM versus durable completion,
+50ms exact partial deadline, count-pressure flush, consumed-once
+deltas, zero dwell, commit-with-lost-response and no retry. Independent
+file reopen verified final original typed records and rejected input
+was absent. Run
+tests/run-generated-edls-batch-service-integration-tests.sh with CXX.
+These are host control-flow/provider tests, not physical power-loss
+or native scheduling evidence. All execution was on RPI400, with no
+GitHub Actions coverage dependency.

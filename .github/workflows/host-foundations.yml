@@ -174,6 +174,11 @@ jobs:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
         run: bash EDP-Logging/tests/run-record-production-tests.sh ${{ matrix.compiler }}
 
+      - name: Service optional sink deadlines through the existing coordinator
+        env:
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-coordinator-sink-service-tests.sh ${{ matrix.compiler }}
+
   bounded-edlg-persistence-checkpoint:
     runs-on: ubuntu-latest
     strategy:
@@ -320,3 +325,9 @@ jobs:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
           EDP_BATCH_UBSAN: "1"
         run: bash EDP-Logging/tests/run-bounded-edls-batch-tests.sh
+
+      - name: Distinguish batched RAM Task acceptance from durable sink completions
+        env:
+          CXX: ${{ matrix.compiler }}
+          EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
+        run: bash EDP-Logging/tests/run-generated-edls-batch-service-integration-tests.sh

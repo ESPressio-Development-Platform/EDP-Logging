@@ -423,3 +423,16 @@ header blob is d5b5709be51f0dd8814a743c0c68546ecdb49ad0. Existing optional
 BoundedEdlsBatch abstract owner dependencies and the default umbrella are
 unchanged. The native compile workflow records this additional checkout pin;
 physical execution and all test coverage run on the authorised appliance.
+
+## 2026-10-30 optional coordinator sink service
+
+CoordinatorSinkService.hpp directly imports the existing abstract
+EDP-Clock canonical MonotonicTimestamp. DedicatedCoordinator continues
+to consume EDP-Threading and the existing queue/Memory closure; its
+optional callback reuses ThreadContext::WaitUntil. GeneratedEdlsTaskAdapters
+now includes BoundedEdlsBatch and the service outcome, reusing already
+declared optional Clock/Memory/Serialisation/Persistence paths. Bootstrap
+selects the one canonical origin and concrete providers. No default
+umbrella import, SDK, extra worker/queue/timer/allocator, reverse dependency
+or version change is introduced. Native provider bindings remain solely
+application/test dependencies. All packages stay 0.1.0.

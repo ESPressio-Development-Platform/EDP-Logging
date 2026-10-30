@@ -10,10 +10,27 @@
 #include <ESPressio_Serialisation.hpp>
 #include "GeneratedLogRecordEdlsArchive.hpp"
 #include "EdlsPowerLossAcknowledgement.hpp"
+#include "BoundedEdlsBatch.hpp"
+#include "CoordinatorSinkService.hpp"
 #include "RecordProduction.hpp"
 #include "OwnedRepresentationFanout.hpp"
 
 namespace ESPressio::Logging {
+
+    namespace Detail {
+        /// Existing bounded batch operations required by this ordinary delivery callback.
+        template<class TTarget>
+        concept BatchDeliveryTarget = requires(
+            TTarget& target, std::span<const std::byte> frame
+        ) {
+            { target.Offer(frame) } noexcept -> std::same_as<EdlsBatchOutcome>;
+            { target.Service() } noexcept -> std::same_as<EdlsBatchOutcome>;
+            { target.Flush() } noexcept -> std::same_as<EdlsBatchOutcome>;
+            { target.NextFlushDeadline() } noexcept ->
+                std::same_as<std::optional<Clock::MonotonicTimestamp>>;
+        };
+    }
+
 
     /// Schema-qualified canonical-CBOR encoder, for the EXISTING
     /// EncodeOnceAndSubmitToSinks / EDP-Memory pooled representation owner.
@@ -60,13 +77,18 @@ namespace ESPressio::Logging {
     enum class TypedEdlsTaskCompletion : std::uint8_t {
         NotInvoked, Archived, InvalidCodec, InvalidTypedRecord,
         SourceIdentityMismatch, FramingFailure, ArchiveFailure,
-        DurablyAcknowledged
+        DurablyAcknowledged, BufferedForBatch
     };
 
     /// Existing EDP-Threading Task-completion-side delivery callback.
     /// Takes already copied canonical CBOR bytes, validates all typed root
     /// fields and owner identities, then uses existing immutable EDLS owner.
     /// Bootstrap controls the SINGLE writer's lifetime and serialisation.
+    /// An explicit BoundedEdlsBatch target copies framed RAM on Accepted,
+    /// reports BufferedForBatch, and exposes optional ServiceCoordinator.
+    /// Offer and service MUST use the same serialized ordinary owner. A Task
+    /// terminal Accepted for this target is not a durable ACK. Only the
+    /// service delta reports NVS-confirmed per-sink record completions.
     ///
     /// AsyncCopyingTaskSink's Accepted is only Task admission: durable
     /// archive status is available from this callback after Task terminal.
@@ -85,6 +107,24 @@ namespace ESPressio::Logging {
         std::array<ESPressio::Persistence::FilePathView,TPhysicalSlots> _paths;
         std::array<std::byte,16U> _device;
         std::uint32_t _incarnation;
+        /// Confirmed completions not yet consumed by the existing coordinator's service poll.
+        std::uint64_t _pendingDurableCompletions{0U};
+
+        /// Records only an actual strict segment/NVS completion, never RAM acceptance.
+        [[nodiscard]] bool ObserveBatchAcknowledgement(
+            const EdlsBatchOutcome& outcome
+        ) noexcept {
+            if (outcome.Status != EdlsBatchStatus::DurablyAcknowledged &&
+                outcome.Status != EdlsBatchStatus::DurablyAcknowledgedPendingRetirement) {
+                LastCompletion = TypedEdlsTaskCompletion::ArchiveFailure;
+                LastAcknowledgement = outcome.Archive;
+                return false;
+            }
+            _pendingDurableCompletions += outcome.AcknowledgedRecords;
+            LastAcknowledgement = outcome.Archive;
+            LastCompletion = TypedEdlsTaskCompletion::DurablyAcknowledged;
+            return true;
+        }
     public:
         TypedEdlsTaskCompletion LastCompletion{
             TypedEdlsTaskCompletion::NotInvoked};
@@ -106,6 +146,53 @@ namespace ESPressio::Logging {
              _paths(paths),
              _device(deviceIdentifier),_incarnation(runtimeIncarnation) {
             static_assert(TPhysicalSlots==TProtectedSlots+1U);
+        }
+
+        /// Legacy callbacks retain value semantics; a batch callback owns
+        /// consumable completion deltas and must never fork that ownership.
+        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery&) noexcept
+            requires (!Detail::BatchDeliveryTarget<TStorage>) = default;
+        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery&) noexcept
+            requires Detail::BatchDeliveryTarget<TStorage> = delete;
+        TypedCborProtectedEdlsTaskDelivery& operator=(
+            const TypedCborProtectedEdlsTaskDelivery&) noexcept
+            requires (!Detail::BatchDeliveryTarget<TStorage>) = default;
+        TypedCborProtectedEdlsTaskDelivery& operator=(
+            const TypedCborProtectedEdlsTaskDelivery&) noexcept
+            requires Detail::BatchDeliveryTarget<TStorage> = delete;
+        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+            requires (!Detail::BatchDeliveryTarget<TStorage>) = default;
+        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+            requires Detail::BatchDeliveryTarget<TStorage> = delete;
+        TypedCborProtectedEdlsTaskDelivery& operator=(
+            TypedCborProtectedEdlsTaskDelivery&&) noexcept
+            requires (!Detail::BatchDeliveryTarget<TStorage>) = default;
+        TypedCborProtectedEdlsTaskDelivery& operator=(
+            TypedCborProtectedEdlsTaskDelivery&&) noexcept
+            requires Detail::BatchDeliveryTarget<TStorage> = delete;
+
+        /// Services an opt-in batch from its SAME serialized ordinary owner.
+        /// This does not create a worker/timer or retry uncertain publication.
+        /// Returned per-sink completion deltas are consumed exactly once.
+        [[nodiscard]] CoordinatorSinkServiceOutcome ServiceCoordinator() noexcept
+            requires Detail::BatchDeliveryTarget<TStorage> {
+            CoordinatorSinkServiceOutcome observation{};
+            const auto serviced = _storage->Service();
+            if (serviced.Status == EdlsBatchStatus::DurablyAcknowledged ||
+                serviced.Status == EdlsBatchStatus::DurablyAcknowledgedPendingRetirement) {
+                (void)ObserveBatchAcknowledgement(serviced);
+            } else if (serviced.Status != EdlsBatchStatus::Waiting &&
+                       serviced.Status != EdlsBatchStatus::Empty) {
+                LastCompletion = TypedEdlsTaskCompletion::ArchiveFailure;
+                LastAcknowledgement = serviced.Archive;
+                observation.Status = CoordinatorSinkServiceStatus::RecoveryRequired;
+            }
+            observation.DurableSinkCompletions = _pendingDurableCompletions;
+            _pendingDurableCompletions = 0U;
+            if (observation.Status == CoordinatorSinkServiceStatus::Ready) {
+                observation.NextDeadline = _storage->NextFlushDeadline();
+            }
+            return observation;
         }
 
         [[nodiscard]] RecordSinkSubmission operator()(
@@ -174,6 +261,32 @@ namespace ESPressio::Logging {
                 LastCompletion=TypedEdlsTaskCompletion::FramingFailure;
                 return RecordSinkSubmission::Rejected;
             }
+            if constexpr (Detail::BatchDeliveryTarget<TStorage>) {
+                const auto complete = std::span<const std::byte>(
+                    _framingScratch.data(), framed
+                );
+                auto offered = _storage->Offer(complete);
+                if (offered.Status == EdlsBatchStatus::FlushRequired) {
+                    // The new input was NOT consumed. Complete the existing
+                    // batch once, then reoffer only after a confirmed ACK.
+                    if (!ObserveBatchAcknowledgement(_storage->Flush())) {
+                        return RecordSinkSubmission::ProviderFailure;
+                    }
+                    offered = _storage->Offer(complete);
+                }
+                if (offered.Status == EdlsBatchStatus::Buffered) {
+                    LastCompletion = TypedEdlsTaskCompletion::BufferedForBatch;
+                    return RecordSinkSubmission::Accepted;
+                }
+                if (offered.Status == EdlsBatchStatus::InvalidFrame ||
+                    offered.Status == EdlsBatchStatus::FrameTooLarge) {
+                    LastCompletion = TypedEdlsTaskCompletion::FramingFailure;
+                    return RecordSinkSubmission::Rejected;
+                }
+                LastCompletion = TypedEdlsTaskCompletion::ArchiveFailure;
+                LastAcknowledgement = offered.Archive;
+                return RecordSinkSubmission::ProviderFailure;
+            } else {
             // Compile-time optional strict durability. The SAME canonical
             // full-LogRecord validation and existing EDLG frame owner above
             // are reused; only the injected archive publisher changes.
@@ -213,6 +326,7 @@ namespace ESPressio::Logging {
             LastCompletion=TypedEdlsTaskCompletion::ArchiveFailure;
             return RecordSinkSubmission::ProviderFailure;
             }
+            } // non-batching target
         }
     };
 

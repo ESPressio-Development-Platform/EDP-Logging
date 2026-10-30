@@ -464,3 +464,11 @@ and intact. ESP32 exited powered OFF. There is no automatic in-place history
 migration: Bootstrap must establish compatible archive provenance and bounds
 when choosing a configuration. Remaining scheduled-worker, physical write/GC,
 capacity/endurance and three-target demo gates stay open.
+
+## Existing dedicated worker integration (2026-10-30)
+
+[Coordinator sink service](COORDINATOR-SINK-SERVICE.MD) describes the
+host-qualified optional service path in the existing DedicatedCoordinator
+and typed delivery. Idle partial batches expose canonical WaitUntil
+deadlines even without new input. Native worker, sustained producer
+and backpressure qualification remains pending.

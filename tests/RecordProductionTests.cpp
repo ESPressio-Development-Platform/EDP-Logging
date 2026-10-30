@@ -527,4 +527,7 @@ void TestSingleSinkCoordinatorPipeline() {
 }
 
 }
+#if !defined(EDP_LOGGING_RECORD_PRODUCTION_TEST_REUSE)
 int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();TestDedicatedCoordinatorCallable();TestSingleSinkCoordinatorPipeline();}
+
+#endif

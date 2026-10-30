@@ -48,3 +48,5 @@
 - [PowerLoss EDLS historical journal](Reference-logging-PowerLossEdlsJournal)
 
 - [Bounded EDLS batching](Reference-logging-BoundedEdlsBatch)
+
+- [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)

@@ -9,6 +9,7 @@
 #include <ESPressio_Threading.hpp>
 
 #include "CoordinatorQuantum.hpp"
+#include "CoordinatorSinkService.hpp"
 
 namespace ESPressio::Logging {
 
@@ -19,7 +20,8 @@ namespace ESPressio::Logging {
         ClaimFailed = 2U,
         ReclaimUnconfirmed = 3U,
         PriorClaimUnresolved = 4U,
-        WakeProviderFailure = 5U
+        WakeProviderFailure = 5U,
+        SinkServiceRecoveryRequired = 6U
     };
 
     /// Shared read-only-from-Bootstrap operational report.
@@ -33,6 +35,10 @@ namespace ESPressio::Logging {
         std::atomic<std::uint64_t> PartialSubmissions{0U};
         std::atomic<std::uint64_t> NotificationFailures{0U};
         std::atomic<std::uint64_t> IdleTimeouts{0U};
+        /// Sum of newly confirmed per-sink record completions, not unique source records.
+        std::atomic<std::uint64_t> DurableSinkCompletions{0U};
+        /// Fatal ordinary sink-service observations requiring Bootstrap reconciliation.
+        std::atomic<std::uint64_t> SinkServiceFailures{0U};
     };
 
     /// Real EDP-Threading DedicatedThread-compatible callable.
@@ -47,6 +53,13 @@ namespace ESPressio::Logging {
     /// on the *same topology-owned wake* published by Thread::Wake(); finite
     /// timeout is a conservative lost/coalesced wake fallback, not a separate
     /// clock or queue waiter. On wake, canonical Queue is checked again.
+    ///
+    /// A sink may additionally expose noexcept ServiceCoordinator returning
+    /// CoordinatorSinkServiceOutcome. It is polled after every healthy quantum,
+    /// including a consumed budget. On empty input the earliest canonical
+    /// deadline uses ThreadContext::WaitUntil; all clocks MUST share its origin.
+    /// Per-sink durable completions remain separate from RAM acceptance/retirement.
+    /// RecoveryRequired terminates without retry or implicit shutdown flushing.
     ///
     /// Stop is cooperatively requested via Thread::RequestStop() and followed
     /// by finite JoinUntil/JoinFor under Bootstrap. This callable exits on
@@ -69,10 +82,53 @@ namespace ESPressio::Logging {
         static_assert(TRecordsPerQuantum > 0U);
         static_assert(TIdleWaitNanoseconds > 0);
         static_assert(sizeof...(TSinks) >= 1U && sizeof...(TSinks) <= 8U);
+        static_assert(((!requires(TSinks& sink) {
+            sink.ServiceCoordinator();
+        } || CoordinatorServiceSink<TSinks>) && ...),
+            "Optional ServiceCoordinator must be noexcept and return CoordinatorSinkServiceOutcome");
         TQueue* _queue;
         std::tuple<TSinks*...> _sinks;
         DedicatedCoordinatorReport* _report;
         typename TQueue::ConsumerClaim _claim{};
+
+        /// Polls only compile-time opted-in callbacks in the existing single owner.
+        /// Absolute deadlines cannot be extended by later callbacks or arrivals.
+        [[nodiscard]] CoordinatorSinkServiceOutcome ServiceSinks() noexcept {
+            CoordinatorSinkServiceOutcome result{};
+            std::apply(
+                [&](TSinks*... sinks) noexcept {
+                    (([&]() noexcept {
+                        if constexpr (CoordinatorServiceSink<TSinks>) {
+                            if (result.Status ==
+                                CoordinatorSinkServiceStatus::RecoveryRequired) {
+                                return;
+                            }
+                            const auto serviced = sinks->ServiceCoordinator();
+                            _report->DurableSinkCompletions.fetch_add(
+                                serviced.DurableSinkCompletions,
+                                std::memory_order_relaxed
+                            );
+                            if (serviced.Status ==
+                                CoordinatorSinkServiceStatus::RecoveryRequired) {
+                                _report->SinkServiceFailures.fetch_add(
+                                    1U, std::memory_order_relaxed
+                                );
+                                result.Status = serviced.Status;
+                                return;
+                            }
+                            if (serviced.NextDeadline.has_value() &&
+                                (!result.NextDeadline.has_value() ||
+                                 serviced.NextDeadline->Nanoseconds() <
+                                    result.NextDeadline->Nanoseconds())) {
+                                result.NextDeadline = serviced.NextDeadline;
+                            }
+                        }
+                    }()), ...);
+                },
+                _sinks
+            );
+            return result;
+        }
 
     public:
         explicit DedicatedCoordinator(
@@ -112,9 +168,6 @@ namespace ESPressio::Logging {
                 _report->NotificationFailures.fetch_add(
                     quantum.NotificationFailures, std::memory_order_relaxed
                 );
-                if (quantum.Status == CoordinatorQuantumStatus::BudgetConsumed) {
-                    continue;
-                }
                 if (quantum.Status == CoordinatorQuantumStatus::ReclaimUnconfirmed) {
                     _report->Exit.store(
                         DedicatedCoordinatorExit::ReclaimUnconfirmed,
@@ -136,12 +189,28 @@ namespace ESPressio::Logging {
                     );
                     return;
                 }
-                // For an empty Queue, use the existing Dedicated Thread's
-                // topology-owned wake with one finite physical-time budget.
-                // Always recheck after timeout or spurious/coalesced wake.
-                const auto waited = context.WaitFor(
-                    Threading::Duration::FromNanoseconds(TIdleWaitNanoseconds)
-                );
+                if (context.IsStopRequested()) {
+                    break;
+                }
+                const auto serviced = ServiceSinks();
+                if (serviced.Status == CoordinatorSinkServiceStatus::RecoveryRequired) {
+                    _report->Exit.store(
+                        DedicatedCoordinatorExit::SinkServiceRecoveryRequired,
+                        std::memory_order_release
+                    );
+                    return;
+                }
+                if (quantum.Status == CoordinatorQuantumStatus::BudgetConsumed) {
+                    continue;
+                }
+                // One existing topology-owned wake: pending sinks use their
+                // earliest canonical absolute deadline; an empty sink set keeps
+                // the prior finite idle fallback. No extra waiter or timer.
+                const auto waited = serviced.NextDeadline.has_value()
+                    ? context.WaitUntil(*serviced.NextDeadline)
+                    : context.WaitFor(
+                        Threading::Duration::FromNanoseconds(TIdleWaitNanoseconds)
+                    );
                 if (waited == Threading::ThreadWaitResult::ProviderFailure &&
                     !context.IsStopRequested()) {
                     _report->Exit.store(

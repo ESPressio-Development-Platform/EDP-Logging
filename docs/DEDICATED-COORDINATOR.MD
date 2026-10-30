@@ -120,3 +120,15 @@ Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
 reclamation contract. Host coverage uses one sole sink across direct
 drain, finite quantum and DedicatedCoordinator stop/wake. No durability
 or physical-transport claim follows from sink acceptance.
+
+## Optional ordinary sink service (2026-10-30)
+
+See [Coordinator sink service](COORDINATOR-SINK-SERVICE.MD) for the
+implemented optional ServiceCoordinator contract, earliest canonical
+WaitUntil deadline, consumed-once per-sink durable completion report and
+SinkServiceRecoveryRequired exit. New report counters are
+DurableSinkCompletions and SinkServiceFailures. The existing worker and
+queue are reused. The historical fixed WaitFor description above applies
+when no sink offers a pending deadline. Native batched worker qualification
+is pending. Original-flash restoration mentioned in historical HIL notes
+is waived by the user's explicit current disposable-firmware instruction.
