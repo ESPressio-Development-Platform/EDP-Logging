@@ -179,3 +179,54 @@ whole seals, frame CRCs and official NVS CRC ACK4. Fresh GPIO17 OFF 8.220 s with
 matching native/ROM power-on reset is POR_CONFIRMED. Same verifier and explicit
 100 ms dwell, larger 16384 B body cap; this is a synchronous burst sample, not
 a scheduled workload or endurance qualification. Full details are in the contract.
+
+## Managed batch worker fixture and discovered contention gap (30 October)
+
+Environment esp32dev-batch-worker composes the existing DedicatedCoordinator,
+EDP-Memory source/representation pools, canonical transactional queue,
+generated typed delivery, BoundedEdlsBatch64 and actual LittleFS/NVS.
+Two EDP-Threading Dedicated Thread producers use separate admission slots
+and opposite native cores. Clock and ThreadContext use the same bound
+EspTimer MonotonicClock instance. Source queue capacity128, source pool130,
+encoded pool1; worker stack8192, producer stacks4096 each, main8192.
+
+Intended phases are160 concurrent attempts against a stopped consumer
+(128 RAM publications and32 finite pre-Memory capacity refusals), existing
+worker drain, one100ms partial batch with no later input, then2000 records
+scheduled across two50Hz producers. Original source coordinates are
+retained only as test telemetry; final media replay reconstructs all15
+fields and compares canonical bytes. The independent worker raw audit
+reuses shared sealed/typed parsers plus the official NVS CRC parser.
+
+This fixture is NOT physically qualified. First native build
+20261030T160526-2f2b24bb failed a test telemetry unsigned/uint32_t mismatch.
+Corrected build20261030T160913-62a706bd passed; first physical
+20261030T161030-bcd6a9dd failed during phase1 after verified firmware/seed
+and a full2MiB backup. No idle/scheduled result or raw audit followed.
+Exact diagnostic build20261030T161857-423afcb6 passed without the earlier
+internal-linkage warning. Diagnostic physical20261030T162046-198ff12f
+again failed, now proving producer statusCommitFailed9, queue Busy3,
+reservation_active1 after successful admission. Existing Commit uses a
+NoWait queue mutex, so ordinary concurrent contention is observable as
+an unpublished reservation that still needs resolution. Do not hide this
+by dropping ownership or retrying an uncertain mutation. Target powered
+OFF via runner trap; both private evidence roots are preserved.
+
+Next production work must extend/reuse bounded transitions on this SAME
+queue, preserve the original NoWait APIs and canonical deadline ownership,
+and retain every reservation/claim on uncertain release. No new Memory
+capability, queue, mutex or worker is proposed. Native idle/scheduled and
+power-loss/resource gates remain open.
+
+The shared monitor now verifies guarded power-on BEFORE opening UART.
+84 independent controller/media/power-order negative tests passed on
+RPI400 in20261030T162116-08ae965d, plus shell syntax. A mock UART PASS
+printed by the unit test is not a physical worker result.
+
+run_edls_provider_profile.sh defaults to EDP_PROFILE_BACKUP_POLICY=full.
+Explicit disposable skips the backup only when the operator has already
+authorized disposable target firmware; firmware/seed digest verification,
+raw-media audits, controller power guard and power-off traps remain.
+The current user explicitly waived preservation/restoration of attached
+ESP32 firmware, so diagnostic repeat02 used disposable and logged that
+waiver. This does not waive any durability or electrical-cut criterion.

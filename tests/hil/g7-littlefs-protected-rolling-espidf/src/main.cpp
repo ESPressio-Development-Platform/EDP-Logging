@@ -112,6 +112,9 @@ static void ExpectPair(Store& store,
 #include "typed_archive_probe.hpp"
 #if defined(EDP_TEST_SEALED_BATCH)
 #include "sealed_batch_probe.hpp"
+#if defined(EDP_TEST_BATCH_WORKER)
+#include "batch_worker_probe.hpp"
+#endif
 #endif
 #endif
 #if defined(EDP_TEST_TYPED_STRICT_ACK)
@@ -297,6 +300,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_BATCH_WORKER)
+    BatchWorkerHIL::Run(storage,byteOps,session,phase);
+#endif
 #if defined(EDP_TEST_SEALED_BATCH)
     RunSealedBatchHIL(storage,byteOps,reset,session,phase,armed);
 #endif

@@ -436,3 +436,14 @@ selects the one canonical origin and concrete providers. No default
 umbrella import, SDK, extra worker/queue/timer/allocator, reverse dependency
 or version change is introduced. Native provider bindings remain solely
 application/test dependencies. All packages stay 0.1.0.
+
+## Native managed batch worker fixture (test/bootstrap only)
+
+The g7 esp32dev-batch-worker environment explicitly selects existing
+EDP-Platform-FreeRTOS Signal/Mutex, EDP-Platform-ESP-IDF execution/spinlock,
+portable Memory resource and the existing Threading topology. It reuses
+all optional domain dependencies already declared for source production,
+typed delivery and batching. No concrete SDK import enters production
+Logging; no competing queue, worker, timer, allocator or reverse edge is
+added. Native concurrent qualification is pending after a confirmed
+NoWait queue Commit Busy result; versions remain0.1.0.

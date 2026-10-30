@@ -10,6 +10,7 @@ import serial
 
 CONTROL="/srv/espressio/bin/esp32-integrated"
 PATTERNS={
+    "batch-worker": re.compile(r"EDP_WORKER\|PASS\|scheduled_records=2000\|producers=2\|target_rps=100\|"),
     "single-record": re.compile(r"EDP_PROFILE\|PASS\|count=256\|ack=256\|window=255,256\|"),
     "sealed-batch": re.compile(r"EDP_BATCH\|PASS\|records=256\|ack_segment=16\|window=15,16\|first=225\|last=256\|"),
     "sealed-batch-64": re.compile(r"EDP_BATCH\|PASS\|records=256\|ack_segment=4\|window=3,4\|first=129\|last=256\|"),
@@ -29,9 +30,9 @@ def main(directory: str) -> int:
     root=Path(directory)
     root.mkdir(parents=True,exist_ok=False)
     start=time.monotonic()
+    control("power-on",expected_power="ON")
     with serial.Serial("/dev/serial0",115200,timeout=0.2) as uart:
         uart.reset_input_buffer()
-        control("power-on",expected_power="ON")
         control("release")
         with (root/"serial.txt").open("w",encoding="utf-8") as transcript:
             while time.monotonic()-start<900:
@@ -40,7 +41,7 @@ def main(directory: str) -> int:
                 line=packet.decode("utf-8","replace").strip()
                 transcript.write(line+"\n")
                 transcript.flush()
-                if "EDP_PROFILE|" in line or "EDP_BATCH|" in line or "EDP_EDLS|HALT|" in line:
+                if "EDP_PROFILE|" in line or "EDP_BATCH|" in line or "EDP_WORKER|" in line or "EDP_EDLS|HALT|" in line:
                     print("UART|"+line,flush=True)
                 if "EDP_EDLS|HALT|" in line:
                     return 1

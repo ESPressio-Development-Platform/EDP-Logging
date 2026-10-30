@@ -21,7 +21,7 @@ ARGS = [0x01020304,0x0102030405060708]
 FINGERPRINT = [197,113,70,141,242,104,131,221,93,63,240,70,7,164,83,169]
 EXPECTED_FIELDS = set(range(15)) - {7}
 
-def verify_record(packet: Frame, ticket: int) -> tuple[int, ...]:
+def verify_record(packet: Frame, ticket: int, *, monotonic_ns: int|None=None) -> tuple[int, ...]:
     if packet.codec != FrameCodec.Cbor or packet.recovered_candidate:
         raise ValueError("noncanonical or recovered EDLG frame")
     envelope=inspect_typed_envelope(packet.payload,FrameCodec.Cbor)
@@ -37,7 +37,8 @@ def verify_record(packet: Frame, ticket: int) -> tuple[int, ...]:
         raise ValueError("source DeviceIdentifier or incarnation mismatch")
     if fields[4]!=ticket or fields[5]!=16:
         raise ValueError("attempt ticket or sequence width mismatch")
-    if fields[6]!=123456+ticket or fields[8]!=0 or fields[9]!=0:
+    expected_monotonic=123456+ticket if monotonic_ns is None else monotonic_ns
+    if fields[6]!=expected_monotonic or fields[8]!=0 or fields[9]!=0:
         raise ValueError("monotonic or absent synchronized-clock evidence mismatch")
     if fields[10]!=4294967295 or fields[11]!=[1,0]:
         raise ValueError("owner clock uncertainty or provenance mismatch")
