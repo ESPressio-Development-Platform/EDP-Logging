@@ -170,3 +170,12 @@ The 256-record workload ACKs four segments and retains original tickets
 its complete unACKed third segment. Select profile64 or power-cut64 in the raw
 auditor; it checks every one of the 64 original frames per retained segment.
 See the batching contract for current results, resource budgets and limitations.
+
+64-record physical sequence 20261030T145734-fce800f4 PASS: 256 durable original
+records across four segment ACKs, 132.828 records/s, p50 512326 us / p99 590018 us,
+sampled min heap 241848 B / stack headroom 3076 B. Independent profile and
+post-cut raw audits verify all 64 records in each retained segment 3/4 (129..256),
+whole seals, frame CRCs and official NVS CRC ACK4. Fresh GPIO17 OFF 8.220 s with
+matching native/ROM power-on reset is POR_CONFIRMED. Same verifier and explicit
+100 ms dwell, larger 16384 B body cap; this is a synchronous burst sample, not
+a scheduled workload or endurance qualification. Full details are in the contract.

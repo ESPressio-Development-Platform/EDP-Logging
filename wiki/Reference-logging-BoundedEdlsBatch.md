@@ -32,3 +32,11 @@ The complete segment read change also passed its fresh GPIO17 8.222 s cut and
 independent post-cut raw-media audit in 20261030T141936-ad0f5730, retaining both
 complete sealed segments 3/4, original records 33..64 and NVS ACK4. See the
 normative contract for honest reset classification and remaining gates.
+
+Existing upper-bound 64-record native configuration also passes compile, host
+UBSan, independent media and a fresh 8.220 s POR-confirmed cut. The synchronous
+256-record sample measures 132.828 durable records/s, p50 512326 us and p99
+590018 us, sampled min heap 241848 B. It retains up to 128 records in two
+segments, versus the 16-record fixture's 32. Dwell remains explicitly 100 ms.
+These resource/latency/retention trade-offs and exact hashes are in the contract;
+scheduled sustained ingestion and complete production remain unqualified.

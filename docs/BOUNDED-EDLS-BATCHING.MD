@@ -412,3 +412,55 @@ sequence 20261030T145734-fce800f4 waits for that PASS before provisioning, then
 runs the 64-record benchmark, independent raw profile audit, fresh electrical
 cut and independent post-cut raw audit. Physical outcomes remain pending at
 this source checkpoint; no 64-record throughput/resource result is inferred.
+
+### 64-record actual native measurement and electrical qualification
+
+Detached sequence **20261030T145734-fce800f4 PASS** waited for all four native
+builds, then completed verified provisioning, the 256-record profile, independent
+profile media audit, a fresh electrical cut and independent post-cut media audit.
+
+| Measurement | 16-record bound | 64-record bound |
+|---|---:|---:|
+| Durable original records | 256 | 256 |
+| Strict NVS segment ACKs | 16 | 4 |
+| Total workload time | 4.953522 s | 1.927310 s |
+| Durable record throughput | 51.680 records/s | 132.828 records/s |
+| Admission-to-ACK p50 | 300615 us | 512326 us |
+| Admission-to-ACK p99 | 479627 us | 590018 us |
+| Sampled minimum free heap | 278896 B | 241848 B |
+| Sampled main-task stack headroom | 3056 B | 3076 B |
+| Explicit accumulation dwell | 100 ms | 100 ms |
+| Retained original tickets | 225..256 | 129..256 |
+
+The 64-record bound uses 37048 B less sampled free heap and retains up to 128
+records instead of 32, while increasing full-batch acknowledgment latency.
+The measured burst workload exceeds 100 durable records/s; it is not scheduled
+sustained ingestion, a full product memory budget or an endurance result.
+
+64-profile factory SHA256:
+7dff9366b547176b0e6d529ae954f0bad476921b61027d515a5811b100422763.
+Independent actual profile LittleFS SHA256:
+41b8560c7510e580355806258b9919dba604fe9721f3af5d9703c83e2d858a38.
+Actual profile NVS SHA256:
+51757d6b012b1ae4687ae43556abfc15ea58e1747684ca7869ea9bea738f723f.
+Both retained segments 3/4 contain 64 complete original typed frames each,
+tickets 129..256, with whole-seal/EDLG CRC and official NVS CRC ACK4.
+
+64-cut factory SHA256:
+1cc760f62bc5ccbc906ba2f44d1ba757b89450a275c29ecbaa7e61b5a4a50652.
+The fresh controller-confirmed OFF interval was **8.220 s**. Native reset 1
+and ROM POWERON_RESET 1 agree, so this run is honestly **POR_CONFIRMED**.
+NVS ACK2 and both complete protected 64-record segments survived the complete
+unACKed third candidate; recovery then strictly committed 3/4.
+Separate post-cut actual LittleFS SHA256:
+6a36d579f661e86eb7161dca5b59a975897e809fc42aecbd27571d574b5c3141.
+Actual NVS SHA256:
+733eb3e7f94cbbd3f9673c19d8b3d2bce6403b21a3a91112c2d8307a383b98ac.
+Every original retained record 129..256/all 15 fields, full seals/frame CRCs
+and official NVS page/entry/blob CRC ACK4 passed independent parsing.
+
+Raw media, original failed attempts and earlier configurations remain private
+and intact. ESP32 exited powered OFF. There is no automatic in-place history
+migration: Bootstrap must establish compatible archive provenance and bounds
+when choosing a configuration. Remaining scheduled-worker, physical write/GC,
+capacity/endurance and three-target demo gates stay open.
