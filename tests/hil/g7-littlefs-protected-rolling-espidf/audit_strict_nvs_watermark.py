@@ -68,7 +68,7 @@ def audit(media: bytes, namespace: str, expected_ack: int,
         raise ValueError("NVS EDLS watermark blob size or chunk structure invalid")
     payload=b"".join(bytes(child.raw) for child in chunk.children)[:40]
     h=parse_segment_header(payload)
-    if (h.slot,h.generation,h.incarnation,h.device_identifier)!=(
+    if h.profile!=0 or (h.slot,h.generation,h.incarnation,h.device_identifier)!=(
         0,expected_ack+1,expected_incarnation,bytes([0xA6])*16
     ):
         raise ValueError(

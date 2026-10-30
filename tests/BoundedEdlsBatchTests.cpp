@@ -244,6 +244,29 @@ namespace {
         assert(owner.Recover(f.Scratch).Status == L::EdlsAcknowledgedStatus::ArchiveAmbiguous);
     }
 
+    /// The unchanged NVS ledger representation cannot adopt a file-body profile.
+    void WatermarkProfileIsIndependent() {
+        Fixture f{};
+        const auto identity = MakeIdentity();
+        Archive owner(f.Storage, f.Watermark, Paths, Key.Value, identity, 7U);
+        assert(owner.InitializeEmpty().Status == L::EdlsAcknowledgedStatus::Initialized);
+        auto ledgerBytes = std::span<std::byte>(f.Watermark.bytes[0U]).first(L::EdlsHeaderBytes);
+        L::EdlsHeader header{};
+        assert(L::ReadEdlsHeader(ledgerBytes, header) == L::EdlsHeaderStatus::Succeeded);
+        header.Profile = L::EdlsContentProfile::SealedFrames;
+        assert(L::WriteEdlsHeader(header, ledgerBytes) == L::EdlsHeaderStatus::Succeeded);
+        const auto stores = f.Watermark.stores;
+        assert(owner.Read().Status == L::EdlsAcknowledgedStatus::InvalidWatermark);
+        assert(owner.Recover(f.Scratch).Status == L::EdlsAcknowledgedStatus::InvalidWatermark);
+        assert(f.Watermark.stores == stores);
+        for (const auto path : Paths) {
+            assert(f.Storage.GetFileSize(path).Status == P::FileSizeStatus::NotFound);
+        }
+        header.Profile = L::EdlsContentProfile::Unsealed;
+        assert(L::WriteEdlsHeader(header, ledgerBytes) == L::EdlsHeaderStatus::Succeeded);
+        assert(owner.Read().Status == L::EdlsAcknowledgedStatus::Ready);
+    }
+
     /// Input refusal, capacity bounds and canonical clock overflow/regression.
     void RefusalAndClock() {
         Fixture f{};
@@ -332,6 +355,7 @@ namespace {
 
 int main() {
     TimingAndRetention();
+    WatermarkProfileIsIndependent();
     RefusalAndClock();
     FailedAndUncertainAcknowledgement();
     std::puts("SEALED_EDLS_BATCH_TIMING_RETENTION_NEGATIVES=PASS");

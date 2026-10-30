@@ -95,3 +95,59 @@ RPI400 user-authorised ESP32-WROOM-32 native ESP-IDF 5.5.5 test-only `esp32dev-t
 ## Exact physical provider operation bottleneck profiling (28 October 2026)
 
 New compile-only test environment `esp32dev-typed-strict-profile` and `build_edls_provider_profile.sh` use the existing EDP-Localisation owner-generated 15-field contract and existing strict EDLS/NVS algorithm **unchanged**, substituting only nonallocating timed test-only Persistence proxies under the same static provider contracts. No log emission occurs during a measured `Publish` call. `run_edls_provider_profile.sh` makes a fresh verified 2 MiB device backup, flashes verified factory binary + LittleFS seed, runs 256 records and retains a UART transcript under a unique private evidence root. `summarise_provider_profile.py` validates the resulting counts/timers and prints a sorted read/write/NVS table. Independent physical LittleFS/NVS flash readbacks use the existing typed EDLS and official Espressif NVS auditors. The 28 October native profiler run `20261028T173305-6d2590ff` PASS, raw audit `20261028T174032-c580c906` PASS; see [measurement report](../../../docs/EDLS-PUBLISH-256-RECORD-PROVIDER-LATENCY-2026-10-28.MD). Production libraries unchanged; all 0.1.0.
+
+## Configurable sealed 16-record native fixture (30 October 2026)
+
+The optional `esp32dev-sealed-batch` environment composes the existing
+BoundedEdlsBatch, PowerLossAcknowledgedEdls, canonical Clock MonotonicClockProvider
+and the EDP-Platform-ESP-IDF EspTimerMonotonicTimebaseProvider at the native test
+Bootstrap. It uses the same owner-generated fifteen-field TypedEnvelope CBOR
+fixture. Each source record keeps its own attempt ticket. One strict NVS ACK
+names a sealed SEGMENT of 16 records; it never names an individual record.
+Physical geometry is three names, two protected segments, at most 4096 framed
+body bytes plus a 40-byte header and 16-byte completion seal. Archive/readback
+scratch and the bounded batch storage are static, outside the 8192-byte task stack.
+
+Build using the existing typed-fixture helper with
+`EDP_LFS_BUILD_ENV=esp32dev-sealed-batch bash build_typed_strict.sh`.
+The additional native-only dependency is EDP-Platform-ESP-IDF at
+`adc4164031016c200ad88d742fc4f05c86d66833`; its exact timebase header blob is
+`d5b5709be51f0dd8814a743c0c68546ecdb49ad0`. No native dependency is added to
+neutral production Logging headers.
+
+The benchmark calls ConfigureDwell with an explicit 100ms duration, admits 16
+records without a durable acknowledgment, then services one full batch. It
+counts 256 individually verified durable record completions across 16 segment
+commits. Record latency is measured from RAM admission to the completed strict
+commit using the canonical Clock. Dwell limits intentional accumulation; it
+does not promise 100ms overall durable completion. The library supports explicit
+zero or shorter dwell settings; this test selects 100ms. This is a synchronous
+one-task benchmark, not scheduled multi-producer qualification.
+
+Use the existing physical runner with EDP_PROFILE_BUILD_ENV=esp32dev-sealed-batch,
+EDP_PROFILE_AGENT_ID set to the held exclusive lock owner and
+EDP_PROFILE_EVIDENCE_DIR set to a unique nonexisting private absolute path.
+The runner retains the full-chip backup, exact verified firmware and seed
+images, actual 8192-byte stack preflight and exit-to-OFF trap. The existing UART
+monitor selects the sealed receipt only for this explicit environment.
+
+The `esp32dev-sealed-batch-cut` environment first strictly ACKs segment1 and
+segment2 (records1..32). It writes and independently verifies complete sealed
+segment3 (records33..48) in the empty spare, while NVS still says ACK2. The
+existing relay runner/monitor uses EDP_LFS_CUT_STAGE=typed_ack_gap and
+EDP_LFS_BUILD_ENV=esp32dev-sealed-batch-cut. After the externally verified GPIO17
+cut, firmware requires intact protected segments1/2 and the complete unACKed
+candidate. Only the existing strict archive Recover removes that candidate.
+New strict commits3/4 must retain records33..64. The same original record bytes
+are reconstructed and compared for every physical frame. Physical cut
+classification remains separate from ROM/app reset classification.
+
+After either physical run, execute `bash run_sealed_batch_raw_audit.sh` with
+the same EDP_PROFILE_AGENT_ID / EDP_PROFILE_EVIDENCE_DIR and
+EDP_BATCH_AUDIT_KIND=profile or power-cut. This separately reads actual raw
+LittleFS and NVS, extracts without repair, checks the whole EDLS/EDLC seal and
+every EDLG CRC, validates every permanent typed field against independent golden
+values, and uses Espressif's official NVS page/entry/blob CRC parser. Expected
+windows are segments15/16 (records225..256) or segments3/4 (records33..64).
+Raw images and UART remain private. Test outcomes and exact run IDs are recorded
+in the living handoff; a build alone is not physical qualification.

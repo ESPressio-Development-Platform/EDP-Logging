@@ -9,7 +9,10 @@ import time
 import serial
 
 CONTROL="/srv/espressio/bin/esp32-integrated"
-PASS=re.compile(r"EDP_PROFILE\|PASS\|count=256\|ack=256\|window=255,256\|")
+PATTERNS={
+    "single-record": re.compile(r"EDP_PROFILE\|PASS\|count=256\|ack=256\|window=255,256\|"),
+    "sealed-batch": re.compile(r"EDP_BATCH\|PASS\|records=256\|ack_segment=16\|window=15,16\|first=225\|last=256\|"),
+}
 
 def control(command: str, *, expected_power: str|None=None) -> str:
     p=subprocess.run([CONTROL,command],text=True,capture_output=True,
@@ -21,6 +24,7 @@ def control(command: str, *, expected_power: str|None=None) -> str:
     return out
 
 def main(directory: str) -> int:
+    pattern=PATTERNS[os.environ.get("EDP_PROFILE_KIND","single-record")]
     root=Path(directory)
     root.mkdir(parents=True,exist_ok=False)
     start=time.monotonic()
@@ -35,11 +39,11 @@ def main(directory: str) -> int:
                 line=packet.decode("utf-8","replace").strip()
                 transcript.write(line+"\n")
                 transcript.flush()
-                if "EDP_PROFILE|" in line or "EDP_EDLS|HALT|" in line:
+                if "EDP_PROFILE|" in line or "EDP_BATCH|" in line or "EDP_EDLS|HALT|" in line:
                     print("UART|"+line,flush=True)
                 if "EDP_EDLS|HALT|" in line:
                     return 1
-                if PASS.search(line):
+                if pattern.search(line):
                     print(f"HOST|PROFILE_QUALIFICATION=PASS|elapsed_s={time.monotonic()-start:.3f}",
                           flush=True)
                     return 0

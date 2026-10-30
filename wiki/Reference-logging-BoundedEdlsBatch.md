@@ -9,3 +9,9 @@ ConfigureDwell validates zero or finite dwell only while empty. Offer copies one
 Configuration outcomes: Configured valid; InvalidDwell negative/over-limit; PendingBatch refuses deadline extension; RecoveryRequired sticky failure; InsufficientScratch rejects invalid resource budget. Operation outcomes: Buffered admitted; FlushRequired unconsumed capacity/deadline refusal; Waiting not due; Empty no work; NotConfigured no Bootstrap policy; InvalidFrame malformed/non-CBOR; FrameTooLarge over-capacity; ClockRangeExhausted prevents deadline wrap; ClockRegressed fails closed; DurablyAcknowledged reports complete segment+NVS ACK; DurablyAcknowledgedPendingRetirement preserves ACK despite cleanup lag; RecoveryRequired prohibits blind retries after uncertainty.
 
 Private archive_, clock_ and scratch_ are lifetime-stable borrows. bytes_ owns copied frames, records_ authoritative count, first_ current deadline origin, dwell_/configured_ Bootstrap policy, recoveryRequired_ sticky terminal guard. Observe builds non-ACK progress; IsDue is a pure predicate. Flush clears frames/count only after confirmed durable ACK. Unknown outcome retains bytes, returns zero ACK and blocks retries until Bootstrap reconciles archive and reconstructs the accumulator. No allocator/task/timer/filesystem is created. Host real-VFS/fake-NVS tests and exact negative contracts live in BoundedEdlsBatchTests.cpp; physical/scheduled-worker evidence is recorded separately.
+
+Native synchronous 16-record profile: 256 durable record completions, 16 strict
+NVS segment ACKs, 5.189 records/s. Independent physical raw LittleFS/NVS audit
+passed on 30 October. Full measurements and qualification limits are in the
+normative contract. Scheduled multi-producer use and 100 records/s remain
+unqualified.

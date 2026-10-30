@@ -1,8 +1,8 @@
 # Configurable bounded EDLS record batching
 
-Status: feature/logging-v1, version 0.1.0. Initial host-qualified implementation.
-Native ESP32 performance, real relay-cut recovery and scheduled multi-producer
-qualification are separate gates and are not claimed by host compilation.
+Status: feature/logging-v1, version 0.1.0. Host-qualified implementation plus
+a native synchronous ESP32 benchmark and independent raw-media audit. Real
+relay-cut recovery and scheduled multi-producer qualification remain separate gates.
 
 ## Ownership and finite capacity
 
@@ -103,6 +103,8 @@ ReadEdlsHeader rejects unknown profiles. Ordinary single-frame callers still
 write profile 0. PublishBatch with MaximumFrames greater than one writes profile
 1 even when a partial batch contains only one record. No automatic migration or
 retroactive ACK provenance is introduced. Old decoders reject the new profile.
+The independent 40-byte NVS watermark always keeps profile 0; a sealed-file
+profile in the ledger is InvalidWatermark even with a valid header CRC.
 
 The last 16 bytes of a sealed segment are:
 
@@ -155,8 +157,90 @@ Python sealed-owner/tooling and 64 existing HIL controller negatives:
 20261030T130912-034c600a PASS. The subsequent CLI-specific run is recorded in
 the living handoff after completion. No hosted Actions execution is relied on.
 
-Next gates are native compile/runtime with real NVS/LittleFS, independent
-typed CBOR and raw media seal/NVS audit, real VDD cuts at unACKed and retirement
-boundaries, finite scheduled multi-producer worker/backpressure, physical
-capacity/GC and flash endurance. No throughput or complete production claim
-follows from this initial implementation.
+Remaining gates include real VDD cuts at unACKed and retirement boundaries,
+finite scheduled multi-producer worker/backpressure, physical capacity/GC and
+flash endurance. The following native result is a bounded measurement, not
+complete production qualification.
+
+## Initial native 16-record measurement, 30 October 2026
+
+Native ESP32-WROOM ESP-IDF 5.5.5 build 20261030T132959-fb355990 passed after the
+explicit NVS watermark profile guard and complete original-record comparison.
+Factory SHA256: 04543343d5e30f3fa70b994f7eedbb4c0e160a435c4e701f739aeebd6e639909.
+The actual main-task stack configuration was 8192 B.
+
+Physical run 20261030T133316-98a7a8dc passed with verified firmware and LittleFS
+seed after a fresh 2 MiB backup. One synchronous task generated 256 individual
+typed CBOR records, admitted 16 per batch and completed 16 strict NVS segment
+commits.
+
+| Measurement | Initial sealed-batch result |
+|---|---:|
+| Durable record completions | 256 |
+| Strict NVS-ACKed segments | 16 |
+| Total workload time | 49.339880 s |
+| Durable record throughput | 5.189 records/s |
+| Admission-to-ACK p50 | 3383535 us |
+| Admission-to-ACK p99 | 4581894 us |
+| Sampled minimum free heap | 278896 B |
+| Sampled minimum main-task stack headroom | 3040 B |
+| Explicit accumulation dwell | 100000000 ns |
+| Retained segment window | 15,16 |
+| Retained original record tickets | 225..256 |
+
+RAM admission did not ACK. Every final retained physical frame was compared
+against its original generated record encoding. The existing per-record
+instrumented benchmark measured 1.970 records/s; these different workload and
+instrumentation profiles are not an isolated measurement of one algorithmic
+change. The initial batch profile still makes per-frame filesystem reads during
+each mandatory inspection and does not meet a 100 records/s aspiration.
+The reported p50 uses the upper median; p99 uses sorted sample index 253.
+
+First physical attempt 20261030T133157-043959a1 failed during read-only full-chip
+backup: the UART data stream stopped at approximately 220 KiB. It never flashed.
+The exit trap powered OFF. The fresh-directory retry passed without changing
+baud or weakening backup/image verification. The root cause of that transient
+UART failure is not established; failed evidence remains private and intact.
+
+Host requalification after the NVS guard: GCC/Clang UBSan batching, existing
+Memory/Threading strict typed Task integration and 70 HIL/audit tests,
+20261030T132958-b210831f PASS. Existing strict NVS/EDLS GCC/Clang UBSan regression,
+20261030T133047-b20f9efd PASS. Native cut-fixture build 20261030T133018-f49c5dd7
+PASS; the physical cut and independent media outcomes are recorded separately
+after they complete.
+
+Independent actual-media audit 20261030T133832-06d04ea6 PASS: whole sealed
+segments 15/16, every retained original record 225..256 with all permanent typed
+fields, and official Espressif NVS page/entry/blob CRC ACK16 in namespace
+batchack, incarnation 7. Physical LittleFS SHA256:
+eca628a62c54d3dc8b71c60caeb4fb60f29f24182b2b3975fe8808597a4210ac.
+Physical NVS SHA256:
+d252f368493957bb31bf938f67865a53f6cf92eff20204c6d265cec518873297.
+Private evidence is retained on RPI400; no raw media or UART is published.
+
+### First cut attempt and corrected terminal protocol
+
+Physical run 20261030T134033-1f8ae8cf is **FAIL**, not a qualified electrical
+acceptance result. GPIO17 OFF/ON was recorded for 8.263 s; firmware booted with
+native reset reason 7, recovered NVS ACK2 and protected segments 1/2, removed only
+the complete unACKed candidate, then verified new segments 3/4. However, this
+fixture emitted a new terminal label SEALED_TYPED_BATCH_NVS_ACK_AFTER_CUT.
+The unchanged shared PostCutEvidence owner recognises the established label
+STRICT_TYPED15_NVS_ACK_AFTER_CUT, so the controller correctly timed out with
+exit 6 and the runner failed. Its acceptance rules were not relaxed.
+
+Independent actual raw-media audit 20261030T134734-1adc2de5 PASS nevertheless
+confirmed every retained record 33..64, complete sealed segments 3/4 and official
+NVS page/entry/blob CRC ACK4. This proves the resulting media, not a retroactive
+PASS for the failed controller run. LittleFS SHA256:
+9f27a0628fd6163db51ffb87d65f1af76a6c1747a233912505a53e736526501e.
+NVS SHA256:
+733eb3e7f94cbbd3f9673c19d8b3d2bce6403b21a3a91112c2d8307a383b98ac.
+
+The test-only firmware now reuses the established strict typed completion
+label; the separate EDP_BATCH replay receipt still identifies 16 records per
+segment. No production path or host qualification predicate changed.
+Corrected native build 20261030T134734-937d4516 PASS, factory SHA256:
+61c26e23821b28b0de902634649eb7392544b3c3e077dfb65fc52c52a7d6a0cf.
+A fresh physical repeat and independent audit are required before that gate
+can pass.

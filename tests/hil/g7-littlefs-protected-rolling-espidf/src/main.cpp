@@ -110,6 +110,9 @@ static void ExpectPair(Store& store,
 
 #if defined(EDP_TEST_TYPED_ARCHIVE) || defined(EDP_TEST_TYPED_STRICT_ACK) || defined(EDP_TEST_TYPED_STRICT_LOAD) || defined(EDP_TEST_TYPED_STRICT_PROFILE)
 #include "typed_archive_probe.hpp"
+#if defined(EDP_TEST_SEALED_BATCH)
+#include "sealed_batch_probe.hpp"
+#endif
 #endif
 #if defined(EDP_TEST_TYPED_STRICT_ACK)
 #include "typed_strict_ack_probe.hpp"
@@ -294,6 +297,9 @@ extern "C" void app_main() {
         "TEST_PARTITION_SEED_INVALID");
 
     DeviceIdentifier.fill(std::byte{0xA6U});
+#if defined(EDP_TEST_SEALED_BATCH)
+    RunSealedBatchHIL(storage,byteOps,reset,session,phase,armed);
+#endif
 #if defined(EDP_TEST_TYPED_STRICT_LOAD)
     nvs_close(session);
     RunTypedStrictLoadHIL(storage,byteOps,phase);

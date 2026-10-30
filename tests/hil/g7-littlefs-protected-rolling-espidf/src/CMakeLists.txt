@@ -19,5 +19,6 @@ target_include_directories(
       "../../../../../EDP-Serialisation/src"
       "../../../../../EDP-Localisation/src"
       "../../../../../EDP-Clock/src"
+      "../../../../../EDP-Platform-ESP-IDF/src"
       "${CMAKE_CURRENT_SOURCE_DIR}/generated"
 )

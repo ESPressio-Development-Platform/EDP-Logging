@@ -411,3 +411,15 @@ Revalidated 2026-10-30: post-retirement duplicate scan removal changes no includ
 ## Optional bounded EDLS batching (30 October 2026)
 
 Including logging/BoundedEdlsBatch.hpp directly consumes EDP-BoundedTypes and EDP-Clock plus existing strict-archive EDP-Persistence/System. Bytes owns the inline finite frame buffer and consumes EDP-Memory and its existing portable default provider. No mandatory dependency is added to the minimal umbrella, nor a concrete SDK/Mesh/Serial edge. Application-selected Threading scheduling remains external. Existing transitive graphs above were revalidated for these headers.
+
+## Native sealed-batch HIL Clock binding (2026-10-30)
+
+Only the optional tests/hil/g7-littlefs-protected-rolling-espidf sealed-batch
+APPLICATION adds EDP-Platform-ESP-IDF at adc4164031016c200ad88d742fc4f05c86d66833.
+Bootstrap composes its existing EspTimerMonotonicTimebaseProvider with the
+canonical EDP-Clock MonotonicClockProvider; this is not a Logging timer/Clock
+implementation or a neutral production dependency. The exact consumed timebase
+header blob is d5b5709be51f0dd8814a743c0c68546ecdb49ad0. Existing optional
+BoundedEdlsBatch abstract owner dependencies and the default umbrella are
+unchanged. The native compile workflow records this additional checkout pin;
+physical execution and all test coverage run on the authorised appliance.

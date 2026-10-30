@@ -171,6 +171,7 @@ namespace ESPressio::Logging {
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
             EdlsHeader decoded{};
             if(ReadEdlsHeader(bytes,decoded)!=EdlsHeaderStatus::Succeeded ||
+               decoded.Profile!=EdlsContentProfile::Unsealed ||
                decoded.Slot!=0U ||
                decoded.DeviceIdentifier!=identity_)
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
