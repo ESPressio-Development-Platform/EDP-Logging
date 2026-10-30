@@ -191,17 +191,111 @@ namespace {
             unsigned Offered{0U};
             /// Consumed-once count of records with an independently confirmed strict archive ACK.
             unsigned Confirmed{0U};
+
+            // Current-phase wall-time observations; only the existing coordinator writes these.
+
+            /// Phase whose ordinary-context samples are currently accumulated.
+            unsigned ProfilePhase{0U};
+            /// Generated source encoder calls in the current phase.
+            std::uint64_t EncoderCalls{0U};
+            /// Encoder elapsed wall nanoseconds, including any scheduling delay.
+            std::uint64_t EncoderWallNs{0U};
+            /// Typed delivery calls without an archive publication.
+            std::uint64_t DeliveryNoFlushCalls{0U};
+            /// Decode/canonical-validation/frame/copy wall time without an archive flush.
+            std::uint64_t DeliveryNoFlushWallNs{0U};
+            /// Typed delivery calls which also observed an archive publication.
+            std::uint64_t DeliveryFlushCalls{0U};
+            /// Delivery wall time including those explicit pressure/dwell publications.
+            std::uint64_t DeliveryFlushWallNs{0U};
+            /// Ordinary service polls in this phase.
+            std::uint64_t ServiceCalls{0U};
+            /// Ordinary service elapsed wall time, including strict archive commits.
+            std::uint64_t ServiceWallNs{0U};
+            /// Total source callback elapsed wall time, including Memory acquire/reclaim.
+            std::uint64_t CallbackWallNs{0U};
+
+            // Same-owner measurement lifecycle; no timer, worker or provider is introduced.
+
+            /// Starts a fresh measurement epoch when Bootstrap advances the test phase.
+            void ObserveProfilePhase() noexcept {
+                const auto phase = Phase.load();
+                if (ProfilePhase == phase) {
+                    return;
+                }
+                ProfilePhase = phase;
+                EncoderCalls = 0U;
+                EncoderWallNs = 0U;
+                DeliveryNoFlushCalls = 0U;
+                DeliveryNoFlushWallNs = 0U;
+                DeliveryFlushCalls = 0U;
+                DeliveryFlushWallNs = 0U;
+                ServiceCalls = 0U;
+                ServiceWallNs = 0U;
+                CallbackWallNs = 0U;
+            }
+
+            /// Bootstrap reads these counters only after actual managed-thread quiescence.
+            void PrintProfile() const noexcept {
+                std::printf(
+                    "EDP_WORKER|WALL_PROFILE|phase=%u|encoder_calls=%llu|encoder_us=%llu"
+                    "|delivery_no_flush_calls=%llu|delivery_no_flush_us=%llu"
+                    "|delivery_flush_calls=%llu|delivery_flush_us=%llu"
+                    "|service_calls=%llu|service_us=%llu|callback_us=%llu\n",
+                    ProfilePhase,
+                    static_cast<unsigned long long>(EncoderCalls),
+                    static_cast<unsigned long long>(EncoderWallNs / 1000U),
+                    static_cast<unsigned long long>(DeliveryNoFlushCalls),
+                    static_cast<unsigned long long>(DeliveryNoFlushWallNs / 1000U),
+                    static_cast<unsigned long long>(DeliveryFlushCalls),
+                    static_cast<unsigned long long>(DeliveryFlushWallNs / 1000U),
+                    static_cast<unsigned long long>(ServiceCalls),
+                    static_cast<unsigned long long>(ServiceWallNs / 1000U),
+                    static_cast<unsigned long long>(CallbackWallNs / 1000U)
+                );
+                std::fflush(stdout);
+            }
+
             /// Encodes once and copies to the existing bounded batch before source retirement.
             L::RecordSinkSubmission operator()(const Source& source) noexcept {
+                ObserveProfilePhase();
+                const auto callbackStarted = C::MonotonicNow().Nanoseconds();
+                auto measuredEncoder = [&](const TypedRecord& record, std::span<std::byte> output) noexcept {
+                    const auto started = C::MonotonicNow().Nanoseconds();
+                    const auto result = (*Encode)(
+                        record,
+                        output
+                    );
+                    EncoderWallNs += C::MonotonicNow().Nanoseconds() - started;
+                    ++EncoderCalls;
+                    return result;
+                };
+                auto measuredDelivery = [&](L::EdlgCodec codec, std::span<const std::byte> input) noexcept {
+                    const auto started = C::MonotonicNow().Nanoseconds();
+                    const auto result = (*Deliver)(
+                        codec,
+                        input
+                    );
+                    const auto elapsed = C::MonotonicNow().Nanoseconds() - started;
+                    if (Deliver->LastAcknowledgement.AcknowledgedGeneration == 0U) {
+                        ++DeliveryNoFlushCalls;
+                        DeliveryNoFlushWallNs += elapsed;
+                    } else {
+                        ++DeliveryFlushCalls;
+                        DeliveryFlushWallNs += elapsed;
+                    }
+                    return result;
+                };
                 WorkerCoreMask.fetch_or(1U << xPortGetCoreID());
                 const auto result =
                     L::EncodeOnceAndSubmitToSinks<L::EdlgCodec::Cbor, 1024U>(
                         *Pool,
                         EncodedLease,
                         source.Value,
-                        *Encode,
-                        *Deliver
+                        measuredEncoder,
+                        measuredDelivery
                     );
+                CallbackWallNs += C::MonotonicNow().Nanoseconds() - callbackStarted;
                 if (result.Status != L::OwnedRepresentationStatus::SubmittedAndReleased) {
                     std::printf(
                         "EDP_WORKER|SINK_FAILURE|ticket=%u|representation=%u|acquisition=%u|"
@@ -225,6 +319,8 @@ namespace {
             }
             /// Services the same batch and records only newly confirmed durable completions.
             L::CoordinatorSinkServiceOutcome ServiceCoordinator() noexcept {
+                ObserveProfilePhase();
+                const auto serviceStarted = C::MonotonicNow().Nanoseconds();
                 const auto serviced = Deliver->ServiceCoordinator();
                 if (serviced.Status == L::CoordinatorSinkServiceStatus::RecoveryRequired) {
                     std::printf(
@@ -235,6 +331,8 @@ namespace {
                     std::fflush(stdout);
                 }
                 const auto now = C::MonotonicNow().Nanoseconds();
+                ServiceWallNs += now - serviceStarted;
+                ++ServiceCalls;
                 for (std::uint64_t n = 0U; n < serviced.DurableSinkCompletions; ++n) {
                     Require(
                         Confirmed < Offered,
@@ -315,6 +413,9 @@ namespace {
                     const unsigned count =
                         phase == 1U ? 80U : (phase == 2U ? (Slot == 0U ? 1U : 0U) : 1000U);
                     for (unsigned index = 0U; index < count; ++index) {
+                        if (context.IsStopRequested()) {
+                            break;
+                        }
                         if (phase == 3U) {
                             const auto due = ScheduleStart.load() + index * 20000000ULL;
                             while (!context.IsStopRequested() &&
@@ -751,28 +852,41 @@ namespace {
                 vTaskDelay(pdMS_TO_TICKS(10U));
             }
             const auto elapsedUs = (LastAckTime.load() - started) / 1000U;
-            std::printf(
-                "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
-                "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
-                Published.load(),
-                Refused.load(),
-                Failures.load(),
-                static_cast<unsigned long long>(report.RecordsRetired.load()),
-                static_cast<unsigned long long>(report.AllSinksAccepted.load()),
-                static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
-                static_cast<unsigned long long>(report.PartialSubmissions.load()),
-                static_cast<unsigned>(report.Exit.load()),
-                CompletedPhase[0U].load(),
-                CompletedPhase[1U].load()
-            );
-            std::fflush(stdout);
-            Require(
-                Failures.load() == 0U && Published.load() == 2129U &&
-                    report.DurableSinkCompletions.load() == 2129U &&
-                    report.RecordsRetired.load() == 2129U &&
-                    report.PartialSubmissions.load() == 0U,
-                "WORKER_SCHEDULED_ALL_DURABLE"
-            );
+
+            const bool isFullyCompleted = Failures.load() == 0U && Published.load() == 2129U &&
+                                          report.DurableSinkCompletions.load() == 2129U &&
+                                          report.RecordsRetired.load() == 2129U && report.PartialSubmissions.load() == 0U;
+            if (!isFullyCompleted) {
+                // Failure disposition is explicit: stop, retain queued/RAM ownership, never infer a flush.
+                (void)first.RequestStop();
+                (void)second.RequestStop();
+                (void)worker->RequestStop();
+                (void)first.Wake();
+                (void)second.Wake();
+                (void)worker->Wake();
+                Await(
+                    [&] { return runtime.IsExecutionQuiescent(); },
+                    5000U,
+                    "WORKER_DIAGNOSTIC_QUIESCENCE"
+                );
+                sink.PrintProfile();
+                std::printf(
+                    "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
+                    "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
+                    Published.load(),
+                    Refused.load(),
+                    Failures.load(),
+                    static_cast<unsigned long long>(report.RecordsRetired.load()),
+                    static_cast<unsigned long long>(report.AllSinksAccepted.load()),
+                    static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
+                    static_cast<unsigned long long>(report.PartialSubmissions.load()),
+                    static_cast<unsigned>(report.Exit.load()),
+                    CompletedPhase[0U].load(),
+                    CompletedPhase[1U].load()
+                );
+                std::fflush(stdout);
+                Halt("WORKER_SCHEDULED_ALL_DURABLE");
+            }
             Require(
                 first.RequestStop() == T::ThreadStopRequestResult::Accepted &&
                     second.RequestStop() == T::ThreadStopRequestResult::Accepted &&
@@ -793,6 +907,22 @@ namespace {
                     StackMargins[1U].load() > 0U && StackMargins[2U].load() > 0U,
                 "WORKER_STOP_REPORT"
             );
+            sink.PrintProfile();
+            std::printf(
+                "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
+                "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
+                Published.load(),
+                Refused.load(),
+                Failures.load(),
+                static_cast<unsigned long long>(report.RecordsRetired.load()),
+                static_cast<unsigned long long>(report.AllSinksAccepted.load()),
+                static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
+                static_cast<unsigned long long>(report.PartialSubmissions.load()),
+                static_cast<unsigned>(report.Exit.load()),
+                CompletedPhase[0U].load(),
+                CompletedPhase[1U].load()
+            );
+            std::fflush(stdout);
             const auto ack = archive.Read().AcknowledgedGeneration;
             VerifyFinalMedia(
                 store,

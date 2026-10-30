@@ -305,3 +305,36 @@ Next measure actual per-stage wall cost and evaluate a supported native
 CPU configuration or an owner-preserving source-path optimisation. Keep
 generic typed validation and all durability checks intact; do not hide
 capacity refusals or claim a successful sustained rate.
+
+## Same-owner stage wall profile,160MHz debug-optimisation baseline
+
+Test-only SourceSink now measures the existing generated encoder,
+generic typed delivery without/with an archive publication, and ordinary
+service, using the SAME canonical Clock. These are wall nanoseconds,
+including scheduling delay; they are not isolated CPU-time measurements.
+No timer/provider, worker, queue, codec or production validation changed.
+
+Native build174316-98a4bddd PASS. Factory SHA256
+8d600af092e17f61da71fb6b62958a2351d34a990ae49a503a399f539338d520.
+Actual physical174416-6c4851cf FAIL at queue-capacity admission as before.
+Pressure128/32 and idle500ms/no-new-input passed (810470us ACK).
+The failure path now explicitly requests all three managed threads stop,
+wakes them, waits for finite actual quiescence and only then reads
+same-owner counters. Pending queue/RAM is retained; no implicit flush.
+
+Scheduled-phase observations after quiescence:
+434 encoder calls,total337854us (~778.5us/call);
+428 delivery calls without archive flush,total753267us (~1760us/call);
+6 flush-bearing delivery calls,total3846770us (~641128us/call);
+66 service polls,total2704us; total callback wall5006745us.
+These are a failed finite sample, not steady throughput or full2000-record
+qualification. Deferred completion deltas may remain in the sink at stop,
+so the report's durable count is a lower bound rather than every committed
+record. No independent worker raw audit ran.
+
+The existing firmware selects160MHz and CONFIG_COMPILER_OPTIMIZATION_DEBUG.
+Actual PlatformIO compile-database run174914-e976a892 PASS confirms the
+application command has -Og twice and no NDEBUG macro. The SDK's supported
+ESP32 Kconfig also permits240MHz, but no CPU change has been made.
+Next measure an explicit -O2 configuration with assertion checks retained,
+before considering any new source-path API or weakened validation.

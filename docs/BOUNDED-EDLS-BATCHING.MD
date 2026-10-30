@@ -484,3 +484,12 @@ The100ms profile also remains unqualified for that sustained target.
 These are retained failed workloads, not throughput claims. Native fixture
 README and the living handoff contain exact runs and forthcoming per-stage
 profiling. Generic typed validation, ACK order and all versions0.1.0 remain.
+
+## Measured native worker cost
+
+The failed500ms/160MHz worker sample now has same-owner wall profiling:
+encoder~778.5us/call, typed delivery without publication~1760us/call and
+flush-bearing delivery~641128us/call. It retains all typed validation.
+The actual application compile command uses -Og; an explicit -O2 build
+with assertions retained is the next controlled configuration experiment.
+See native fixture README for full totals, quiescence and limits.
