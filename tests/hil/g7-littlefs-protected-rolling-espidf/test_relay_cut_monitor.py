@@ -46,7 +46,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                  wrong_off=False, bad_recovery=False,
                  lowspace=False, lowspace_reclaim=False,
                  midwrite=False, strictack=False,
-                 typed_ack_gap=False):
+                 typed_ack_gap=False, sealed_write=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -125,7 +125,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                     "EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n")
                 + "EDP_BND|REPLAY_VERIFIED|STRICT_TWO_PROTECTED_AFTER_REPAIR\n"
             ).encode()
-        if typed_ack_gap:
+        if typed_ack_gap or sealed_write:
             before=(
                 b"rst:0x1 (POWERON_RESET)\n"
                 b"EDP_BND|BOOT|reset=1\n"
@@ -143,6 +143,10 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                    "EDP_BND|RECOVERED|newest=4|older=3|valid=2|contiguous=1\n")
                 + "EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT\n"
             ).encode()
+        if sealed_write:
+            before = before.replace(
+                b"TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1",
+                b"SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2")
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -175,6 +179,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                                       "lowspace" if lowspace else
                                       "midwrite" if midwrite else
                                       "strictack" if strictack else
+                                      "sealed_write" if sealed_write else
                                       "typed_ack_gap" if typed_ack_gap else "write"),
                 "EDP_LFS_OFF_HOLD_S": "8.0",
             }),
@@ -188,6 +193,34 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_invalid_backup_policy_refused_before_hardware(self):
+        import subprocess
+        env = dict(os.environ, EDP_LITTLEFS_AGENT_ID="unit-no-hardware",
+                   EDP_LITTLEFS_EVIDENCE_DIR="/nonexistent/unit-no-hardware",
+                   EDP_LFS_BUILD_ENV="esp32dev-sealed-batch-64-writecut",
+                   EDP_LFS_CUT_STAGE="sealed_write", EDP_LFS_BACKUP_POLICY="invalid")
+        result = subprocess.run(
+            ["bash", str(Path(monitor.__file__).with_name("run_relay_cut_test.sh"))],
+            env=env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Unsupported backup policy", result.stderr)
+
+    def test_sealed_write_activity_controller_cut_and_new_boot(self):
+        code, out, recorded, port = self.exercise(
+            sealed_write=True, native=1, rom="rst:0x1 (POWERON_RESET)")
+        self.assertEqual(code, 0)
+        self.assertEqual(recorded.count("REPLAY_VERIFIED"), 1)
+        self.assertTrue(any("CUT_STAGE=sealed_write" in line for line in out))
+        self.assertTrue(any("QUALIFICATION=POR_CONFIRMED" in line for line in out))
+        self.assertEqual(port.reset_calls, 2)
+        self.assertTrue(port.closed)
+
+    def test_sealed_write_activity_damaged_retention_fails(self):
+        self.assertEqual(self.exercise(sealed_write=True, bad_recovery=True)[0], 4)
+
+    def test_sealed_write_activity_unconfirmed_relay_fails(self):
+        self.assertEqual(self.exercise(sealed_write=True, wrong_off=True)[0], 9)
 
     def test_typed_gap_requires_power_reset_and_real_postcut_replay(self):
         code, out, recorded, _=self.exercise(

@@ -7,8 +7,13 @@ PROJECT="$ROOT/tests/hil/g7-littlefs-protected-rolling-espidf"
 BUILD_ENV="${EDP_LFS_BUILD_ENV:-esp32dev}"
 STAGE="${EDP_LFS_CUT_STAGE:-reclaim}"
 case "$STAGE:$BUILD_ENV" in
-    lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack|typed_ack_gap:esp32dev-typed-strict|typed_ack_gap:esp32dev-sealed-batch-cut|typed_ack_gap:esp32dev-sealed-batch-64-cut) ;;
+    sealed_write:esp32dev-sealed-batch-64-writecut|lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack|typed_ack_gap:esp32dev-typed-strict|typed_ack_gap:esp32dev-sealed-batch-cut|typed_ack_gap:esp32dev-sealed-batch-64-cut) ;;
     *) echo "Invalid stage/build pairing: $STAGE:$BUILD_ENV" >&2; exit 2 ;;
+esac
+BACKUP_POLICY="${EDP_LFS_BACKUP_POLICY:-full}"
+case "$BACKUP_POLICY" in
+    full|disposable) ;;
+    *) echo "Unsupported backup policy" >&2; exit 2 ;;
 esac
 IMAGE="$PROJECT/.pio/build/$BUILD_ENV/firmware.factory.bin"
 FS_IMAGE="$PROJECT/.pio/littlefs-seeded.img"
@@ -20,6 +25,11 @@ if ! grep -qx 'CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192' "$PROJECT/sdkconfig.$BUILD_
     exit 3
 fi
 CONTROL=/srv/espressio/bin/esp32-integrated
+ESPTOOL=/srv/espressio/cache/platformio/penv/bin/esptool
+flash_held() {
+    "$CONTROL" with-power -- "$ESPTOOL" --chip esp32 --port /dev/serial0 \
+        --before no-reset --after no-reset "$@"
+}
 trap '"$CONTROL" power-off >/dev/null 2>&1 || true' EXIT
 /srv/espressio/bin/espressio-agent-lock owns "$OWNER" >/dev/null
 test -s "$IMAGE"
@@ -30,17 +40,23 @@ mkdir -p "$EVIDENCE"
 sha256sum "$IMAGE" "$FS_IMAGE" > "$EVIDENCE/test-images.sha256"
 "$CONTROL" status
 /srv/espressio/bin/rpi400-status flash 'LittleFS bounded' 'full chip backup then explicit test provisioning'
-"$CONTROL" esptool read-flash 0x0 0x200000 "$EVIDENCE/backup-2mb.bin" > "$EVIDENCE/backup.log" 2>&1
-test "$(stat -c %s "$EVIDENCE/backup-2mb.bin")" -eq 2097152
-sha256sum "$EVIDENCE/backup-2mb.bin" > "$EVIDENCE/backup.sha256"
-echo FULL_CHIP_BACKUP=PASS
-"$CONTROL" esptool write-flash 0x0 "$IMAGE" > "$EVIDENCE/flash-firmware.log" 2>&1
-"$CONTROL" esptool verify-flash 0x0 "$IMAGE" > "$EVIDENCE/verify-firmware.log" 2>&1
+"$CONTROL" bootloader
+if test "$BACKUP_POLICY" = full; then
+    flash_held read-flash 0x0 0x200000 "$EVIDENCE/backup-2mb.bin" > "$EVIDENCE/backup.log" 2>&1
+    test "$(stat -c %s "$EVIDENCE/backup-2mb.bin")" -eq 2097152
+    sha256sum "$EVIDENCE/backup-2mb.bin" > "$EVIDENCE/backup.sha256"
+    echo FULL_CHIP_BACKUP=PASS
+else
+    # Explicit opt-in only for a user-authorised disposable target.
+    echo FULL_CHIP_BACKUP=WAIVED_DISPOSABLE_TARGET
+fi
+flash_held write-flash 0x0 "$IMAGE" > "$EVIDENCE/flash-firmware.log" 2>&1
+flash_held verify-flash 0x0 "$IMAGE" > "$EVIDENCE/verify-firmware.log" 2>&1
 echo FIRMWARE_VERIFIED=PASS
 # EXPLICIT TEST PROVISIONING: only this dedicated LittleFS partition;
 # full-device backup already completed. Production mount NEVER autoformats.
-"$CONTROL" esptool write-flash 0x170000 "$FS_IMAGE" > "$EVIDENCE/flash-littlefs.log" 2>&1
-"$CONTROL" esptool verify-flash 0x170000 "$FS_IMAGE" > "$EVIDENCE/verify-littlefs.log" 2>&1
+flash_held write-flash 0x170000 "$FS_IMAGE" > "$EVIDENCE/flash-littlefs.log" 2>&1
+flash_held verify-flash 0x170000 "$FS_IMAGE" > "$EVIDENCE/verify-littlefs.log" 2>&1
 echo DEDICATED_LITTLEFS_IMAGE_VERIFIED=PASS
 "$CONTROL" hold-reset
 /srv/espressio/bin/rpi400-status serial 'LittleFS bounded' 'GPIO17 hard power recovery'
@@ -51,8 +67,12 @@ set -e
 "$CONTROL" status
 echo "LITTLEFS_MONITOR_EXIT=$rc"
 test "$rc" -eq 0
-if test "$STAGE" = typed_ack_gap; then
-    grep -Fq 'EDP_BND|TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1' "$EVIDENCE/monitor/serial.txt" || exit 9
+if test "$STAGE" = typed_ack_gap || test "$STAGE" = sealed_write; then
+    if test "$STAGE" = typed_ack_gap; then
+        grep -Fq 'EDP_BND|TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1' "$EVIDENCE/monitor/serial.txt" || exit 9
+    else
+        grep -Fq 'EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2' "$EVIDENCE/monitor/serial.txt" || exit 9
+    fi
     grep -Fq 'EDP_EDLS|TYPED_STRICT_ACK_REPLAY_VERIFIED|all_15_fields=1|ack=4|window=3,4' "$EVIDENCE/monitor/serial.txt" || exit 9
 fi
 if test "$STAGE" = strictack; then

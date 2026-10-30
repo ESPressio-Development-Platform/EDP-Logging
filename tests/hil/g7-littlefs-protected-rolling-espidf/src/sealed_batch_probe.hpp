@@ -152,10 +152,15 @@ namespace {
             std::printf("EDP_BND|RESET_OBSERVED|reason=%u|por=%u\n",
                 static_cast<unsigned>(reset), reset == ESP_RST_POWERON ? 1U : 0U);
             Require(archive.Read().AcknowledgedGeneration == 2U, "BATCH_COLD_ACK2");
+#if !defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT)
             VerifySealedWindow(store, 1U, 3U); // complete candidate is not acknowledged
-            Require(archive.Recover(SealedScratch).Status ==
-                L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
-                "BATCH_REMOVE_ONLY_UNACKED");
+#endif
+            const auto recovered = archive.Recover(SealedScratch);
+            Require(recovered.Status == L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved
+#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT)
+                || recovered.Status == L::EdlsAcknowledgedStatus::Ready
+#endif
+                , "BATCH_REMOVE_ONLY_UNACKED");
             VerifySealedWindow(store, 1U, 2U);
             CommitSealedBatch(batch, archive, 3U);
             CommitSealedBatch(batch, archive, 4U);
@@ -189,6 +194,9 @@ namespace {
                 reinterpret_cast<const std::uint8_t*>(TypedEdlg.data()), framed) ==
                 ESPressio::Bounded::BytesAppendResult::Succeeded, "BATCH_CANDIDATE_BYTES");
         }
+#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT)
+        SealedWriteActivityArmed = true;
+#endif
         const auto candidate = L::PublishEdlsSuccessorIntoEmptySlotWithScratch<
             3U, 1024U, SealedSegmentBytes, Store, SealedRecords>(
                 store, Paths, DeviceIdentifier, 7U,

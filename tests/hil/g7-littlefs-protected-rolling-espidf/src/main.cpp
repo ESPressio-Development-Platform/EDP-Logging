@@ -29,7 +29,89 @@ namespace L = ESPressio::Logging;
 
 using Bytes = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
 struct TestOnlyLittleFsBinding final {};
-using Store = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding,Bytes>;
+using NativeStore = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding,Bytes>;
+#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT)
+// Test-only instrumentation of the existing provider. Only the unacknowledged
+// spare is rewritten; protected predecessors are never passed to this loop.
+/// Bootstrap arms only after both protected batches and the session flag commit.
+static bool SealedWriteActivityArmed = false;
+/// Application-only forwarding instrumentation over the existing concrete provider.
+struct Store final {
+    using ProviderDeclarationTag = NativeStore::ProviderDeclarationTag;
+    using CompositionDomain = NativeStore::CompositionDomain;
+    using CompositionOffers = NativeStore::CompositionOffers;
+    /// Same conservative provider owns all native filesystem operations.
+    NativeStore Actual;
+    /// Borrows the same application mount root and stateless byte operations.
+    Store(const char* root, Bytes& bytes) noexcept
+        : Actual(
+            root,
+            bytes
+        ) {}
+    /// Reports readiness from the existing owner.
+    [[nodiscard]] bool IsFileStorageReady() const noexcept {
+        return Actual.IsFileStorageReady();
+    }
+    /// Delegates physical size observation without changing capability semantics.
+    [[nodiscard]] P::FileSizeResult GetFileSize(P::FilePathView path) const noexcept {
+        return Actual.GetFileSize(path);
+    }
+    /// Delegates bounded physical readback.
+    [[nodiscard]] P::FileReadResult ReadFileAt(
+        P::FilePathView path, P::StorageOffset offset, P::DestinationBufferView target) const noexcept {
+        return Actual.ReadFileAt(
+            path,
+            offset,
+            target
+        );
+    }
+    /// Delegates the archive's existing retirement/removal operation.
+    [[nodiscard]] P::FileRemoveStatus RemoveFile(P::FilePathView path) noexcept {
+        return Actual.RemoveFile(path);
+    }
+    /// Intercepts only the armed spare publication for finite write-activity injection.
+    [[nodiscard]] P::FileReplaceStatus ReplaceFile(
+        P::FilePathView path, P::SourceBufferView source) noexcept {
+        if (!SealedWriteActivityArmed) {
+            return Actual.ReplaceFile(
+                path,
+                source
+            );
+        }
+        std::printf("EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2\n");
+        std::fflush(stdout);
+        const auto started = xTaskGetTickCount();
+        unsigned completed = 0U;
+        while (xTaskGetTickCount() - started < pdMS_TO_TICKS(15000U)) {
+            const auto result = Actual.ReplaceFile(
+                path,
+                source
+            );
+            if (result != P::FileReplaceStatus::Succeeded) {
+                std::printf("EDP_BND|HALT|SEALED_WRITE_ACTIVITY_PROVIDER_FAILURE\n");
+                std::fflush(stdout);
+                for (;;) {
+                    vTaskDelay(pdMS_TO_TICKS(1000U));
+                }
+            }
+            ++completed;
+            // Keep native watchdog service possible without manufacturing a
+            // promise that UART/controller latency intersects a flash opcode.
+            vTaskDelay(pdMS_TO_TICKS(1U));
+        }
+        std::printf(
+            "EDP_BND|HALT|SEALED_WRITE_CUT_NOT_OBSERVED|completed=%u\n",
+            completed
+        );
+        std::fflush(stdout);
+        for (;;) {
+            vTaskDelay(pdMS_TO_TICKS(1000U));
+        }
+    }
+};
+#else
+using Store = NativeStore;
+#endif
 
 constexpr auto Path0 = P::FilePathView::Validate("slot0");
 constexpr auto Path1 = P::FilePathView::Validate("slot1");

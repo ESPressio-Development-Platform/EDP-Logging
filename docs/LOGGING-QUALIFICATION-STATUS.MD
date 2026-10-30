@@ -17,6 +17,7 @@ It does not imply that every configuration or all production gates pass.
 | Full typed managed demo | All three builds and actual two-boot tests 20261031T001504-eee39309 PASS; RAM/retired/durable distinctions, original replay and teardown | This finite demonstration is not endurance or interruption evidence |
 | Canonical lifecycle atomics | Standard and canonical bindings pass GCC/Clang UBSan and actual ESP-IDF provider integration; SDK atomic flags retained | Lock-free does not promise wait-free per-caller timing |
 | Public provider boundaries | Existing Memory, Threading, Clock, Serialisation, Localisation and Persistence owners reused; no FileStorage PowerLoss trait upgrade | No claim of generic filesystem interruption atomicity |
+| Sealed64 write-activity cut | 20261031T003134-4bb013c2 and004328-1221099b PASS;8.232/8.257s externally verifiedOFF, protected originals recovered, subsequent128-record/NVS raw audit PASS | Write-activity window only; managed queue, exact flash-op/GC timing and endurance remain separate |
 | Physical reliability campaign | Existing complete-candidate, candidate-write activity and near-full experiments retained in native fixture README | Current batched managed pipeline still needs write/retirement/GC/near-full interruption qualification |
 | Endurance and product acceptance | Latency, bounded memory and stack observations exist for named finite fixtures | Sustained duration, flash wear/lifetime, final ACK latency and product resource acceptance remain incomplete |
 

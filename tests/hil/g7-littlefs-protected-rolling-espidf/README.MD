@@ -457,3 +457,27 @@ private-worker6000-20261030-01; target exitsOFF.
 This is a finite60-second successful load. It does not establish indefinite
 sustained rate, a current-pipeline write/GC cut result, flash endurance or full
 production acceptance. All versions0.1.0; no GitHub Actions coverage relied on.
+
+## Sealed64 candidate write-activity cut,31October
+
+The existing fixture now selects esp32dev-sealed-batch-64-writecut with
+EDP_LFS_CUT_STAGE=sealed_write. Reuses the real conservative provider and existing
+relay controller; only the unacknowledged spare is repeatedly replaced during a
+finite activity window. Native002959-a64a190f PASS, controller105tests
+003048-62c31b03 PASS, physical+raw003134-4bb013c2 PASS.
+Actual8.232sOFF; native10/ROM6 SDIO_RESET is classified
+EXTERNALLY_VERIFIED_POWER_CUT. Never relabel it POR.
+Original protected batches1/2 pass exact postcut replay; subsequent ordinary
+ACK4 retains128 full original15-field records129..256, independently raw-verified
+with official NVS page/entry/blob CRCs. Final targetOFF.
+See [complete scope, hashes and procedure](../../../docs/SEALED-BATCH-WRITE-ACTIVITY-QUALIFICATION.MD).
+This does not prove an exact interrupted flash opcode/GC phase or qualify the
+managed source queue path. No generic provider PowerLoss capability was changed.
+
+Final policy-formatted adapter rebuild004220-17236074 PASS; exact final image
+requalified004328-1221099b PASS,8.257sOFF, same honest SDIO electrical
+classification and full128-record/NVS raw audit. Host004321-80663e22 PASS106.
+Factory2b0ce0183459f4782a1bc6b39a096cbb1b427fa6218c00d1f09b17f10dd5dd29.
+Runner backup defaults full. Explicit EDP_LFS_BACKUP_POLICY=disposable is for
+user-authorised disposable targets only; full image/filesystem verification
+before boot stays mandatory. Both backup modes physically tested.
