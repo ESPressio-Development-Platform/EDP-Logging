@@ -530,3 +530,21 @@ Independent rawall128 full15-field originals129..256 andofficialNVSACK4 CRCs PAS
 TargetOFF. [Scope and hashes](../../../docs/SEALED-BATCH-RETIREMENT-CUT-QUALIFICATION.MD).
 This is a pre-unlink boundary test of the shared archive owner, not an exact
 mid-unlink/GC-instruction or indefiniteendurance certificate.
+
+## Five-minute managed30000-record workload,31October
+
+Native esp32dev-batch-worker-500-o2-30000, actual15000U perproducer,
+sameO2/assertions/160MHz/500ms/queue128/64-recordbatch. Native103039-ff4325a3 PASS;
+host132tests103255-e233b7ab PASS; physical+raw **103339-6856faf0 PASS**
+10:46:17CET. All30129 accepted phase records published/retired/durable,
+zero failures/partial submissions; only32 deliberate initial pressure refusals.
+Scheduled30000 complete in300.949900s includingdrain. Allscheduledmean820230us,
+max1540196us; last6000samplep50823952us/p991248615us explicitlylabelled.
+Minimumheap162704B, workerstack3244B/main5068B, queuecontentions1.
+Nativeprogress every10s. FinalACK472/raw124 original15-field records and
+officialNVSCRC PASS; targetOFF. Factory6bdb389377b5f03a021daa0a8c2b49984059c60fac5c48c10471e51779a31f2e.
+[Full results and bounded telemetry](../../../docs/LONG-MANAGED-WORKLOAD-QUALIFICATION.MD).
+Finite five-minute qualification only; production retention/duty/lifetime still
+need application targets, not extrapolation from this benchmark.
+
+Final stricter PASS-line percentile-scope check:132tests and independent saved-raw re-audit105342-cc6370ba PASS. Native image unchanged.

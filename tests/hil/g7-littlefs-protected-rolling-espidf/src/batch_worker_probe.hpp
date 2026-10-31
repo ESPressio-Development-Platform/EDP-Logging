@@ -62,13 +62,29 @@ namespace {
         }
         /// One exclusive upper bound covers every ticket including refused attempts.
         constexpr unsigned RecordsPerProducer = EDP_WORKER_RECORDS_PER_PRODUCER;
-        static_assert(RecordsPerProducer == 1000U || RecordsPerProducer == 3000U);
+        static_assert(RecordsPerProducer == 1000U || RecordsPerProducer == 3000U || RecordsPerProducer == 15000U);
         /// Both managed producers retain their existing50Hz absolute schedules.
         constexpr unsigned ScheduledRecords = 2U * RecordsPerProducer;
         /// Pressure128 accepted and one isolated idle partial precede the schedule.
         constexpr unsigned TotalAccepted = 129U + ScheduledRecords;
         /// Attempt tickets also include the32 deliberate pressure refusals.
         constexpr std::size_t MaximumAttempts = 162U + ScheduledRecords;
+        // This finite fixture deliberately stays inside its selected16-bit attempt horizon.
+        static_assert(MaximumAttempts <= 65535U);
+        /// Long qualification keeps a bounded final6000-record latency window.
+        constexpr std::size_t AckSampleCapacity = ScheduledRecords > 6000U ? 6000U : MaximumAttempts;
+        /// Legacy modes still report every scheduled record's quantiles.
+        constexpr std::size_t AckSampleStart = ScheduledRecords > 6000U ? 0U : 129U;
+        /// Exact scope of reported quantiles, never an implicit all-run percentile.
+        constexpr std::size_t AckSampleCount = ScheduledRecords > 6000U ? 6000U : ScheduledRecords;
+        /// Same-worker aggregate statistics cover all scheduled records in the long mode.
+        static std::uint64_t ScheduledLatencySumUs = 0U;
+        /// Same-worker full scheduled sample count, checked after quiescence.
+        static unsigned ScheduledLatencyCount = 0U;
+        /// Full-run scheduled minimum, independent of the bounded percentile window.
+        static std::uint32_t ScheduledLatencyMinimumUs = UINT32_MAX;
+        /// Full-run scheduled maximum, independent of the bounded percentile window.
+        static std::uint32_t ScheduledLatencyMaximumUs = 0U;
         /// Original producer coordinates retained only as test evidence for independent replay.
         constexpr std::size_t EvidenceSlots = 512U;
         // Covers queued128, two retained batches, pending batch, deferred service
@@ -81,7 +97,7 @@ namespace {
         /// Test telemetry of successful offer order, not a work queue or payload owner.
         static std::array<std::uint32_t, EvidenceSlots> OrderedTickets{};
         /// Occurrence-to-confirmed-ACK latency for each offered record, written only by the worker.
-        static std::array<std::uint32_t, MaximumAttempts> AckLatencies{};
+        static std::array<std::uint32_t, AckSampleCapacity> AckLatencies{};
         /// Bootstrap-selected finite test phase observed by both managed producers.
         static std::atomic<unsigned> Phase{0U};
         /// Per-producer phase completion published to unmanaged Bootstrap.
@@ -385,8 +401,26 @@ namespace {
                         );
                     }
 #endif
-                    AckLatencies[Confirmed++] =
-                        static_cast<std::uint32_t>((now - SourceCoordinates[ticket % EvidenceSlots]) / 1000U);
+                    const auto latencyUs = static_cast<std::uint32_t>(
+                        (now - SourceCoordinates[ticket % EvidenceSlots]) / 1000U);
+                    if constexpr (ScheduledRecords > 6000U) {
+                        AckLatencies[Confirmed % AckSampleCapacity] = latencyUs;
+                        if (Confirmed >= 129U) {
+                            ScheduledLatencySumUs += latencyUs;
+                            ++ScheduledLatencyCount;
+                            ScheduledLatencyMinimumUs = std::min(
+                                ScheduledLatencyMinimumUs,
+                                latencyUs
+                            );
+                            ScheduledLatencyMaximumUs = std::max(
+                                ScheduledLatencyMaximumUs,
+                                latencyUs
+                            );
+                        }
+                    } else {
+                        AckLatencies[Confirmed] = latencyUs;
+                    }
+                    ++Confirmed;
 #if defined(EDP_WORKER_POWER_CUT)
                     if (Confirmed == 64U || Confirmed == 128U) {
                         std::printf(
@@ -1031,8 +1065,8 @@ namespace {
                     &capacityTotal,
                     &capacityUsed
                 ) == ESP_OK &&
-                        capacityTotal == 0x90000U && capacityUsed <= capacityTotal &&
-                        capacityTotal - capacityUsed <= 8192U,
+                    capacityTotal == 0x90000U && capacityUsed <= capacityTotal &&
+                    capacityTotal - capacityUsed <= 8192U,
                 "WORKER_CAPACITY_REAL_EXHAUSTION"
             );
 #else
@@ -1063,12 +1097,12 @@ namespace {
             const auto durable = archive.Read();
             Require(
                 SealedReplaceCalls > beforeCandidateCalls &&
-                        SealedLastReplace != P::FileReplaceStatus::Succeeded &&
-                        pending.Status == L::EdlsBatchStatus::RecoveryRequired &&
-                        pending.PendingRecords > 0U && pending.AcknowledgedRecords == 0U &&
-                        durable.Status == L::EdlsAcknowledgedStatus::Ready &&
-                        durable.AcknowledgedGeneration == 2U &&
-                        report.DurableSinkCompletions.load() == 128U,
+                    SealedLastReplace != P::FileReplaceStatus::Succeeded &&
+                    pending.Status == L::EdlsBatchStatus::RecoveryRequired &&
+                    pending.PendingRecords > 0U && pending.AcknowledgedRecords == 0U &&
+                    durable.Status == L::EdlsAcknowledgedStatus::Ready &&
+                    durable.AcknowledgedGeneration == 2U &&
+                    report.DurableSinkCompletions.load() == 128U,
                 "WORKER_CAPACITY_RETAIN_RAM_AND_OLD_ACK"
             );
             std::printf(
@@ -1119,6 +1153,7 @@ namespace {
             (void)second.Wake();
             unsigned minimumHeap = esp_get_free_heap_size();
             const auto end = started + RecordsPerProducer * 20000000ULL + 70000000000ULL;
+            auto nextProgress = started + 10000000000ULL;
             while ((CompletedPhase[0U].load() != 3U || CompletedPhase[1U].load() != 3U ||
                     report.DurableSinkCompletions.load() != TotalAccepted) &&
                    C::MonotonicNow().Nanoseconds() < end && Failures.load() == 0U) {
@@ -1127,6 +1162,21 @@ namespace {
                         minimumHeap,
                         static_cast<unsigned>(esp_get_free_heap_size())
                     );
+                if constexpr (ScheduledRecords > 6000U) {
+                    if (C::MonotonicNow().Nanoseconds() >= nextProgress) {
+                        std::printf(
+                            "EDP_WORKER|PROGRESS|scheduled_records=%u|published=%u|retired=%llu|durable=%llu|failures=%u|min_heap=%u\n",
+                            ScheduledRecords,
+                            Published.load(),
+                            static_cast<unsigned long long>(report.RecordsRetired.load()),
+                            static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
+                            Failures.load(),
+                            minimumHeap
+                        );
+                        std::fflush(stdout);
+                        nextProgress += 10000000000ULL;
+                    }
+                }
                 vTaskDelay(pdMS_TO_TICKS(10U));
             }
             const auto elapsedUs = (LastAckTime.load() - started) / 1000U;
@@ -1224,22 +1274,37 @@ namespace {
                 encodingMemory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
                 "WORKER_ENCODING_MEMORY_TEARDOWN"
             );
+            if constexpr (ScheduledRecords > 6000U) {
+                Require(
+                    ScheduledLatencyCount == ScheduledRecords,
+                    "WORKER_ALL_SCHEDULED_LATENCY_SAMPLES"
+                );
+                std::printf(
+                    "EDP_WORKER|ALL_SCHEDULED_LATENCY|records=%u|min_us=%u|max_us=%u|mean_us=%llu\n",
+                    ScheduledLatencyCount,
+                    ScheduledLatencyMinimumUs,
+                    ScheduledLatencyMaximumUs,
+                    static_cast<unsigned long long>(ScheduledLatencySumUs / ScheduledLatencyCount)
+                );
+            }
             std::sort(
-                AckLatencies.begin() + 129U,
-                AckLatencies.begin() + TotalAccepted
+                AckLatencies.begin() + AckSampleStart,
+                AckLatencies.begin() + AckSampleStart + AckSampleCount
             );
             std::printf(
                 "EDP_WORKER|PASS|scheduled_records=%u|producers=2|target_rps=100|elapsed_us=%llu"
-                "|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
+                "|latency_scope=%s|latency_samples=%u|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
                 "stack=%u"
                 "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
                 "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u"
                 "|scheduled_dwell_ns=%llu|application_optimisation=%s|cpu_mhz=%u|ack_segment=%llu\n",
                 ScheduledRecords,
                 static_cast<unsigned long long>(elapsedUs),
-                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 50U / 100U]),
-                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 95U / 100U]),
-                static_cast<unsigned>(AckLatencies[129U + ScheduledRecords * 99U / 100U]),
+                ScheduledRecords > 6000U ? "last_6000" : "all_scheduled",
+                static_cast<unsigned>(AckSampleCount),
+                static_cast<unsigned>(AckLatencies[AckSampleStart + AckSampleCount * 50U / 100U]),
+                static_cast<unsigned>(AckLatencies[AckSampleStart + AckSampleCount * 95U / 100U]),
+                static_cast<unsigned>(AckLatencies[AckSampleStart + AckSampleCount * 99U / 100U]),
                 MaximumScheduleLatenessUs.load(),
                 minimumHeap,
                 StackMargins[0U].load(),

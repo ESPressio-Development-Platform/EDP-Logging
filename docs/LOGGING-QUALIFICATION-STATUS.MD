@@ -13,6 +13,7 @@ It does not imply that every configuration or all production gates pass.
 | Synchronous64-record physical batch | 256 records at132.828 records/s; independent original15-field/NVS audit;8.220s POR-confirmed cut and recovery, sequence20261030T145734-fce800f4 | Scheduled workload and arbitrary write/GC timing are separate |
 | Existing managed coordinator, O2/500ms/160MHz | Two50Hz producers,2000 scheduled records; all2129 accepted phase records retired and durable; raw media ACK35,20261030T180038-622f5b3b | This20-second sample does not establish an indefinite100records/s rate |
 | Longer managed workload |6000 sources offered at100records/s over60seconds; all6129 phase records retired/durable, raw media ACK97;232528-9e980d90 PASS | Indefinite sustained operation and remaining interruption/endurance gates |
+| Five-minute managed workload | 30000 scheduled sources/all30129 accepted phase records durable;103339-6856faf0 PASS, rawACK472/124originals, finite drain300.949900s | Named five-minute profile only; explicit last6000 percentiles, no indefinite/lifetime claim |
 | Three-target container demo | Arduino IDE, PlatformIO Arduino and PlatformIO ESP-IDF builds183532-8bfb4a6b; actual two-boot tests184352-e1b78bb7 all PASS | Small CBOR container values; see the separate full typed managed row |
 | Full typed managed demo | All three builds and actual two-boot tests 20261031T001504-eee39309 PASS; RAM/retired/durable distinctions, original replay and teardown | This finite demonstration is not endurance or interruption evidence |
 | Canonical lifecycle atomics | Standard and canonical bindings pass GCC/Clang UBSan and actual ESP-IDF provider integration; SDK atomic flags retained | Lock-free does not promise wait-free per-caller timing |
@@ -60,3 +61,5 @@ Private flash images and UART transcripts remain on RPI400. The living
 Policy handoff records current source commits, appliance ownership and active
 run IDs. Pending rows must be replaced with actual outcomes before claiming
 those gates passed. Logging is not yet declared production-ready.
+
+[Five-minute scope and measured results](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD) and [production retention/endurance inputs](PRODUCTION-RETENTION-ENDURANCE-REVIEW.MD) distinguish tested configurations from product acceptance.

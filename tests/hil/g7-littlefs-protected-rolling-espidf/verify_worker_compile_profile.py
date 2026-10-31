@@ -7,7 +7,7 @@ from pathlib import Path
 import shlex
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--records-per-producer", type=int, choices=(1000, 3000), default=1000)
+parser.add_argument("--records-per-producer", type=int, choices=(1000, 3000, 15000), default=1000)
 parser.add_argument("--database", required=True, type=Path)
 parser.add_argument("--sdkconfig", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
@@ -29,7 +29,7 @@ try:
         raise ValueError("wrong managed worker/dwell/optimisation configuration")
     schedule_flags = [value for value in command if value.startswith("-DEDP_WORKER_RECORDS_PER_PRODUCER")]
     expected_schedule_flags = [] if args.records_per_producer == 1000 else [
-        "-DEDP_WORKER_RECORDS_PER_PRODUCER=3000U"]
+        f"-DEDP_WORKER_RECORDS_PER_PRODUCER={args.records_per_producer}U"]
     if schedule_flags != expected_schedule_flags:
         raise ValueError("actual application schedule does not match selected workload")
     config = set(args.sdkconfig.read_text("utf-8").splitlines())

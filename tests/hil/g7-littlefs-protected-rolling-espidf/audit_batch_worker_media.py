@@ -7,7 +7,7 @@ from edp_logging.record_structure import inspect_typed_envelope
 from edp_logging.framing import FrameCodec
 from audit_typed_extracted_edls import verify_record, DEVICE
 
-PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000)\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
+PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000|30000)\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
 ORIGINAL = re.compile(r"^EDP_WORKER\|ORIGINAL\|ticket=(\d+)\|monotonic_ns=(\d+)$", re.M)
 
 CUT_PASS = re.compile(r"^EDP_WORKER\|POWER_CUT_RECOVERED\|ack_segment=2\|records=128$", re.M)
@@ -42,6 +42,8 @@ def receipt(text, power_cut=False, capacity_cut=False):
     matches=PASS.findall(text)
     if len(matches)!=1 or int(matches[0][1])<2:
         raise ValueError("missing or ambiguous final worker receipt")
+    if int(matches[0][0]) == 30000 and "|latency_scope=last_6000|latency_samples=6000|" not in PASS.search(text).group(0):
+        raise ValueError("long profile must declare bounded quantile scope")
     pairs=ORIGINAL.findall(text)
     coordinates={int(ticket):int(tick) for ticket,tick in pairs}
     if not pairs or len(coordinates)!=len(pairs):
