@@ -20,6 +20,30 @@ class ManagedCutMediaTests(unittest.TestCase):
         self.done = "EDP_WORKER|POWER_CUT_RECOVERED|ack_segment=2|records=128\n"
         self.text = self.original + self.trigger + self.done
 
+    def test_capacity_cut_uses_same_independent_original_field_audit(self):
+        text = self.text.replace(self.trigger,
+            "EDP_BND|MANAGED_CAPACITY_SAFE|ack=2|pending_records=50|native_replace=12|durable=128|free_bytes=4096\n")
+        self.assertEqual(audit(self.root, text, False, True), (2, 128))
+        (self.root / "slot1").write_bytes(
+            segment(1, 2, range(65, 129), {99: {6: 1000000100}}))
+        with self.assertRaises(ValueError):
+            audit(self.root, text, False, True)
+
+    def test_capacity_refusal_must_prove_retained_ram_and_old_durability(self):
+        marker = "EDP_BND|MANAGED_CAPACITY_SAFE|ack=2|pending_records=50|native_replace=12|durable=128|free_bytes=4096\n"
+        for old, new in (("ack=2", "ack=3"), ("pending_records=50", "pending_records=0"),
+                         ("pending_records=50", "pending_records=65"),
+                         ("native_replace=12", "native_replace=0"),
+                         ("durable=128", "durable=129"), ("free_bytes=4096", "free_bytes=8193")):
+            with self.subTest(field=old), self.assertRaises(ValueError):
+                receipt(self.original + marker.replace(old, new) + self.done, False, True)
+
+    def test_cut_modes_cannot_borrow_other_stage_evidence(self):
+        with self.assertRaises(ValueError):
+            receipt(self.text, False, True)
+        with self.assertRaises(ValueError):
+            receipt(self.text, True, True)
+
     def test_all_128_original_pressure_records_survive(self):
         self.assertEqual(audit(self.root, self.text, True), (2, 128))
 

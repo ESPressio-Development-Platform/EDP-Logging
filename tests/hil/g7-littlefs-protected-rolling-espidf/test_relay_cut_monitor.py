@@ -46,7 +46,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                  wrong_off=False, bad_recovery=False,
                  lowspace=False, lowspace_reclaim=False,
                  midwrite=False, strictack=False,
-                 typed_ack_gap=False, sealed_write=False, managed=False):
+                 typed_ack_gap=False, sealed_write=False, managed=False, capacity=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -152,6 +152,12 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 b"STRICT_TYPED15_NVS_ACK_AFTER_CUT",
                 b"MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT")
             after = after.replace(b"newest=4|older=3", b"newest=2|older=1")
+        if capacity:
+            before = before.replace(
+                b"SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2",
+                b"MANAGED_CAPACITY_SAFE|ack=2|pending_records=50|native_replace=12|durable=128|free_bytes=4096")
+            after = after.replace(b"MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT",
+                                  b"MANAGED_BATCH128_AFTER_CAPACITY_CUT")
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -184,6 +190,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                                       "lowspace" if lowspace else
                                       "midwrite" if midwrite else
                                       "strictack" if strictack else
+                                      "managed_capacity" if capacity else
                                       "sealed_write" if sealed_write else
                                       "typed_ack_gap" if typed_ack_gap else "write"),
                 "EDP_LFS_OFF_HOLD_S": "8.0",
@@ -198,6 +205,23 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_capacity_failure_cut_and_recovered_original_window(self):
+        code, out, recorded, port = self.exercise(
+            sealed_write=True, managed=True, capacity=True)
+        self.assertEqual(code, 0)
+        self.assertIn("native_replace=12|durable=128", recorded)
+        self.assertTrue(any("CUT_STAGE=managed_capacity" in line for line in out))
+        self.assertTrue(any("last_ack=2|newest=2|older=1" in line for line in out))
+        self.assertTrue(port.closed)
+
+    def test_capacity_cut_corrupt_retention_fails(self):
+        self.assertEqual(self.exercise(sealed_write=True, managed=True,
+                                      capacity=True, bad_recovery=True)[0], 4)
+
+    def test_capacity_cut_unverified_off_fails(self):
+        self.assertEqual(self.exercise(sealed_write=True, managed=True,
+                                      capacity=True, wrong_off=True)[0], 9)
 
     def test_managed_replay_marker_completes_real_controller_loop(self):
         code, out, recorded, port = self.exercise(

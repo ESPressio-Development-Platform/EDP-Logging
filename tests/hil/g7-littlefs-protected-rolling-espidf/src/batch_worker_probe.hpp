@@ -746,13 +746,13 @@ namespace {
             const auto before = archive.Read();
             Require(
                 before.Status == L::EdlsAcknowledgedStatus::Ready &&
-                        before.AcknowledgedGeneration == 2U,
+                    before.AcknowledgedGeneration == 2U,
                 "WORKER_CUT_ACK2"
             );
             const auto recovered = archive.Recover(SealedScratch);
             Require(
                 recovered.Status == L::EdlsAcknowledgedStatus::Ready ||
-                        recovered.Status == L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
+                    recovered.Status == L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
                 "WORKER_CUT_RECONCILE_SPARE"
             );
             unsigned count = 0U;
@@ -764,7 +764,7 @@ namespace {
                 );
                 Require(
                     read.Status == P::FileReadStatus::Succeeded &&
-                            read.BytesTransferred >= L::EdlsHeaderBytes + L::EdlsSealBytes,
+                        read.BytesTransferred >= L::EdlsHeaderBytes + L::EdlsSealBytes,
                     "WORKER_CUT_MEDIA_READ"
                 );
                 std::size_t position = L::EdlsHeaderBytes;
@@ -774,24 +774,24 @@ namespace {
                     Require(
                         L::ReadEdlgFrame(
                             std::span<const std::byte>(
-                                    SealedReadback.data() + position,
-                                    end - position
-                                ),
+                                SealedReadback.data() + position,
+                                end - position
+                            ),
                             frame,
                             1024U
                         ) == L::EdlgFrameReadResult::Succeeded &&
-                                Serial::Deserialise<Serial::Cbor, Serial::RootProfile::TypedEnvelope>(
-                                    frame.Payload,
-                                    TypedDecoded
-                                )
-                                    .IsSuccessful(),
+                            Serial::Deserialise<Serial::Cbor, Serial::RootProfile::TypedEnvelope>(
+                                frame.Payload,
+                                TypedDecoded
+                            )
+                                .IsSuccessful(),
                         "WORKER_CUT_FRAME"
                     );
                     const auto ticket = TypedDecoded.Attempt.Value();
                     Require(
                         ticket > 0U && ticket <= 160U &&
-                                CoordinateTickets[ticket % EvidenceSlots] == 0U &&
-                                TypedDecoded.Monotonic.Nanoseconds() > 0U,
+                            CoordinateTickets[ticket % EvidenceSlots] == 0U &&
+                            TypedDecoded.Monotonic.Nanoseconds() > 0U,
                         "WORKER_CUT_BOUNDED_TICKET"
                     );
                     CoordinateTickets[ticket % EvidenceSlots] = ticket;
@@ -815,9 +815,25 @@ namespace {
                 2U,
                 false
             );
+#if defined(EDP_WORKER_CAPACITY_CUT)
+            RemoveUnprotectedPadding(store);
+            VerifyFinalMedia(
+                store,
+                2U,
+                false
+            );
+            Require(
+                archive.Read().AcknowledgedGeneration == 2U,
+                "WORKER_CAPACITY_ACK_UNCHANGED"
+            );
+#endif
             std::printf("EDP_WORKER|POWER_CUT_RECOVERED|ack_segment=2|records=128\n");
             std::printf("EDP_BND|RECOVERED|newest=2|older=1|valid=2|contiguous=1\n");
+#if defined(EDP_WORKER_CAPACITY_CUT)
+            std::printf("EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_CAPACITY_CUT\n");
+#else
             std::printf("EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT\n");
+#endif
             std::fflush(stdout);
             for (;;) {
                 vTaskDelay(pdMS_TO_TICKS(1000U));
@@ -840,7 +856,7 @@ namespace {
                         "armed",
                         &recoveredArmed
                     ) == ESP_OK &&
-                            recoveredArmed == 1U,
+                        recoveredArmed == 1U,
                     "WORKER_CUT_SESSION_PROVENANCE"
                 );
                 nvs_close(session);
@@ -997,16 +1013,74 @@ namespace {
                     "armed",
                     1U
                 ) == ESP_OK &&
-                        nvs_commit(session) == ESP_OK,
+                    nvs_commit(session) == ESP_OK,
                 "WORKER_CUT_ARM"
             );
             nvs_close(session);
             // Published before the new scheduled phase and its queue admission; no pending batch remains.
+#if defined(EDP_WORKER_CAPACITY_CUT)
+            FillUnprotectedAndRefuse(
+                store,
+                false
+            );
+            const auto beforeCandidateCalls = SealedReplaceCalls;
+            std::size_t capacityTotal = 0U, capacityUsed = 0U;
+            Require(
+                esp_littlefs_info(
+                    "edplfs",
+                    &capacityTotal,
+                    &capacityUsed
+                ) == ESP_OK &&
+                        capacityTotal == 0x90000U && capacityUsed <= capacityTotal &&
+                        capacityTotal - capacityUsed <= 8192U,
+                "WORKER_CAPACITY_REAL_EXHAUSTION"
+            );
+#else
             SealedWriteActivityArmed = true;
+#endif
             ScheduleStart.store(C::MonotonicNow().Nanoseconds() + 100000000ULL);
             Phase.store(3U);
             (void)first.Wake();
             (void)second.Wake();
+#if defined(EDP_WORKER_CAPACITY_CUT)
+            Await(
+                [&] { return report.SinkServiceFailures.load() != 0U; },
+                15000U,
+                "WORKER_CAPACITY_FAILURE_OBSERVED"
+            );
+            (void)first.RequestStop();
+            (void)second.RequestStop();
+            (void)worker->RequestStop();
+            (void)first.Wake();
+            (void)second.Wake();
+            (void)worker->Wake();
+            Await(
+                [&] { return runtime.IsExecutionQuiescent(); },
+                5000U,
+                "WORKER_CAPACITY_QUIESCENT_OWNERS"
+            );
+            const auto pending = batch.Service();
+            const auto durable = archive.Read();
+            Require(
+                SealedReplaceCalls > beforeCandidateCalls &&
+                        SealedLastReplace != P::FileReplaceStatus::Succeeded &&
+                        pending.Status == L::EdlsBatchStatus::RecoveryRequired &&
+                        pending.PendingRecords > 0U && pending.AcknowledgedRecords == 0U &&
+                        durable.Status == L::EdlsAcknowledgedStatus::Ready &&
+                        durable.AcknowledgedGeneration == 2U &&
+                        report.DurableSinkCompletions.load() == 128U,
+                "WORKER_CAPACITY_RETAIN_RAM_AND_OLD_ACK"
+            );
+            std::printf(
+                "EDP_BND|MANAGED_CAPACITY_SAFE|ack=2|pending_records=%u|native_replace=%u|durable=128|free_bytes=%u\n",
+                static_cast<unsigned>(pending.PendingRecords),
+                static_cast<unsigned>(SealedLastReplace),
+                static_cast<unsigned>(capacityTotal - capacityUsed)
+            );
+            std::fflush(stdout);
+            // Ownership remains resident after the fatal service result; no implicit retry,
+            // source replay or Memory teardown is invented before the physical cut.
+#endif
             vTaskDelay(pdMS_TO_TICKS(15000U));
             Halt("WORKER_WRITE_ACTIVITY_CUT_NOT_OBSERVED");
 #endif

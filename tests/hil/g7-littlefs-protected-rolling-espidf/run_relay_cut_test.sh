@@ -7,7 +7,7 @@ PROJECT="$ROOT/tests/hil/g7-littlefs-protected-rolling-espidf"
 BUILD_ENV="${EDP_LFS_BUILD_ENV:-esp32dev}"
 STAGE="${EDP_LFS_CUT_STAGE:-reclaim}"
 case "$STAGE:$BUILD_ENV" in
-    sealed_write:esp32dev-batch-worker-500-o2-writecut|sealed_write:esp32dev-sealed-batch-64-writecut|lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack|typed_ack_gap:esp32dev-typed-strict|typed_ack_gap:esp32dev-sealed-batch-cut|typed_ack_gap:esp32dev-sealed-batch-64-cut) ;;
+    managed_capacity:esp32dev-batch-worker-500-o2-capacitycut|sealed_write:esp32dev-batch-worker-500-o2-writecut|sealed_write:esp32dev-sealed-batch-64-writecut|lowspace:esp32dev-lowspace|lowspace_reclaim:esp32dev-lowspace-reclaim|write:esp32dev|reclaim:esp32dev|typed:esp32dev-typed|midwrite:esp32dev-midwrite|strictack:esp32dev-strictack|typed_ack_gap:esp32dev-typed-strict|typed_ack_gap:esp32dev-sealed-batch-cut|typed_ack_gap:esp32dev-sealed-batch-64-cut) ;;
     *) echo "Invalid stage/build pairing: $STAGE:$BUILD_ENV" >&2; exit 2 ;;
 esac
 BACKUP_POLICY="${EDP_LFS_BACKUP_POLICY:-full}"
@@ -67,13 +67,15 @@ set -e
 "$CONTROL" status
 echo "LITTLEFS_MONITOR_EXIT=$rc"
 test "$rc" -eq 0
-if test "$STAGE" = typed_ack_gap || test "$STAGE" = sealed_write; then
+if test "$STAGE" = typed_ack_gap || test "$STAGE" = sealed_write || test "$STAGE" = managed_capacity; then
     if test "$STAGE" = typed_ack_gap; then
         grep -Fq 'EDP_BND|TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1' "$EVIDENCE/monitor/serial.txt" || exit 9
+    elif test "$STAGE" = managed_capacity; then
+        grep -Eq 'EDP_BND\|MANAGED_CAPACITY_SAFE\|ack=2\|pending_records=[1-9][0-9]*\|native_replace=(9|12)\|durable=128\|free_bytes=[0-9]+' "$EVIDENCE/monitor/serial.txt" || exit 9
     else
         grep -Fq 'EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2' "$EVIDENCE/monitor/serial.txt" || exit 9
     fi
-    if test "$BUILD_ENV" = esp32dev-batch-worker-500-o2-writecut; then
+    if test "$BUILD_ENV" = esp32dev-batch-worker-500-o2-writecut || test "$BUILD_ENV" = esp32dev-batch-worker-500-o2-capacitycut; then
         grep -Fq 'EDP_WORKER|POWER_CUT_RECOVERED|ack_segment=2|records=128' "$EVIDENCE/monitor/serial.txt" || exit 9
     else
         grep -Fq 'EDP_EDLS|TYPED_STRICT_ACK_REPLAY_VERIFIED|all_15_fields=1|ack=4|window=3,4' "$EVIDENCE/monitor/serial.txt" || exit 9

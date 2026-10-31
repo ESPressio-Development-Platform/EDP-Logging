@@ -12,13 +12,26 @@ ORIGINAL = re.compile(r"^EDP_WORKER\|ORIGINAL\|ticket=(\d+)\|monotonic_ns=(\d+)$
 
 CUT_PASS = re.compile(r"^EDP_WORKER\|POWER_CUT_RECOVERED\|ack_segment=2\|records=128$", re.M)
 
-def receipt(text, power_cut=False):
-    if power_cut:
+CAPACITY_SAFE = re.compile(
+    r"^EDP_BND\|MANAGED_CAPACITY_SAFE\|ack=2\|pending_records=([1-9][0-9]*)"
+    r"\|native_replace=(9|12)\|durable=128\|free_bytes=([0-9]+)$", re.M)
+
+def receipt(text, power_cut=False, capacity_cut=False):
+    if power_cut and capacity_cut:
+        raise ValueError("ambiguous cut audit mode")
+    if power_cut or capacity_cut:
         if len(CUT_PASS.findall(text)) != 1 or "EDP_WORKER|PASS|" in text:
             raise ValueError("missing or ambiguous managed-cut receipt")
+        if capacity_cut:
+            witnesses = list(CAPACITY_SAFE.finditer(text))
+            if (len(witnesses) != 1 or int(witnesses[0].group(1)) > 64 or
+                    int(witnesses[0].group(3)) > 8192 or
+                    "EDP_BND|SEALED_WRITE_ACTIVITY|" in text):
+                raise ValueError("unqualified capacity refusal evidence")
         pairs = ORIGINAL.findall(text)
         coordinates = {int(ticket): int(tick) for ticket, tick in pairs}
-        trigger = text.find("EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2")
+        trigger = text.find("EDP_BND|MANAGED_CAPACITY_SAFE|ack=2" if capacity_cut else
+                            "EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2")
         if len(pairs) != 128 or len(coordinates) != 128 or trigger < 0 or CUT_PASS.search(text).start() <= trigger:
             raise ValueError("missing original managed source evidence")
         if any(not 1 <= ticket <= 160 or tick <= 0 for ticket, tick in coordinates.items()):
@@ -37,8 +50,8 @@ def receipt(text, power_cut=False):
         raise ValueError("invalid bounded original source")
     return int(matches[0][1]),coordinates
 
-def audit(root: Path, transcript: str, power_cut=False):
-    ack,coordinates=receipt(transcript, power_cut)
+def audit(root: Path, transcript: str, power_cut=False, capacity_cut=False):
+    ack,coordinates=receipt(transcript, power_cut, capacity_cut)
     expected={f"slot{(g-1)%3}":g for g in (ack-1,ack)}
     if not root.is_dir() or root.is_symlink() or {p.name for p in root.iterdir()}!={"seed.txt",*expected}:
         raise ValueError("wrong physical worker file set")
@@ -73,10 +86,12 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("directory",type=Path)
     parser.add_argument("transcript",type=Path)
-    parser.add_argument("--power-cut", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--power-cut", action="store_true")
+    modes.add_argument("--capacity-cut", action="store_true")
     args=parser.parse_args()
     try:
-        ack,records=audit(args.directory,args.transcript.read_text("utf-8"),args.power_cut)
+        ack,records=audit(args.directory,args.transcript.read_text("utf-8"),args.power_cut,args.capacity_cut)
     except (OSError,ValueError,KeyError,TypeError) as exc:
         print(f"OFFLINE_BATCH_WORKER_MEDIA=FAIL reason={exc}")
         raise SystemExit(1)

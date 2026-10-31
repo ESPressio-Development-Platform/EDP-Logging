@@ -39,11 +39,12 @@ def run(destination: str) -> int:
     evidence_path.mkdir(parents=True, exist_ok=False)
 
     stage = os.environ.get("EDP_LFS_CUT_STAGE", "reclaim").lower()
-    if stage not in {"reclaim", "write", "lowspace", "lowspace_reclaim", "typed", "midwrite", "strictack", "typed_ack_gap", "sealed_write"}:
+    if stage not in {"reclaim", "write", "lowspace", "lowspace_reclaim", "typed", "midwrite", "strictack", "typed_ack_gap", "sealed_write", "managed_capacity"}:
         raise ValueError("cut stage must be reclaim, write, lowspace or lowspace_reclaim")
     threshold = 22 if stage == "reclaim" else (24 if stage == "write" else (5 if stage == "lowspace_reclaim" else 1))
     trigger = (
-        re.compile(r"\|SEALED_WRITE_ACTIVITY\|gen=(\d+)") if stage=="sealed_write"
+        re.compile(r"\|MANAGED_CAPACITY_SAFE\|ack=(\d+)") if stage=="managed_capacity"
+        else re.compile(r"\|SEALED_WRITE_ACTIVITY\|gen=(\d+)") if stage=="sealed_write"
         else re.compile(r"\|TYPED_ACK_GAP\|gen=(\d+)") if stage=="typed_ack_gap"
         else re.compile(r"\|STRICT_CANDIDATE_START\|attempt=(\d+)") if stage=="strictack"
         else re.compile(r"\|MIDWRITE_START\|attempt=(\d+)") if stage=="midwrite"

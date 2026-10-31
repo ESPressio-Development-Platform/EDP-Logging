@@ -80,6 +80,9 @@ class PostCutEvidence:
         if "EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT" in line:
             self.replay_verified = True
             self.typed_replay_verified = True
+        if "EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_CAPACITY_CUT" in line:
+            self.replay_verified = True
+            self.typed_replay_verified = True
         if "EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT" in line:
             self.replay_verified = True
             self.typed_replay_verified = True

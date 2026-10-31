@@ -499,3 +499,20 @@ Independent raw audit verifies128 original full15-field records and each
 pre-cut coordinate, plus official NVSACK2 page/entry/blob CRC. Final targetOFF.
 [Complete scope, failures and hashes](../../../docs/MANAGED-BATCH-WRITE-CUT-QUALIFICATION.MD).
 No exact interrupted flash instruction, GC phase or unbounded endurance claim.
+
+## Managed near-full refusal and cut,31October
+
+Existing padding helper is shared with full typed managed batching:
+esp32dev-batch-worker-500-o2-capacitycut, relaystage managed_capacity,
+rawmode EDP_WORKER_AUDIT_POWER_CUT=capacity. No new storageprovider,
+allocator, worker, queue or codec. Native100438-e1dcfe78 PASS, host123tests
+100558-2f942103 PASS. Physical+raw **100726-066996bc PASS**10:15:48CET.
+After45 padding files, real allocation refused with4096bytesfree. A real
+subsequent batch write returned nativeIoFailure12;52pending records remain
+owned in RecoveryRequired,128durable and NVSACK2 unchanged, executionquiescent.
+Actual8.243sOFF, native1/ROM1 POWERON_RESET gives POR_CONFIRMED.
+Recovery checks protected128, removesonlytestpadding, rechecksprotectedhistory;
+independent rawaudit comparesall128 original15-field records and original
+timestamps, official NVSACK2 page/entry/blob CRCs PASS. TargetOFF.
+[Scope, ownership disposition and hashes](../../../docs/MANAGED-BATCH-CAPACITY-CUT-QUALIFICATION.MD).
+No exact interrupted GC/flashinstruction or unbounded endurance claim.
