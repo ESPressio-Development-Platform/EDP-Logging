@@ -63,8 +63,9 @@ class PostCutEvidence:
             self.reset_observed = (
                 int(reset_details.group(1)), int(reset_details.group(2))
             )
-        if "EDP_BND|HALT|" in line:
-            self.halt_reason = line.split("EDP_BND|HALT|", 1)[1].strip()
+        for marker in ("EDP_BND|HALT|", "EDP_EDLS|HALT|"):
+            if marker in line:
+                self.halt_reason = line.split(marker, 1)[1].strip()
         recovered = RECOVER.search(line)
         if recovered:
             self.recovered = tuple(int(recovered.group(i)) for i in (1, 2, 3))
@@ -77,6 +78,9 @@ class PostCutEvidence:
         if "EDP_BND|REPLAY_VERIFIED|STRICT_TWO_PROTECTED_AFTER_REPAIR" in line:
             self.replay_verified = True
         if "EDP_BND|REPLAY_VERIFIED|STRICT_TYPED15_NVS_ACK_AFTER_CUT" in line:
+            self.replay_verified = True
+            self.typed_replay_verified = True
+        if "EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT" in line:
             self.replay_verified = True
             self.typed_replay_verified = True
         if "EDP_EDLS|TYPED_REPLAY_VERIFIED|all_15_fields=1|window=3,4" in line:

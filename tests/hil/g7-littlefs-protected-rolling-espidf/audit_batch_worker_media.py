@@ -10,7 +10,22 @@ from audit_typed_extracted_edls import verify_record, DEVICE
 PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000)\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
 ORIGINAL = re.compile(r"^EDP_WORKER\|ORIGINAL\|ticket=(\d+)\|monotonic_ns=(\d+)$", re.M)
 
-def receipt(text):
+CUT_PASS = re.compile(r"^EDP_WORKER\|POWER_CUT_RECOVERED\|ack_segment=2\|records=128$", re.M)
+
+def receipt(text, power_cut=False):
+    if power_cut:
+        if len(CUT_PASS.findall(text)) != 1 or "EDP_WORKER|PASS|" in text:
+            raise ValueError("missing or ambiguous managed-cut receipt")
+        pairs = ORIGINAL.findall(text)
+        coordinates = {int(ticket): int(tick) for ticket, tick in pairs}
+        trigger = text.find("EDP_BND|SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2")
+        if len(pairs) != 128 or len(coordinates) != 128 or trigger < 0 or CUT_PASS.search(text).start() <= trigger:
+            raise ValueError("missing original managed source evidence")
+        if any(not 1 <= ticket <= 160 or tick <= 0 for ticket, tick in coordinates.items()):
+            raise ValueError("invalid original managed pressure source")
+        if len(ORIGINAL.findall(text[:trigger])) != 128:
+            raise ValueError("source evidence was not captured before cut")
+        return 2, coordinates
     matches=PASS.findall(text)
     if len(matches)!=1 or int(matches[0][1])<2:
         raise ValueError("missing or ambiguous final worker receipt")
@@ -22,8 +37,8 @@ def receipt(text):
         raise ValueError("invalid bounded original source")
     return int(matches[0][1]),coordinates
 
-def audit(root: Path, transcript: str):
-    ack,coordinates=receipt(transcript)
+def audit(root: Path, transcript: str, power_cut=False):
+    ack,coordinates=receipt(transcript, power_cut)
     expected={f"slot{(g-1)%3}":g for g in (ack-1,ack)}
     if not root.is_dir() or root.is_symlink() or {p.name for p in root.iterdir()}!={"seed.txt",*expected}:
         raise ValueError("wrong physical worker file set")
@@ -58,9 +73,10 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("directory",type=Path)
     parser.add_argument("transcript",type=Path)
+    parser.add_argument("--power-cut", action="store_true")
     args=parser.parse_args()
     try:
-        ack,records=audit(args.directory,args.transcript.read_text("utf-8"))
+        ack,records=audit(args.directory,args.transcript.read_text("utf-8"),args.power_cut)
     except (OSError,ValueError,KeyError,TypeError) as exc:
         print(f"OFFLINE_BATCH_WORKER_MEDIA=FAIL reason={exc}")
         raise SystemExit(1)

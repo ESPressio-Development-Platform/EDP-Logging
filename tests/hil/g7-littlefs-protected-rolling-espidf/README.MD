@@ -481,3 +481,21 @@ Factory2b0ce0183459f4782a1bc6b39a096cbb1b427fa6218c00d1f09b17f10dd5dd29.
 Runner backup defaults full. Explicit EDP_LFS_BACKUP_POLICY=disposable is for
 user-authorised disposable targets only; full image/filesystem verification
 before boot stays mandatory. Both backup modes physically tested.
+
+## Managed worker write-activity cut,31October
+
+Existing native env esp32dev-batch-worker-500-o2-writecut, existing relay stage
+sealed_write and explicit raw mode EDP_WORKER_AUDIT_POWER_CUT=1. Same source
+Memory pools, transactional queue, managed coordinator, canonical Clock,
+generated15-field codec and strict bounded batch/archive. Original128 source
+coordinates are emitted before cut; no reconstructed originals are accepted.
+Native cut build004645-18f579b9 and normal profile build PASS. Initial physical
+parent004958-1bd62862 FAIL01:07:02 because the host classifier omitted the
+new managed marker. It remainsFAIL; the living handoff records the following
+unattended gap. Corrected classifier117tests095754-83c4528e PASS.
+Fresh physical+raw **095844-2022f045 PASS**10:00:33CET. Controller8.223sOFF,
+native7/ROM2 then16 watchdog sequence, EXTERNALLY_VERIFIED_POWER_CUT.
+Independent raw audit verifies128 original full15-field records and each
+pre-cut coordinate, plus official NVSACK2 page/entry/blob CRC. Final targetOFF.
+[Complete scope, failures and hashes](../../../docs/MANAGED-BATCH-WRITE-CUT-QUALIFICATION.MD).
+No exact interrupted flash instruction, GC phase or unbounded endurance claim.

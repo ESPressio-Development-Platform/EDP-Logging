@@ -132,6 +132,16 @@ class ExternalVddQualificationTests(unittest.TestCase):
         v = verdict(state)
         self.assertEqual(v.failure, "FIRMWARE_HALT:INVALID_SEED")
 
+    def test_native_edls_halt_is_reported_instead_of_timeout(self):
+        state = evidence()
+        state.observe("EDP_EDLS|HALT|WORKER_CUT_FRAME")
+        self.assertEqual(verdict(state).failure, "FIRMWARE_HALT:WORKER_CUT_FRAME")
+
+    def test_unknown_replay_marker_does_not_qualify(self):
+        state = evidence(replay=False)
+        state.observe("EDP_BND|REPLAY_VERIFIED|MANAGED_UNKNOWN")
+        self.assertEqual(verdict(state).failure, "PROTECTED_REPLAY_NOT_CONFIRMED")
+
     def test_multiple_boots_in_single_postcut_epoch_are_ambiguous(self):
         state = evidence()
         state.observe("EDP_BND|BOOT|reset=10")

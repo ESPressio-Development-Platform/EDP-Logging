@@ -46,7 +46,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                  wrong_off=False, bad_recovery=False,
                  lowspace=False, lowspace_reclaim=False,
                  midwrite=False, strictack=False,
-                 typed_ack_gap=False, sealed_write=False):
+                 typed_ack_gap=False, sealed_write=False, managed=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -147,6 +147,11 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
             before = before.replace(
                 b"TYPED_ACK_GAP|gen=3|nvs_ack=2|candidate_complete=1",
                 b"SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2")
+        if managed:
+            after = after.replace(
+                b"STRICT_TYPED15_NVS_ACK_AFTER_CUT",
+                b"MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT")
+            after = after.replace(b"newest=4|older=3", b"newest=2|older=1")
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -193,6 +198,21 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_managed_replay_marker_completes_real_controller_loop(self):
+        code, out, recorded, port = self.exercise(
+            sealed_write=True, managed=True, native=7,
+            rom="rst:0x10 (RTCWDT_RTC_RESET)")
+        self.assertEqual(code, 0)
+        self.assertIn("MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT", recorded)
+        self.assertTrue(any("QUALIFICATION=EXTERNALLY_VERIFIED_POWER_CUT" in line for line in out))
+        self.assertTrue(any("last_ack=2|newest=2|older=1" in line for line in out))
+        self.assertEqual(port.reset_calls, 2)
+        self.assertTrue(port.closed)
+
+    def test_managed_replay_bad_retention_still_fails(self):
+        self.assertEqual(self.exercise(
+            sealed_write=True, managed=True, bad_recovery=True)[0], 4)
 
     def test_invalid_backup_policy_refused_before_hardware(self):
         import subprocess

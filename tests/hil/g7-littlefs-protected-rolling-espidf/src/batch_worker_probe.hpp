@@ -375,8 +375,27 @@ namespace {
                         CoordinateTickets[ticket % EvidenceSlots] == ticket,
                         "WORKER_ACK_COORDINATE_NOT_OVERWRITTEN"
                     );
+#if defined(EDP_WORKER_POWER_CUT)
+                    if (Confirmed < 128U) {
+                        // Original source evidence leaves the MCU before any power cut.
+                        std::printf(
+                            "EDP_WORKER|ORIGINAL|ticket=%u|monotonic_ns=%llu\n",
+                            static_cast<unsigned>(ticket),
+                            static_cast<unsigned long long>(SourceCoordinates[ticket % EvidenceSlots])
+                        );
+                    }
+#endif
                     AckLatencies[Confirmed++] =
                         static_cast<std::uint32_t>((now - SourceCoordinates[ticket % EvidenceSlots]) / 1000U);
+#if defined(EDP_WORKER_POWER_CUT)
+                    if (Confirmed == 64U || Confirmed == 128U) {
+                        std::printf(
+                            "EDP_BND|ACK|gen=%u\n",
+                            Confirmed / 64U
+                        );
+                        std::fflush(stdout);
+                    }
+#endif
                 }
                 if (Confirmed == 129U) {
                     IdleAckLatencyUs.store(static_cast<unsigned>(AckLatencies[128U]));
@@ -575,9 +594,10 @@ namespace {
             );
         }
 
-        /// Reopens every retained frame and compares all canonical bytes with original source
-        /// evidence.
-        static void VerifyFinalMedia(Store& store, std::uint64_t ack) {
+        /// Reopens retained frames and compares canonical bytes with supplied source evidence.
+        /// Normal completion uses original RAM coordinates. Recovery reconstruction is structural
+        /// only; the separate host audit must compare the original pre-cut coordinates.
+        static void VerifyFinalMedia(Store& store, std::uint64_t ack, bool emitOriginal = true) {
             const auto history =
                 L::InspectEdlsArchiveWithScratch<3U, 1024U>(
                     store,
@@ -672,11 +692,12 @@ namespace {
                             ),
                         "WORKER_EXACT_ORIGINAL_FIFTEEN_FIELDS"
                     );
-                    std::printf(
-                        "EDP_WORKER|ORIGINAL|ticket=%u|monotonic_ns=%llu\n",
-                        static_cast<unsigned>(ticket),
-                        static_cast<unsigned long long>(SourceCoordinates[ticket % EvidenceSlots])
-                    );
+                    if (emitOriginal)
+                        std::printf(
+                            "EDP_WORKER|ORIGINAL|ticket=%u|monotonic_ns=%llu\n",
+                            static_cast<unsigned>(ticket),
+                            static_cast<unsigned long long>(SourceCoordinates[ticket % EvidenceSlots])
+                        );
                     position += frame.Consumed;
                     ++count;
                     ++frames;
@@ -699,17 +720,143 @@ namespace {
             );
         }
 
+#if defined(EDP_WORKER_POWER_CUT)
+        /// Reconstructs only test telemetry after recovery. Actual original coordinates
+        /// remain in the pre-cut host transcript and must pass the independent raw audit.
+        [[noreturn]] static void RecoverInterruptedManagedBatch(Store& store, Bytes& bytes) {
+            SealedNvs ledger(bytes);
+            Require(
+                ledger.Open("batchack") == E::NvsOpenStatus::Succeeded,
+                "WORKER_CUT_LEDGER_OPEN"
+            );
+            SealedArchive archive(
+                store,
+                ledger,
+                Paths,
+                SealedAckKey.Value,
+                DeviceIdentifier,
+                7U
+            );
+            const auto reset = esp_reset_reason();
+            std::printf(
+                "EDP_BND|RESET_OBSERVED|reason=%u|por=%u\n",
+                static_cast<unsigned>(reset),
+                reset == ESP_RST_POWERON ? 1U : 0U
+            );
+            const auto before = archive.Read();
+            Require(
+                before.Status == L::EdlsAcknowledgedStatus::Ready &&
+                        before.AcknowledgedGeneration == 2U,
+                "WORKER_CUT_ACK2"
+            );
+            const auto recovered = archive.Recover(SealedScratch);
+            Require(
+                recovered.Status == L::EdlsAcknowledgedStatus::Ready ||
+                        recovered.Status == L::EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved,
+                "WORKER_CUT_RECONCILE_SPARE"
+            );
+            unsigned count = 0U;
+            for (unsigned slot = 0U; slot < 2U; ++slot) {
+                const auto read = store.ReadFileAt(
+                    Paths[slot],
+                    P::StorageOffset{},
+                    P::DestinationBufferView{SealedReadback.data(), SealedReadback.size()}
+                );
+                Require(
+                    read.Status == P::FileReadStatus::Succeeded &&
+                            read.BytesTransferred >= L::EdlsHeaderBytes + L::EdlsSealBytes,
+                    "WORKER_CUT_MEDIA_READ"
+                );
+                std::size_t position = L::EdlsHeaderBytes;
+                const auto end = read.BytesTransferred - L::EdlsSealBytes;
+                while (position < end) {
+                    L::EdlgFrameView frame{};
+                    Require(
+                        L::ReadEdlgFrame(
+                            std::span<const std::byte>(
+                                    SealedReadback.data() + position,
+                                    end - position
+                                ),
+                            frame,
+                            1024U
+                        ) == L::EdlgFrameReadResult::Succeeded &&
+                                Serial::Deserialise<Serial::Cbor, Serial::RootProfile::TypedEnvelope>(
+                                    frame.Payload,
+                                    TypedDecoded
+                                )
+                                    .IsSuccessful(),
+                        "WORKER_CUT_FRAME"
+                    );
+                    const auto ticket = TypedDecoded.Attempt.Value();
+                    Require(
+                        ticket > 0U && ticket <= 160U &&
+                                CoordinateTickets[ticket % EvidenceSlots] == 0U &&
+                                TypedDecoded.Monotonic.Nanoseconds() > 0U,
+                        "WORKER_CUT_BOUNDED_TICKET"
+                    );
+                    CoordinateTickets[ticket % EvidenceSlots] = ticket;
+                    SourceCoordinates[ticket % EvidenceSlots] = TypedDecoded.Monotonic.Nanoseconds();
+                    position += frame.Consumed;
+                    ++count;
+                }
+                Require(
+                    position == end,
+                    "WORKER_CUT_EXACT_BODY"
+                );
+            }
+            Require(
+                count == 128U,
+                "WORKER_CUT_ALL_PRESSURE_RECORDS"
+            );
+            // Same canonical reconstruction checks every other field; the host independently
+            // compares the original occurrence coordinates instead of trusting this reconstruction.
+            VerifyFinalMedia(
+                store,
+                2U,
+                false
+            );
+            std::printf("EDP_WORKER|POWER_CUT_RECOVERED|ack_segment=2|records=128\n");
+            std::printf("EDP_BND|RECOVERED|newest=2|older=1|valid=2|contiguous=1\n");
+            std::printf("EDP_BND|REPLAY_VERIFIED|MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT\n");
+            std::fflush(stdout);
+            for (;;) {
+                vTaskDelay(pdMS_TO_TICKS(1000U));
+            }
+        }
+#endif
+
         /// Composes existing domain owners and executes pressure, idle, schedule and shutdown
         /// gates.
         [[noreturn]] static void Run(Store& store,
                                      Bytes& bytes,
                                      nvs_handle_t session,
                                      esp_err_t phase) {
+#if defined(EDP_WORKER_POWER_CUT)
+            if (phase == ESP_OK) {
+                std::uint8_t recoveredArmed = 0U;
+                Require(
+                    nvs_get_u8(
+                        session,
+                        "armed",
+                        &recoveredArmed
+                    ) == ESP_OK &&
+                            recoveredArmed == 1U,
+                    "WORKER_CUT_SESSION_PROVENANCE"
+                );
+                nvs_close(session);
+                RecoverInterruptedManagedBatch(
+                    store,
+                    bytes
+                );
+            }
+#endif
             Require(
                 phase == ESP_ERR_NVS_NOT_FOUND,
                 "WORKER_FRESH_TEST_PROVENANCE"
             );
+#if !defined(EDP_WORKER_POWER_CUT)
             nvs_close(session);
+#endif
             static NativeTimebase timebase{};
             static NativeClock clock(timebase);
             Require(
@@ -843,6 +990,26 @@ namespace {
                 15000U,
                 "WORKER_PRESSURE_DRAIN"
             );
+#if defined(EDP_WORKER_POWER_CUT)
+            Require(
+                nvs_set_u8(
+                    session,
+                    "armed",
+                    1U
+                ) == ESP_OK &&
+                        nvs_commit(session) == ESP_OK,
+                "WORKER_CUT_ARM"
+            );
+            nvs_close(session);
+            // Published before the new scheduled phase and its queue admission; no pending batch remains.
+            SealedWriteActivityArmed = true;
+            ScheduleStart.store(C::MonotonicNow().Nanoseconds() + 100000000ULL);
+            Phase.store(3U);
+            (void)first.Wake();
+            (void)second.Wake();
+            vTaskDelay(pdMS_TO_TICKS(15000U));
+            Halt("WORKER_WRITE_ACTIVITY_CUT_NOT_OBSERVED");
+#endif
             Phase.store(2U);
             (void)first.Wake();
             (void)second.Wake();

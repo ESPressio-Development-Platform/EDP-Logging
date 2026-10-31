@@ -18,7 +18,8 @@ It does not imply that every configuration or all production gates pass.
 | Canonical lifecycle atomics | Standard and canonical bindings pass GCC/Clang UBSan and actual ESP-IDF provider integration; SDK atomic flags retained | Lock-free does not promise wait-free per-caller timing |
 | Public provider boundaries | Existing Memory, Threading, Clock, Serialisation, Localisation and Persistence owners reused; no FileStorage PowerLoss trait upgrade | No claim of generic filesystem interruption atomicity |
 | Sealed64 write-activity cut | 20261031T003134-4bb013c2 and004328-1221099b PASS;8.232/8.257s externally verifiedOFF, protected originals recovered, subsequent128-record/NVS raw audit PASS | Write-activity window only; managed queue, exact flash-op/GC timing and endurance remain separate |
-| Physical reliability campaign | Existing complete-candidate, candidate-write activity and near-full experiments retained in native fixture README | Current batched managed pipeline still needs write/retirement/GC/near-full interruption qualification |
+| Managed worker write-activity cut | 20261031T095844-2022f045 PASS;8.223s externally verifiedOFF, raw comparison of all128 original source coordinates/full15-field records and NVSACK2 CRCs | Finite write-activity window; retirement, exact GC timing, near-full and endurance remain separate |
+| Physical reliability campaign | Existing complete-candidate, candidate-write activity and near-full experiments retained in native fixture README | Managed write-activity window now passes; retirement/GC/near-full interruption qualification remains |
 | Endurance and product acceptance | Latency, bounded memory and stack observations exist for named finite fixtures | Sustained duration, flash wear/lifetime, final ACK latency and product resource acceptance remain incomplete |
 
 ## Qualified extended finite experiment
