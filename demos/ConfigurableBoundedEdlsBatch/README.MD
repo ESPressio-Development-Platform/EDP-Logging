@@ -99,3 +99,10 @@ fresh repeat184352-e1b78bb7 qualifies all three targets with that ordering.
 Backup defaults full; disposable requires an explicit authorised opt-in.
 Private UART/images and failed receipts remain on RPI400; target exits OFF.
 These are normal-boot demonstrations, not electrical-cut or endurance proof.
+
+
+## Immutable application byte budget
+
+The archive accepts a trailing byteCapacity constructor argument before initialisation. BoundedEdlsBatch respects the resulting smaller per-segment share during admission and deadline service. The bound includes EDLS files, the temporary successor and the 40-byte ACK value; provider-internal physical allocation overhead needs a separate application reserve. See [consumer and library-expansion contract](../../docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD).
+
+The shared three-target demonstration explicitly selects 640 logical bytes. This is an example application choice, not a platform default.

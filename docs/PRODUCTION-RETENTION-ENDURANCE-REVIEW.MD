@@ -6,7 +6,7 @@ All versions remain 0.1.0. The application determines where logs are persisted, 
 
 The application supplies the Persistence sink's byte capacity during Bootstrap or before initialisation. The capacity must be immutable after initialisation. The platform does not prescribe a retained byte count or history duration.
 
-Qualification must demonstrate that the sink does not exceed its configured byte limit, including temporary candidate storage needed for safe successor commit. The existing segment-count bounds and near-full refusal experiments do not by themselves establish this byte-limit contract. Explicit accounting, enforcement and boundary tests remain to be verified.
+The existing strict archive now freezes an application byte capacity at construction, enforces equal per-segment reservations including the temporary successor, and accounts for its40-byte ACK value. Batching respects the resulting smaller admission bound. Host boundary/recovery tests and actual28,000-byte ESP32 qualification pass; see [immutable byte-capacity contract and evidence](IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD). The bound covers sink-owned logical data; filesystem/NVS allocation overhead remains a separate physical provider budget.
 
 The throughput target remains 100 records per second. It is not merely a stress-test rate. Existing evidence covers finite workloads, including 30,000 scheduled records over five minutes; this is not an indefinite-throughput guarantee.
 

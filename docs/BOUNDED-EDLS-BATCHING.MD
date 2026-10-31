@@ -1,8 +1,6 @@
 # Configurable bounded EDLS record batching
 
-Status: feature/logging-v1, version 0.1.0. Host-qualified implementation plus
-a native synchronous ESP32 benchmark, complete-unACKed-segment relay cut and
-independent raw-media audits. Scheduled multi-producer qualification remains open.
+Status: feature/logging-v1, version 0.1.0. See LOGGING-QUALIFICATION-STATUS.MD for current finite scheduled-worker, interruption and immutable-byte-capacity evidence. Dated sections below preserve historical results. Flash lifespan is not an acceptance gate.
 
 ## Ownership and finite capacity
 
@@ -543,3 +541,8 @@ are retained. The earlier static-telemetry DRAM linker failure is preserved.
 See native README for hashes, exact resources, timings and honest finite scope.
 [Current qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) lists remaining
 typed-demo, interruption, endurance and product acceptance work.
+
+
+## Immutable application byte budget
+
+The archive accepts a trailing byteCapacity constructor argument before initialisation. BoundedEdlsBatch respects the resulting smaller per-segment share during admission and deadline service. The bound includes EDLS files, the temporary successor and the 40-byte ACK value; provider-internal physical allocation overhead needs a separate application reserve. See [consumer and library-expansion contract](IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD).

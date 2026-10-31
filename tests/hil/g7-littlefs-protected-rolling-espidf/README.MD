@@ -548,3 +548,26 @@ Finite five-minute qualification only; production retention/duty/lifetime still
 need application targets, not extrapolation from this benchmark.
 
 Final stricter PASS-line percentile-scope check:132tests and independent saved-raw re-audit105342-cc6370ba PASS. Native image unchanged.
+
+
+## 31 October 2026 byte-capacity qualification
+
+All execution was on RPI400; versions remain 0.1.0. No hosted Actions coverage is relied upon.
+
+- Final GCC/Clang archive/batch UBSan and generated typed Memory/Threading integration: 20261031T123312-22a2d852 PASS. This also builds the actual O2/assertion-enabled/160 MHz/500 ms native profile.
+- Controller and media evidence tests: 20261031T123433-767ce9f1 PASS, 134 tests, including malformed/missing/duplicate/over-limit byte witnesses.
+- Three-target explicit 640-byte demo builds: 20261031T123804-946f8e52 PASS (Arduino IDE, PlatformIO Arduino, PlatformIO ESP-IDF). These are build results, not three new physical demo runs.
+- Final native instrumentation build: 20261031T124551-6912a2dc PASS, actual compile profile verified.
+- Final ESP32 workload plus independent raw-media/NVS/byte audit: 20261031T124610-2a2c297e PASS at 12:48:55 CET.
+
+The ESP32 received 2,000 scheduled records at 100/s plus 128 accepted pressure records and one idle record; all 2,129 were durably completed. The configured sink budget was 28,000 B; independently observed pre-retirement peak was 27,088 B, final retained files plus ACK were 13,032 B. Final ACK35 retained 92 original records, independently checked against all fifteen source fields and original coordinates. Official NVS page/entry/blob CRC and incarnation7 checks passed. Device exited powered OFF.
+
+Scheduled drain was 21.092329 seconds, including final flush. ACK p50 832352 us / p95 1140539 us / p99 1263239 us; maximum scheduling lateness 69854 us. Sampled minimum heap 178188 B; worker stack headroom3436 B, main4884 B. This remains finite 20-second offered-load evidence, not an indefinite-throughput or lifetime guarantee.
+
+Factory SHA256: 6fc0ff42c7ae1bceca3686022058723c933e4ba01fc0876c56ef716cbcc6aa54.
+LittleFS SHA256: e1c1cec9d0e20442b10becb709801038b8ced8d5a15220d2180d9ebd40cbaeba.
+NVS SHA256: 2d12820fa3b33b54d8e3cef1ca4ce18d70f43fa8145ed2e6da17596dc7043c9e.
+
+Earlier run123633-33f6ed8c also passed physical/raw qualification with the same production code. Review then found the new test-only observer would incorrectly count unrelated padding in the separate near-full fixture. It now matches only owned paths, and the final native run explicitly exercises exclusion of an oversized hypothetical unrelated write. No production transaction ordering changed. The final repeat above qualifies the exact corrected fixture.
+
+Logical sink bytes include EDLS headers/seals, the temporary successor and the fixed40-byte ACK value. Filesystem allocation/GC and NVS internal metadata are separate provider budgets, not measured by this logical limit. Provider selection and physical partition allocation remain application-owned.

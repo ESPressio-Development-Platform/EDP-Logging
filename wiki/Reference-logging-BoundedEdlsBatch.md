@@ -60,3 +60,8 @@ audit232528-9e980d90 also PASS. All6129 phase records durably drain in the
 experiment; scheduled complete-drain61.096605s, ACKp50812.873ms/p991257.849ms.
 This qualifies a finite60-second offered100records/s sample, not indefinite
 sustained rate. See the [qualification ledger](../docs/LOGGING-QUALIFICATION-STATUS.MD).
+
+
+## Immutable application byte budget
+
+The archive accepts a trailing byteCapacity constructor argument before initialisation. BoundedEdlsBatch respects the resulting smaller per-segment share during admission and deadline service. The bound includes EDLS files, the temporary successor and the 40-byte ACK value; provider-internal physical allocation overhead needs a separate application reserve. See [consumer and library-expansion contract](../docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD).

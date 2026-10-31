@@ -30,7 +30,12 @@ namespace L = ESPressio::Logging;
 using Bytes = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
 struct TestOnlyLittleFsBinding final {};
 using NativeStore = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding, Bytes>;
-#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT) || defined(EDP_TEST_SEALED_RETIREMENT_CUT)
+#if defined(EDP_TEST_BYTE_CAPACITY)
+/// Test-only native observation at every successor-write boundary.
+static std::uint64_t ObservedSinkPeakBytes = 0U;
+static void CheckSinkByteBoundary(const NativeStore& storage, P::FilePathView target, std::size_t bytes);
+#endif
+#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT) || defined(EDP_TEST_SEALED_RETIREMENT_CUT) || defined(EDP_TEST_BYTE_CAPACITY)
 // Test-only instrumentation of the existing provider. Only the unacknowledged
 // spare is rewritten; protected predecessors are never passed to this loop.
 /// Bootstrap arms only after both protected batches and the session flag commit.
@@ -96,6 +101,13 @@ struct Store final {
     /// Intercepts only the armed spare publication for finite write-activity injection.
     [[nodiscard]] P::FileReplaceStatus ReplaceFile(
         P::FilePathView path, P::SourceBufferView source) noexcept {
+#if defined(EDP_TEST_BYTE_CAPACITY)
+        CheckSinkByteBoundary(
+            Actual,
+            path,
+            source.Size
+        );
+#endif
         if (!SealedWriteActivityArmed) {
 #if defined(EDP_WORKER_CAPACITY_CUT)
             ++SealedReplaceCalls;
@@ -182,6 +194,51 @@ static void Require(bool condition, const char* why) {
         Halt(why);
     }
 }
+
+#if defined(EDP_TEST_BYTE_CAPACITY)
+/// Independent physical file-size accounting includes the not-yet-written candidate.
+static void CheckSinkByteBoundary(const NativeStore& storage, P::FilePathView target, std::size_t bytes) {
+    // Padding, seed and unrelated application files are not sink-owned paths.
+    bool owned = false;
+    for (const auto path : Paths) {
+        if (path.Size() != target.Size())
+            continue;
+        bool same = true;
+        for (std::size_t i = 0U; i < path.Size(); ++i) {
+            if (path.Data()[i] != target.Data()[i])
+                same = false;
+        }
+        if (same)
+            owned = true;
+    }
+    if (!owned)
+        return;
+    std::uint64_t occupied = L::EdlsHeaderBytes;
+    for (const auto path : Paths) {
+        const auto size = storage.GetFileSize(path);
+        Require(
+            size.Status == P::FileSizeStatus::Succeeded ||
+                size.Status == P::FileSizeStatus::NotFound,
+            "BYTE_CAPACITY_SIZE"
+        );
+        if (size.Status == P::FileSizeStatus::Succeeded)
+            occupied += size.Size.RawValue;
+    }
+    // The normal successor operation must address an absent path.
+    Require(
+        storage.GetFileSize(target).Status == P::FileSizeStatus::NotFound,
+        "BYTE_CAPACITY_EMPTY_SUCCESSOR"
+    );
+    Require(
+        occupied <= EDP_TEST_BYTE_CAPACITY &&
+            bytes <= EDP_TEST_BYTE_CAPACITY - occupied,
+        "BYTE_CAPACITY_PEAK"
+    );
+    const auto peak = occupied + bytes;
+    if (peak > ObservedSinkPeakBytes)
+        ObservedSinkPeakBytes = peak;
+}
+#endif
 
 static auto Frame() {
     std::array<std::byte, 64U> buffer{};

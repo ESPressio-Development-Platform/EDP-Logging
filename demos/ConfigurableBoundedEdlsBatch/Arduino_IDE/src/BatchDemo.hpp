@@ -257,7 +257,10 @@ namespace ESPressio::Demos::ConfigurableBoundedEdlsBatch {
             "/edplfs",
             bytes
         );
-        Archive archive(files, ledger, Paths, AckKey, device, incarnation);
+        // Application-selected logical byte budget, including the spare and ACK.
+        // The archive freezes this value before genesis or recovery.
+        constexpr std::uint64_t sinkByteCapacity = 640U;
+        Archive archive(files, ledger, Paths, AckKey, device, incarnation, sinkByteCapacity);
         static std::array<std::byte, MaximumSegmentBytes> scratch{};
         const auto initial = archive.InitializeEmpty();
         if (initial.Status != L::EdlsAcknowledgedStatus::Initialized &&

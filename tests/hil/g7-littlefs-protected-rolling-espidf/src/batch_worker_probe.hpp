@@ -22,6 +22,13 @@
 namespace {
 
 
+#if defined(EDP_TEST_BYTE_CAPACITY)
+    /// Application test budget, frozen by archive construction before genesis/recovery.
+    constexpr std::uint64_t WorkerSinkByteCapacity = EDP_TEST_BYTE_CAPACITY;
+#else
+    constexpr std::uint64_t WorkerSinkByteCapacity = L::EdlsHeaderBytes + 3ULL * SealedSegmentBytes;
+#endif
+
     namespace BatchWorkerHIL {
 
 
@@ -769,7 +776,8 @@ namespace {
                 Paths,
                 SealedAckKey.Value,
                 DeviceIdentifier,
-                7U
+                7U,
+                WorkerSinkByteCapacity
             );
             const auto reset = esp_reset_reason();
             std::printf(
@@ -945,13 +953,27 @@ namespace {
                 ledger.Open("batchack") == E::NvsOpenStatus::Succeeded,
                 "WORKER_NVS_OPEN"
             );
+#if defined(EDP_TEST_BYTE_CAPACITY)
+            // Exercise exclusion without writing: even an oversized hypothetical
+            // unrelated seed write must not affect this sink's observation.
+            CheckSinkByteBoundary(
+                store.Actual,
+                Seed.Value,
+                EDP_TEST_BYTE_CAPACITY + 1U
+            );
+            Require(
+                ObservedSinkPeakBytes == 0U,
+                "BYTE_CAPACITY_UNRELATED_PATH_EXCLUDED"
+            );
+#endif
             static SealedArchive archive(
                 store,
                 ledger,
                 Paths,
                 SealedAckKey.Value,
                 DeviceIdentifier,
-                7U
+                7U,
+                WorkerSinkByteCapacity
             );
             Require(
                 archive.InitializeEmpty().Status == L::EdlsAcknowledgedStatus::Initialized,
@@ -1291,6 +1313,17 @@ namespace {
                 AckLatencies.begin() + AckSampleStart,
                 AckLatencies.begin() + AckSampleStart + AckSampleCount
             );
+#if defined(EDP_TEST_BYTE_CAPACITY)
+            Require(
+                ObservedSinkPeakBytes > 0U && ObservedSinkPeakBytes <= WorkerSinkByteCapacity,
+                "BYTE_CAPACITY_FINAL_PEAK"
+            );
+            std::printf(
+                "EDP_BYTE_CAPACITY|PASS|limit=%llu|peak=%llu\n",
+                static_cast<unsigned long long>(WorkerSinkByteCapacity),
+                static_cast<unsigned long long>(ObservedSinkPeakBytes)
+            );
+#endif
             std::printf(
                 "EDP_WORKER|PASS|scheduled_records=%u|producers=2|target_rps=100|elapsed_us=%llu"
                 "|latency_scope=%s|latency_samples=%u|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"

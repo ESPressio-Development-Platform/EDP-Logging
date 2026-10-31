@@ -17,13 +17,15 @@
 
 namespace ESPressio::Logging {
 
+
     /// Result of changing the empty batch's Bootstrap-selected dwell.
     enum class EdlsBatchConfigurationStatus : std::uint8_t {
         Configured = 0U,
         InvalidDwell = 1U,
         PendingBatch = 2U,
         RecoveryRequired = 3U,
-        InsufficientScratch = 4U
+        InsufficientScratch = 4U,
+        InvalidByteCapacity = 5U
     };
 
     /// Admission, service and durable completion outcomes for one batch.
@@ -56,7 +58,6 @@ namespace ESPressio::Logging {
 
         /// Existing archive result; meaningful when Flush invoked the owner.
         EdlsAcknowledgedObservation Archive{};
-
     };
 
     /// Finite single-writer accumulator over the existing strict EDLS owner.
@@ -80,17 +81,15 @@ namespace ESPressio::Logging {
     /// @tparam TMonotonicClockProvider Bootstrap-selected canonical MonotonicClock.
     /// @tparam TByteOperationsProvider Stateless Bytes-compatible Memory byte provider.
     /// @tparam TMaximumDwellNanoseconds Compile-time upper bound for Bootstrap dwell.
-    template<
+    template <
         std::size_t TMaximumRecords,
         std::size_t TMaximumBytes,
         class TArchive,
         class TMonotonicClockProvider,
         class TByteOperationsProvider,
-        std::int64_t TMaximumDwellNanoseconds = 100000000
-    >
+        std::int64_t TMaximumDwellNanoseconds = 100000000>
     class BoundedEdlsBatch final {
-    private:
-
+      private:
         // Provider and resource contracts.
 
         static_assert(TMaximumRecords >= 1U && TMaximumRecords <= 64U);
@@ -98,23 +97,17 @@ namespace ESPressio::Logging {
         static_assert(TMaximumDwellNanoseconds >= 0);
         static_assert(
             TMaximumBytes + EdlsHeaderBytes +
-                (TMaximumRecords > 1U ? EdlsSealBytes : 0U)
-                <= TArchive::MaximumSegmentBytes()
-        );
+                (TMaximumRecords > 1U ? EdlsSealBytes : 0U) <=
+            TArchive::MaximumSegmentBytes());
         static_assert(
             TMonotonicClockProvider::CompositionOffers::template Contains<
-                ESPressio::Clock::MonotonicClock
-            >
-        );
+                ESPressio::Clock::MonotonicClock>);
         static_assert(
             std::is_same_v<
                 decltype(std::declval<const TMonotonicClockProvider&>().Now()),
-                ESPressio::Clock::MonotonicTimestamp
-            >
-        );
+                ESPressio::Clock::MonotonicTimestamp>);
         static_assert(
-            noexcept(std::declval<const TMonotonicClockProvider&>().Now())
-        );
+            noexcept(std::declval<const TMonotonicClockProvider&>().Now()));
 
         // Application-owned stable providers and buffers.
 
@@ -147,6 +140,19 @@ namespace ESPressio::Logging {
         /// Sticky uncertainty: no automatic retry or fresh admission is permitted.
         bool recoveryRequired_{false};
 
+        // Effective admission bound from the immutable application archive budget.
+
+        /// Smaller archive shares constrain batching before any record is consumed.
+        [[nodiscard]] std::size_t EffectiveBodyBytes() const noexcept {
+            constexpr std::size_t overhead = EdlsHeaderBytes +
+                                             (TMaximumRecords > 1U ? EdlsSealBytes : 0U);
+            const auto segment = archive_->ConfiguredSegmentByteCapacity();
+            if (segment < overhead)
+                return 0U;
+            const auto body = segment - overhead;
+            return body < TMaximumBytes ? static_cast<std::size_t>(body) : TMaximumBytes;
+        }
+
         // Result construction.
 
         /// Reports non-durable progress without inventing a segment ACK.
@@ -159,27 +165,24 @@ namespace ESPressio::Logging {
 
         /// Indicates that a pending batch should be flushed at this coordinate.
         [[nodiscard]] bool IsDue(
-            ESPressio::Clock::MonotonicTimestamp now
-        ) const noexcept {
+            ESPressio::Clock::MonotonicTimestamp now) const noexcept {
             return records_ == TMaximumRecords ||
-                bytes_.Size() == TMaximumBytes ||
-                now.Nanoseconds() - first_.Nanoseconds() >=
-                    static_cast<std::uint64_t>(dwell_.Nanoseconds());
+                   bytes_.Size() == EffectiveBodyBytes() ||
+                   now.Nanoseconds() - first_.Nanoseconds() >=
+                       static_cast<std::uint64_t>(dwell_.Nanoseconds());
         }
 
-    public:
-
+      public:
         // Construction and Bootstrap configuration.
 
         /// Borrows stable providers and whole-segment scratch; call ConfigureDwell.
         BoundedEdlsBatch(
             TArchive& archive,
             const TMonotonicClockProvider& clock,
-            std::span<std::byte> scratch
-        ) noexcept :
-            archive_(&archive),
-            clock_(&clock),
-            scratch_(scratch) {}
+            std::span<std::byte> scratch) noexcept
+            : archive_(&archive),
+              clock_(&clock),
+              scratch_(scratch) {}
 
         /// This semantic batch owner must not be copied or relocated.
         BoundedEdlsBatch(const BoundedEdlsBatch&) = delete;
@@ -196,8 +199,7 @@ namespace ESPressio::Logging {
         /// Select zero/immediate or finite dwell within the compile-time maximum.
         /// A pending batch's deadline cannot be extended by reconfiguration.
         [[nodiscard]] EdlsBatchConfigurationStatus ConfigureDwell(
-            ESPressio::Clock::Duration dwell
-        ) noexcept {
+            ESPressio::Clock::Duration dwell) noexcept {
             if (recoveryRequired_) {
                 return EdlsBatchConfigurationStatus::RecoveryRequired;
             }
@@ -208,8 +210,11 @@ namespace ESPressio::Logging {
                 dwell.Nanoseconds() > TMaximumDwellNanoseconds) {
                 return EdlsBatchConfigurationStatus::InvalidDwell;
             }
+            if (EffectiveBodyBytes() < 21U) {
+                return EdlsBatchConfigurationStatus::InvalidByteCapacity;
+            }
             if (scratch_.size() < EdlsHeaderBytes + TMaximumBytes +
-                    (TMaximumRecords > 1U ? EdlsSealBytes : 0U) ||
+                                      (TMaximumRecords > 1U ? EdlsSealBytes : 0U) ||
                 scratch_.size() <
                     EdlsHeaderBytes + TArchive::MaximumFramePayloadBytes() + 20U) {
                 return EdlsBatchConfigurationStatus::InsufficientScratch;
@@ -225,8 +230,7 @@ namespace ESPressio::Logging {
         /// Buffered never means durable. FlushRequired does NOT consume this input.
         /// No provider I/O is performed until Service or Flush calls the archive.
         [[nodiscard]] EdlsBatchOutcome Offer(
-            std::span<const std::byte> completeFrame
-        ) noexcept {
+            std::span<const std::byte> completeFrame) noexcept {
             if (recoveryRequired_) {
                 return Observe(EdlsBatchStatus::RecoveryRequired);
             }
@@ -235,15 +239,15 @@ namespace ESPressio::Logging {
             }
             EdlgFrameView frame{};
             if (ReadEdlgFrame(
-                    completeFrame,
-                    frame,
-                    TArchive::MaximumFramePayloadBytes()
-                ) != EdlgFrameReadResult::Succeeded ||
+                completeFrame,
+                frame,
+                TArchive::MaximumFramePayloadBytes()
+            ) != EdlgFrameReadResult::Succeeded ||
                 frame.Consumed != completeFrame.size() ||
                 frame.Codec != EdlgCodec::Cbor) {
                 return Observe(EdlsBatchStatus::InvalidFrame);
             }
-            if (completeFrame.size() > TMaximumBytes) {
+            if (completeFrame.size() > EffectiveBodyBytes()) {
                 return Observe(EdlsBatchStatus::FrameTooLarge);
             }
             const auto now = clock_->Now();
@@ -252,19 +256,19 @@ namespace ESPressio::Logging {
                 return Observe(EdlsBatchStatus::ClockRegressed);
             }
             if (records_ != 0U &&
-                (IsDue(now) || completeFrame.size() > TMaximumBytes - bytes_.Size())) {
+                (IsDue(now) || completeFrame.size() > EffectiveBodyBytes() - bytes_.Size())) {
                 return Observe(EdlsBatchStatus::FlushRequired);
             }
             if (records_ == 0U &&
                 now.Nanoseconds() >
                     std::numeric_limits<std::uint64_t>::max() -
-                    static_cast<std::uint64_t>(dwell_.Nanoseconds())) {
+                        static_cast<std::uint64_t>(dwell_.Nanoseconds())) {
                 return Observe(EdlsBatchStatus::ClockRangeExhausted);
             }
             if (bytes_.Append(
-                    reinterpret_cast<const std::uint8_t*>(completeFrame.data()),
-                    completeFrame.size()
-                ) != ESPressio::Bounded::BytesAppendResult::Succeeded) {
+                reinterpret_cast<const std::uint8_t*>(completeFrame.data()),
+                completeFrame.size()
+            ) != ESPressio::Bounded::BytesAppendResult::Succeeded) {
                 return Observe(EdlsBatchStatus::FrameTooLarge);
             }
             if (records_ == 0U) {
@@ -281,12 +285,11 @@ namespace ESPressio::Logging {
             if (records_ == 0U || recoveryRequired_) {
                 return std::nullopt;
             }
-            if (records_ == TMaximumRecords || bytes_.Size() == TMaximumBytes) {
+            if (records_ == TMaximumRecords || bytes_.Size() == EffectiveBodyBytes()) {
                 return first_;
             }
             return ESPressio::Clock::MonotonicTimestamp::FromNanoseconds(
-                first_.Nanoseconds() + static_cast<std::uint64_t>(dwell_.Nanoseconds())
-            );
+                first_.Nanoseconds() + static_cast<std::uint64_t>(dwell_.Nanoseconds()));
         }
 
         /// One bounded worker quantum: commit only when full or dwell has expired.
@@ -348,7 +351,6 @@ namespace ESPressio::Logging {
             bytes_.Clear();
             return result;
         }
-
     };
 
-} // ESPressio::Logging
+} // namespace ESPressio::Logging
