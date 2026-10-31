@@ -1,0 +1,17 @@
+# Sealed batch committed-retirement power-cut qualification
+
+This native test reuses the existing strict archive,64-record sealed batch, owner-generated full15-field records, conservative LittleFS/NVS providers and sole GPIO17 relay controller. It adds no production API or provider. All versions remain0.1.0.
+
+Select esp32dev-sealed-batch-64-retirecut with relay stage sealed_retire. First Bootstrap strictly commits two64-record generations and records the existing armed test-session flag. It then publishes generation3 through the ordinary BoundedEdlsBatch.Service and strict PowerLossAcknowledgedEdls transaction.
+
+The application-only forwarding adapter gates the first oldest-file removal after arming. The existing archive transaction has already written and independently verified generation3, committed and reread the NVS watermark, and revalidated protected history before calling RemoveFile. At this deliberate gate the adapter emits SEALED_RETIRE_PENDING and waits15seconds without invoking unlink. The host commands and independently confirms OFF/ON and the minimum hold interval, then starts a fresh serial epoch. Missing cut or native failure cannot return successful publication.
+
+A fresh boot must independently read NVSACK3 and inspect all three complete original generations before recovery. The existing Recover must return CommittedOldestRetired, remove only expired generation1, and preserve exact original64-record generations2/3. The application then publishes ordinary generation4 and verifies exact retained originals3/4. The independent raw audit validates all128 retained full15-field records129..256 and official NVSACK4/page/entry/blob CRCs.
+
+The gate establishes the distinction between a committed successor and unfinished physical retirement. It tests recovery at the existing post-watermark/pre-unlink boundary. It does not claim that power was cut inside an unlink operation or a flash GC instruction. Caller return from the interrupted publication is not observed; the fresh boot's committed watermark establishes the authoritative durable window.
+
+This qualifies the shared strict batch/archive owner. The separate managed-worker write-activity and capacity tests qualify its source/worker delivery integration. No universal combination of application configuration or indefinite flash endurance is implied.
+
+Execution status: host20261031T101948-3f00a801 PASS127. Native101932-01e64704 PASS. Physical+raw102037-886599f8 PASS, completed31October10:28:21CET. Initial source formatting check stopped before native build because a preprocessor directive inside an older Require argument confused the syntax validator. That expression was restated with an equivalent local boolean; syntax validation then passed. No native or hardware failure is implied by that formatting check. Actual controllerOFF8.279seconds, native1/ROM1 POWERON_RESET gives **POR_CONFIRMED**. Fresh boot requires and observes committedACK3, recovery expires only generation1 and compares exact original2/3, then ordinaryACK4 retains3/4. Independent raw audit compares all128 original full15-field records129..256; official NVSACK4/incarnation7/page/entry/blob CRCs PASS. Final targetOFF independently verified.
+
+FactorySHA256 ae286a9d8f565071386144b848c4c74bbdfdfcaf992eac7704f53a22d28f34cd. LittleFSd2a74df245aae35c3cc065238a28e07c420a0b750c3c560d3052a48f64a3e0ec. NVS733eb3e7f94cbbd3f9673c19d8b3d2bce6403b21a3a91112c2d8307a383b98ac. Private evidence remains on RPI400 in private-sealed64-retire-cut-20261031-01.

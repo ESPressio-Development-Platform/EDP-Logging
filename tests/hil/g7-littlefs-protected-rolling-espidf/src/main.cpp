@@ -30,11 +30,15 @@ namespace L = ESPressio::Logging;
 using Bytes = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
 struct TestOnlyLittleFsBinding final {};
 using NativeStore = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding, Bytes>;
-#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT)
+#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT) || defined(EDP_TEST_SEALED_RETIREMENT_CUT)
 // Test-only instrumentation of the existing provider. Only the unacknowledged
 // spare is rewritten; protected predecessors are never passed to this loop.
 /// Bootstrap arms only after both protected batches and the session flag commit.
 static bool SealedWriteActivityArmed = false;
+#if defined(EDP_TEST_SEALED_RETIREMENT_CUT)
+/// Test-only gate at the existing post-watermark oldest-removal boundary.
+static bool SealedRetirementArmed = false;
+#endif
 #if defined(EDP_WORKER_CAPACITY_CUT)
 /// Test-only observation of the existing provider's actual result.
 static P::FileReplaceStatus SealedLastReplace = P::FileReplaceStatus::Succeeded;
@@ -73,6 +77,20 @@ struct Store final {
     }
     /// Delegates the archive's existing retirement/removal operation.
     [[nodiscard]] P::FileRemoveStatus RemoveFile(P::FilePathView path) noexcept {
+#if defined(EDP_TEST_SEALED_RETIREMENT_CUT)
+        if (SealedRetirementArmed) {
+            std::printf("EDP_BND|SEALED_RETIRE_PENDING|gen=3\n");
+            std::fflush(stdout);
+            // Deliberate gate BEFORE actual unlink, after the existing owner's NVS commit.
+            // Recovery must independently observe ACK3; this is not a mid-unlink claim.
+            vTaskDelay(pdMS_TO_TICKS(15000U));
+            std::printf("EDP_BND|HALT|SEALED_RETIRE_CUT_NOT_OBSERVED\n");
+            std::fflush(stdout);
+            for (;;) {
+                vTaskDelay(pdMS_TO_TICKS(1000U));
+            }
+        }
+#endif
         return Actual.RemoveFile(path);
     }
     /// Intercepts only the armed spare publication for finite write-activity injection.
@@ -229,7 +247,7 @@ static void ExpectPair(Store& store,
         );
         Require(
             slot.Header.Generation == older ||
-                    slot.Header.Generation == newer,
+                slot.Header.Generation == newer,
             "UNEXPECTED_RETAINED_GENERATION"
         );
         ++found;
@@ -286,7 +304,7 @@ static void PressureUsage(const char* stage) {
             &total,
             &used
         ) == ESP_OK &&
-                total == 0x90000U && used <= total,
+            total == 0x90000U && used <= total,
         "PRESSURE_INFO"
     );
     std::printf(
@@ -325,9 +343,9 @@ static void VerifyLowspaceProtectedPair(Store& storage) {
         const auto& prior = inspected.Slots[slot];
         Require(
             prior.Condition == L::EdlsSlotCondition::Clean &&
-                    prior.HasHeader && prior.Header.Generation == slot + 1U &&
-                    prior.Header.DeviceIdentifier == DeviceIdentifier &&
-                    prior.VerifiedFrames == 1U && prior.VerifiedPrefixBytes == 64U,
+                prior.HasHeader && prior.Header.Generation == slot + 1U &&
+                prior.Header.DeviceIdentifier == DeviceIdentifier &&
+                prior.VerifiedFrames == 1U && prior.VerifiedPrefixBytes == 64U,
             "ACKED_EDLS_PROTECTED_WINDOW_DAMAGED"
         );
     }
@@ -386,8 +404,8 @@ static void FillUnprotectedAndRefuse(Store& storage, bool standalone = true) {
             fullFrameSize,
             4096U
         ) ==
-                    L::EdlgFrameWriteResult::Succeeded &&
-                fullFrameSize == 4116U,
+                L::EdlgFrameWriteResult::Succeeded &&
+            fullFrameSize == 4116U,
         "LARGE_CBOR_FRAME_INVALID"
     );
     std::printf(
@@ -432,7 +450,7 @@ static void RemoveUnprotectedPadding(Store& storage) {
         ));
         Require(
             removed == P::FileRemoveStatus::Succeeded ||
-                    removed == P::FileRemoveStatus::NotFound,
+                removed == P::FileRemoveStatus::NotFound,
             "PADDING_RECLAIM"
         );
     }
@@ -446,7 +464,7 @@ static void ReclaimUnprotectedAfterVerifiedAck(Store& storage) {
     const auto candidate = storage.RemoveFile(Path2.Value);
     Require(
         candidate == P::FileRemoveStatus::Succeeded ||
-                candidate == P::FileRemoveStatus::NotFound,
+            candidate == P::FileRemoveStatus::NotFound,
         "UNACKED_CANDIDATE_RECLAIM"
     );
     PressureUsage("reclaimed");
@@ -531,7 +549,7 @@ extern "C" void app_main() {
     E::LittleFsVfsMount mount{};
     Require(
         mount.Mount({"/edplfs", "edplfs", false, false}) ==
-                E::LittleFsMountStatus::Succeeded,
+            E::LittleFsMountStatus::Succeeded,
         "LITTLEFS_MOUNT_NO_REPAIR"
     );
     static Bytes byteOps{};
@@ -559,8 +577,8 @@ extern "C" void app_main() {
     );
     Require(
         seeded.Status == P::FileReadStatus::Succeeded &&
-                seeded.BytesTransferred == 4U &&
-                seed[0U] == 'E' && seed[1U] == 'D' && seed[2U] == 'P' && seed[3U] == '1',
+            seeded.BytesTransferred == 4U &&
+            seed[0U] == 'E' && seed[1U] == 'D' && seed[2U] == 'P' && seed[3U] == '1',
         "TEST_PARTITION_SEED_INVALID"
     );
 
@@ -659,7 +677,7 @@ extern "C" void app_main() {
                 "ack",
                 &lastAck
             ) == ESP_OK &&
-                    lastAck == 2U,
+                lastAck == 2U,
             "NVS_PROTECTED_ACK_MISMATCH"
         );
         ReclaimUnprotectedAfterVerifiedAck(storage);
@@ -676,7 +694,7 @@ extern "C" void app_main() {
             );
         Require(
             first.Status == L::EdlsProtectedRollingStatus::PublishedAndRetired &&
-                    first.Generation == 3U,
+                first.Generation == 3U,
             "PRESSURE_RECOVERY_NEW_G3"
         );
         ExpectPair(
@@ -699,7 +717,7 @@ extern "C" void app_main() {
             );
         Require(
             second.Status == L::EdlsProtectedRollingStatus::PublishedAndRetired &&
-                    second.Generation == 4U,
+                second.Generation == 4U,
             "PRESSURE_RECOVERY_NEW_G4"
         );
         ExpectPair(
@@ -729,9 +747,9 @@ extern "C" void app_main() {
         for (const auto& slot : found.Slots) {
             Require(
                 slot.Condition == L::EdlsSlotCondition::Clean &&
-                        slot.VerifiedFrames == 1U &&
-                        slot.VerifiedPrefixBytes == 64U &&
-                        slot.Header.DeviceIdentifier == DeviceIdentifier,
+                    slot.VerifiedFrames == 1U &&
+                    slot.VerifiedPrefixBytes == 64U &&
+                    slot.Header.DeviceIdentifier == DeviceIdentifier,
                 "REPLAY_N_PLUS_ONE_CRC_FAILED"
             );
             ++count;
@@ -748,7 +766,7 @@ extern "C" void app_main() {
             );
         Require(
             recovered.Status ==
-                    L::EdlsProtectedRollingStatus::RecoveredPendingRetirement,
+                L::EdlsProtectedRollingStatus::RecoveredPendingRetirement,
             "REBOOT_RETIRE_FAILED"
         );
         ExpectPair(
@@ -770,9 +788,9 @@ extern "C" void app_main() {
             );
         Require(
             rolled.Status ==
-                        L::EdlsProtectedRollingStatus::PublishedAndRetired &&
-                    rolled.Generation == 4U &&
-                    rolled.NativeRemove == P::FileRemoveStatus::Succeeded,
+                    L::EdlsProtectedRollingStatus::PublishedAndRetired &&
+                rolled.Generation == 4U &&
+                rolled.NativeRemove == P::FileRemoveStatus::Succeeded,
             "FINAL_FINITE_ROLL_FAILED"
         );
         ExpectPair(
@@ -819,8 +837,8 @@ extern "C" void app_main() {
             );
         Require(
             committed.Status ==
-                        L::EdlsProtectedRollingStatus::PublishedWithinCapacity &&
-                    committed.Generation == generation,
+                    L::EdlsProtectedRollingStatus::PublishedWithinCapacity &&
+                committed.Generation == generation,
             "BASELINE_IMMUTABLE_EDLS_FAILED"
         );
     }
@@ -844,7 +862,7 @@ extern "C" void app_main() {
             "armed",
             1U
         ) == ESP_OK &&
-                nvs_commit(session) == ESP_OK,
+            nvs_commit(session) == ESP_OK,
         "NVS_ARM"
     );
 #if defined(EDP_TEST_EDLS_LOWSPACE)
@@ -854,7 +872,7 @@ extern "C" void app_main() {
             "ack",
             2U
         ) == ESP_OK &&
-                nvs_commit(session) == ESP_OK,
+            nvs_commit(session) == ESP_OK,
         "NVS_PROTECTED_ACK2"
     );
 #endif
@@ -879,14 +897,14 @@ extern "C" void app_main() {
         );
     Require(
         candidate.Status ==
-                    L::EdlsSuccessorStatus::PublishedAndVerified &&
-                candidate.Generation == 3U,
+                L::EdlsSuccessorStatus::PublishedAndVerified &&
+            candidate.Generation == 3U,
         "IMMUTABLE_G3_CANDIDATE_FAILED"
     );
     const auto all = Inspect(storage);
     Require(
         all.Condition == L::EdlsArchiveCondition::Unambiguous &&
-                all.NextGeneration == 4U,
+            all.NextGeneration == 4U,
         "COMPLETE_N_PLUS_ONE_UNCONFIRMED"
     );
 

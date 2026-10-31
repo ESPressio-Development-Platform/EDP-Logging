@@ -46,7 +46,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                  wrong_off=False, bad_recovery=False,
                  lowspace=False, lowspace_reclaim=False,
                  midwrite=False, strictack=False,
-                 typed_ack_gap=False, sealed_write=False, managed=False, capacity=False):
+                 typed_ack_gap=False, sealed_write=False, managed=False, capacity=False, retirement=False):
         # Last line of the original UART chunk is STALE pre-cut replay.
         # The event loop MUST discard it when a new power epoch begins.
         before = (
@@ -158,6 +158,11 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 b"MANAGED_CAPACITY_SAFE|ack=2|pending_records=50|native_replace=12|durable=128|free_bytes=4096")
             after = after.replace(b"MANAGED_BATCH128_AFTER_WRITE_ACTIVITY_CUT",
                                   b"MANAGED_BATCH128_AFTER_CAPACITY_CUT")
+        if retirement:
+            before = before.replace(b"SEALED_WRITE_ACTIVITY|gen=3|nvs_ack=2",
+                                    b"SEALED_RETIRE_PENDING|gen=3")
+            after = after.replace(b"EDP_BND|REPLAY_VERIFIED|",
+                b"EDP_BATCH|RETIREMENT_RECOVERED|ack_segment=3|window=2,3|expired=1\nEDP_BND|REPLAY_VERIFIED|")
         port = EmulatedSerial(before, after)
         elapsed = [0.0]
         actual_clock = time.monotonic
@@ -190,6 +195,7 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                                       "lowspace" if lowspace else
                                       "midwrite" if midwrite else
                                       "strictack" if strictack else
+                                      "sealed_retire" if retirement else
                                       "managed_capacity" if capacity else
                                       "sealed_write" if sealed_write else
                                       "typed_ack_gap" if typed_ack_gap else "write"),
@@ -205,6 +211,36 @@ class ElectricalControllerAndBufferTests(unittest.TestCase):
                 exit_code = 9
             recorded = (Path(td)/"evidence"/"serial.txt").read_text()
         return exit_code, results, recorded, port
+
+    def test_committed_retirement_gate_has_new_epoch_recovery(self):
+        code, out, recorded, port = self.exercise(sealed_write=True, retirement=True,
+            native=1, rom="rst:0x1 (POWERON_RESET)")
+        self.assertEqual(code, 0)
+        self.assertIn("RETIREMENT_RECOVERED|ack_segment=3|window=2,3|expired=1", recorded)
+        self.assertTrue(any("CUT_STAGE=sealed_retire" in line for line in out))
+        self.assertTrue(any("QUALIFICATION=POR_CONFIRMED" in line for line in out))
+        self.assertEqual(port.reset_calls, 2)
+        self.assertTrue(port.closed)
+
+    def test_committed_retirement_cannot_hide_damaged_protected_window(self):
+        self.assertEqual(self.exercise(sealed_write=True, retirement=True,
+                                      bad_recovery=True)[0], 4)
+
+    def test_committed_retirement_requires_real_off_confirmation(self):
+        self.assertEqual(self.exercise(sealed_write=True, retirement=True,
+                                      wrong_off=True)[0], 9)
+
+    def test_retirement_build_pair_is_checked_before_hardware(self):
+        import subprocess
+        env = dict(os.environ, EDP_LITTLEFS_AGENT_ID="unit-no-hardware",
+                   EDP_LITTLEFS_EVIDENCE_DIR="/nonexistent/unit-no-hardware",
+                   EDP_LFS_BUILD_ENV="esp32dev-batch-worker-500-o2",
+                   EDP_LFS_CUT_STAGE="sealed_retire")
+        result = subprocess.run(
+            ["bash", str(Path(monitor.__file__).with_name("run_relay_cut_test.sh"))],
+            env=env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Invalid stage/build pairing", result.stderr)
 
     def test_capacity_failure_cut_and_recovered_original_window(self):
         code, out, recorded, port = self.exercise(

@@ -516,3 +516,17 @@ independent rawaudit comparesall128 original15-field records and original
 timestamps, official NVSACK2 page/entry/blob CRCs PASS. TargetOFF.
 [Scope, ownership disposition and hashes](../../../docs/MANAGED-BATCH-CAPACITY-CUT-QUALIFICATION.MD).
 No exact interrupted GC/flashinstruction or unbounded endurance claim.
+
+## Sealed64 post-watermark retirement cut,31October
+
+Native esp32dev-sealed-batch-64-retirecut, relaystage sealed_retire.
+Same batch/strict archive and forwarding adapter; deliberate gate before actual
+oldestunlink, after existingNVS3commit. Native101932-01e64704 PASS;
+host127tests101948-3f00a801 PASS; physical+raw **102037-886599f8 PASS**
+10:28:21CET. Actual8.279sOFF, native1/ROM1 gives POR_CONFIRMED.
+Freshboot observesACK3/allthreecompletegenerations, Recover must return
+CommittedOldestRetired, exact original2/3 survive, then ordinaryACK4.
+Independent rawall128 full15-field originals129..256 andofficialNVSACK4 CRCs PASS.
+TargetOFF. [Scope and hashes](../../../docs/SEALED-BATCH-RETIREMENT-CUT-QUALIFICATION.MD).
+This is a pre-unlink boundary test of the shared archive owner, not an exact
+mid-unlink/GC-instruction or indefiniteendurance certificate.
