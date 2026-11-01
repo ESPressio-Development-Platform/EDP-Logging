@@ -15,9 +15,17 @@ namespace ESPressio::Logging {
     /// Bounded snapshot archive using individual PowerLoss-atomic Persistence keys.
     /// This is a small-record reference profile, not an unbounded EDLS file journal.
     enum class DurableEdlsStatus : std::uint8_t {
-        Empty, Clean, Degraded, Ambiguous, ProviderFailure,
-        InvalidRecord, NoCapacity, StorageRejected, ReadbackUnconfirmed,
-        GenerationExhausted, Committed
+        Empty = 0U,
+        Clean = 1U,
+        Degraded = 2U,
+        Ambiguous = 3U,
+        ProviderFailure = 4U,
+        InvalidRecord = 5U,
+        NoCapacity = 6U,
+        StorageRejected = 7U,
+        ReadbackUnconfirmed = 8U,
+        GenerationExhausted = 9U,
+        Committed = 10U
     };
 
     template<std::size_t TSlots>

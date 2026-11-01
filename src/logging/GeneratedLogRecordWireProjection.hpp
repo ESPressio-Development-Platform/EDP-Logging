@@ -102,12 +102,12 @@ namespace ESPressio::Logging {
     };
 
     enum class GeneratedLogRecordProjectionStatus : std::uint8_t {
-        Succeeded=0U,
-        InvalidSource,
-        GeneratedMessageMismatch,
-        DiagnosticFingerprintMismatch,
-        ArgumentCountMismatch,
-        ArgumentRejected
+        Succeeded = 0U,
+        InvalidSource = 1U,
+        GeneratedMessageMismatch = 2U,
+        DiagnosticFingerprintMismatch = 3U,
+        ArgumentCountMismatch = 4U,
+        ArgumentRejected = 5U
     };
 
     struct GeneratedLogRecordProjectionOutcome final {

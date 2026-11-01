@@ -20,16 +20,16 @@ namespace ESPressio::Logging {
     // Records ONE instrumentation attempt, even if bounded admission subsequently fails.
     // These statuses never conflate publication, sink acceptance, or durable storage.
     enum class RecordProductionStatus : std::uint8_t {
-        Published,
-        OutputOccupied,
-        InvalidProducerSlot,
-        StopRequested,
-        SequencerTimedOut,
-        SequencerProviderFailure,
-        SequencerReleaseUnconfirmed,
-        AttemptExhausted,
-        AdmissionFailed,
-        CommitFailed
+        Published = 0U,
+        OutputOccupied = 1U,
+        InvalidProducerSlot = 2U,
+        StopRequested = 3U,
+        SequencerTimedOut = 4U,
+        SequencerProviderFailure = 5U,
+        SequencerReleaseUnconfirmed = 6U,
+        AttemptExhausted = 7U,
+        AdmissionFailed = 8U,
+        CommitFailed = 9U
     };
 
     template <AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
@@ -172,18 +172,18 @@ namespace ESPressio::Logging {
 
     // Accepted by an output interface does NOT imply durable or physically received.
     enum class RecordSinkSubmission : std::uint8_t {
-        Accepted,
-        Rejected,
-        Partial,
-        ProviderFailure
+        Accepted = 0U,
+        Rejected = 1U,
+        Partial = 2U,
+        ProviderFailure = 3U
     };
 
     enum class RecordDrainStatus : std::uint8_t {
-        Empty,
-        AcceptedAndReclaimed,
-        FailedAndReclaimed,
-        ClaimFailure,
-        ReclaimUnconfirmed
+        Empty = 0U,
+        AcceptedAndReclaimed = 1U,
+        FailedAndReclaimed = 2U,
+        ClaimFailure = 3U,
+        ReclaimUnconfirmed = 4U
     };
 
     struct RecordDrainOutcome final {

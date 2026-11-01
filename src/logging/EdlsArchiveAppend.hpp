@@ -14,12 +14,12 @@ namespace ESPressio::Logging {
 
     /// One deliberately non-rotating, checked EDLS existing-slot append.
     enum class EdlsAppendStatus : std::uint8_t {
-        ProviderAccepted,
-        InvalidFrame,
-        SegmentUnclean,
-        SegmentCapacityExceeded,
-        ChangedDuringPreflight,
-        ProviderRejected
+        ProviderAccepted = 0U,
+        InvalidFrame = 1U,
+        SegmentUnclean = 2U,
+        SegmentCapacityExceeded = 3U,
+        ChangedDuringPreflight = 4U,
+        ProviderRejected = 5U
     };
 
     /// Separate strict preflight outcome and actual EDP-Persistence owner status.

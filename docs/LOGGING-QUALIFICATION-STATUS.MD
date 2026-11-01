@@ -71,3 +71,15 @@ run IDs. Pending rows must be replaced with actual outcomes before claiming
 those gates passed. Logging is not yet declared production-ready.
 
 [Five-minute scope and measured results](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD) and [production retention/endurance inputs](PRODUCTION-RETENTION-ENDURANCE-REVIEW.MD) distinguish tested configurations from product acceptance.
+
+
+## V2 explicitly numeric result enums — 1 November 2026
+
+The existing Logging result classifications are now assigned their previous
+numeric values explicitly in EDLS archive, generated projection, record
+production/fanout, checkpoint, durable snapshot and positional reencoding
+owners. This applies source naming/formatting policy without renumbering
+earlier outcomes, adding statuses, changing serialization representations
+or upgrading any persistence guarantees. The source-change run validates
+the same host and typed/strict EDLS owner tests against current pinned
+dependencies; no new power-cut claim follows from enum spelling.

@@ -18,12 +18,12 @@ namespace ESPressio::Logging {
 
     enum class OwnedPositionalReencodingStatus : std::uint8_t {
         Succeeded = 0U,
-        CountMismatch,
-        KindMismatch,
-        SourceUnavailable,
-        ValueWidthMismatch,
-        OwnerValueRejected,
-        EncoderRejected
+        CountMismatch = 1U,
+        KindMismatch = 2U,
+        SourceUnavailable = 3U,
+        ValueWidthMismatch = 4U,
+        OwnerValueRejected = 5U,
+        EncoderRejected = 6U
     };
 
     struct OwnedPositionalReencodingOutcome final {

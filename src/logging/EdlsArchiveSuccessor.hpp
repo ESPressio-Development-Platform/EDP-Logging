@@ -16,14 +16,14 @@ namespace ESPressio::Logging {
     /// Result of introducing a new EDLS generation into a PHYSICALLY EMPTY
     /// slot, never destroying prior history to make space.
     enum class EdlsSuccessorStatus : std::uint8_t {
-        PublishedAndVerified,
-        InvalidIdentityOrFrame,
-        ArchiveAmbiguous,
-        NoEmptySlot,
-        SlotCapacityExceeded,
-        ChangedDuringPreflight,
-        ProviderRejected,
-        ReadbackUnconfirmed
+        PublishedAndVerified = 0U,
+        InvalidIdentityOrFrame = 1U,
+        ArchiveAmbiguous = 2U,
+        NoEmptySlot = 3U,
+        SlotCapacityExceeded = 4U,
+        ChangedDuringPreflight = 5U,
+        ProviderRejected = 6U,
+        ReadbackUnconfirmed = 7U
     };
 
     /// Exact provider mutation and independent readback observation.

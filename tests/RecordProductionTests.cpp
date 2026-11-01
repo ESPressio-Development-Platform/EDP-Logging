@@ -528,6 +528,9 @@ void TestSingleSinkCoordinatorPipeline() {
 
 }
 #if !defined(EDP_LOGGING_RECORD_PRODUCTION_TEST_REUSE)
+static_assert(static_cast<std::uint8_t>(ESPressio::Logging::RecordProductionStatus::CommitFailed) == 9U);
+static_assert(static_cast<std::uint8_t>(ESPressio::Logging::RecordSinkSubmission::ProviderFailure) == 3U);
+static_assert(static_cast<std::uint8_t>(ESPressio::Logging::RecordDrainStatus::ReclaimUnconfirmed) == 4U);
 int main(){static CanonicalClock clock;assert(C::BindMonotonicClock(clock));Test();TestOccurrenceAndArgumentSnapshot();TestFanout();TestBoundedCoordinatorQuantum();TestDedicatedCoordinatorCallable();TestSingleSinkCoordinatorPipeline();}
 
 #endif

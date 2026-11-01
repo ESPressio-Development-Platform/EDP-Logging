@@ -12,10 +12,10 @@ namespace ESPressio::Logging {
 
     /// Status from writing one complete checked EDLG frame to EDP-Persistence.
     enum class EdlgCheckpointWriteStatus : std::uint8_t {
-        Committed,
-        InvalidFrame,
-        FrameTooLarge,
-        ProviderRejected
+        Committed = 0U,
+        InvalidFrame = 1U,
+        FrameTooLarge = 2U,
+        ProviderRejected = 3U
     };
 
     /// Both semantic validity and underlying provider commit outcome.
@@ -30,11 +30,11 @@ namespace ESPressio::Logging {
 
     /// Exact result of reading a single frame-shaped checkpoint.
     enum class EdlgCheckpointReadStatus : std::uint8_t {
-        Recovered,
-        NotFound,
-        BufferTooSmall,
-        CorruptFrame,
-        ProviderFailure
+        Recovered = 0U,
+        NotFound = 1U,
+        BufferTooSmall = 2U,
+        CorruptFrame = 3U,
+        ProviderFailure = 4U
     };
 
     /// Unambiguous result: frame proven valid only on Recovered.

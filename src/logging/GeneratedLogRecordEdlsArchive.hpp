@@ -11,9 +11,14 @@
 namespace ESPressio::Logging {
 
 enum class GeneratedEdlsPublishStatus : std::uint8_t {
-    Published, SourceIdentityMismatch, ProjectionRejected,
-    CborRejected, CborCapacityExceeded, FramingRejected, ArchiveRejected
-};
+        Published = 0U,
+        SourceIdentityMismatch = 1U,
+        ProjectionRejected = 2U,
+        CborRejected = 3U,
+        CborCapacityExceeded = 4U,
+        FramingRejected = 5U,
+        ArchiveRejected = 6U
+    };
 
 template<std::size_t N>
 struct GeneratedEdlsPublishOutcome final {

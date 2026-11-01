@@ -5,6 +5,7 @@
 #include <span>
 #include <logging/EdlsArchiveInspection.hpp>
 #include <logging/EdlsPowerLossAcknowledgement.hpp>
+#include <logging/PowerLossEdlsSnapshots.hpp>
 #include "StrictAckKeyValueFake.hpp"
 #include <logging/EdlsArchiveAppend.hpp>
 #include <logging/EdlsArchiveSuccessor.hpp>
@@ -271,6 +272,9 @@ struct Storage {
 
 }
 int main(){
+    static_assert(static_cast<std::uint8_t>(L::EdlsSuccessorStatus::ReadbackUnconfirmed) == 7U);
+    static_assert(static_cast<std::uint8_t>(L::EdlsAppendStatus::ProviderRejected) == 5U);
+    static_assert(static_cast<std::uint8_t>(L::DurableEdlsStatus::Committed) == 10U);
     ExactReadResultContractTests();
     WholeAndStreamingCorruptionParity();
     BulkFailureCannotAuthoriseForeignRemoval();
