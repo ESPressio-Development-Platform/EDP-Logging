@@ -52,6 +52,14 @@ for mode in off on; do
     # platform state. Never mutate the source under test.
     tar --exclude='.pio' --exclude='sdkconfig.esp32dev' \
         -C "$ROOT/tests/hil/g1-espidf" -cf - . | tar -C "$DEST/app" -xf -
+    # The source imports the real generated Localisation schema. A fresh
+    # isolated G11 source tree must generate its own deterministic owner
+    # fixture before C++ compilation, rather than assume previous build output.
+    python3 "$DEST/app/generate_g4_root_fixture.py" \
+        "$DEP_ROOT/EDP-Localisation" "$DEST/app/src/generated"
+    test -s "$DEST/app/src/generated/GeneratedLocalisationContract.hpp"
+    sha256sum "$DEST/app/src/generated/GeneratedLocalisationContract.hpp" \
+        > "$DEST/generated-contract.sha256"
     printf '    -DEDP_LOGGING_G11_APP_SITE_ENABLED=%s\n' "$selected" >> "$DEST/app/platformio.ini"
     test "$(sha256sum "$ROOT/tests/hil/g1-espidf/src/main.cpp" | cut -d' ' -f1)" = \
          "$(sha256sum "$DEST/app/src/main.cpp" | cut -d' ' -f1)"
@@ -86,7 +94,8 @@ def digest(path):
 def sizes(mode):
     v = (r / mode / "size.txt").read_text().splitlines()[-1].split()
     return dict(zip(("text", "data", "bss", "dec"), map(int, v[:4])))
-for rel in ("src/main.cpp", "sdkconfig.defaults", "partitions.csv"):
+for rel in ("src/main.cpp", "sdkconfig.defaults", "partitions.csv",
+            "src/generated/GeneratedLocalisationContract.hpp"):
     assert digest(off / rel) == digest(on / rel), rel
 config0 = (off / "platformio.ini").read_text()
 config1 = (on / "platformio.ini").read_text()
@@ -97,7 +106,9 @@ assert config0.replace(f0, "") == config1.replace(f1, "")
 sdk = {}
 for mode, app in (("off", off), ("on", on)):
     cfg = (app / "sdkconfig.esp32dev").read_text()
-    assert "CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192" in cfg
+    expected_stack = next(line for line in (app / "sdkconfig.defaults").read_text().splitlines()
+                          if line.startswith("CONFIG_ESP_MAIN_TASK_STACK_SIZE="))
+    assert expected_stack in cfg, "build must retain the source fixture's explicit stack budget"
     sdk[mode] = digest(app / "sdkconfig.esp32dev")
 assert sdk["off"] == sdk["on"], "generated SDK configuration diverged"
 measure = {mode: sizes(mode) for mode in ("off", "on")}
