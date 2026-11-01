@@ -22,6 +22,18 @@ namespace ESPressio::Logging {
     // generated message's exact ordered positional values, not private
     // source Kind/Offset/Size metadata.
     namespace Detail {
+
+        /// Typed result of adapting a generated owner value for wire use.
+        enum class GeneratedValueConversionResult : std::uint8_t {
+
+            /// The canonical wire value is ready.
+            Succeeded = 0U,
+
+            /// The owning conversion adapter rejected its semantic input.
+            OwnerRejected = 1U
+
+        };
+
         template<class TValue>
         concept HasOwnerCanonicalRepresentation = requires {
             typename Serialisation::CanonicalRepresentation<TValue>::Type;
@@ -40,8 +52,13 @@ namespace ESPressio::Logging {
         using GeneratedPositionalWireTypeOf =
             typename GeneratedPositionalWireType<TValue>::Type;
 
+        /// Converts an owner-qualified semantic value to a canonical wire value.
+        /// @tparam TValue Source semantic value Type.
+        /// @param semantic Caller-provided generated-schema semantic value.
+        /// @param wire Existing owner wire output.
+        /// @returns Succeeded or OwnerRejected; never a Boolean operational result.
         template<class TValue>
-        [[nodiscard]] bool ConvertGeneratedValue(
+        [[nodiscard]] GeneratedValueConversionResult ConvertGeneratedValue(
             const TValue& semantic,
             GeneratedPositionalWireTypeOf<TValue>& wire
         ) noexcept {
@@ -49,10 +66,12 @@ namespace ESPressio::Logging {
                 using Wire=GeneratedPositionalWireTypeOf<TValue>;
                 const auto status=
                     Bounded::TypeConversionAdapter<TValue,Wire>::Convert(semantic,wire);
-                return Bounded::IsTypeConversionSuccessful<TValue,Wire>(status);
+                return Bounded::IsTypeConversionSuccessful<TValue,Wire>(status)
+                    ? GeneratedValueConversionResult::Succeeded
+                    : GeneratedValueConversionResult::OwnerRejected;
             } else {
                 wire=semantic;
-                return true;
+                return GeneratedValueConversionResult::Succeeded;
             }
         }
     }
@@ -129,7 +148,7 @@ namespace ESPressio::Logging {
         GeneratedLogRecordWireProjection<TWidth,TParameters...>& output,
         OwnedPositionalScratch<TParameters...>& scratch
     ) noexcept {
-        static_assert(DiagnosticSchemaMatches<TMessageSchema,TParameters...>(),
+        static_assert(IsDiagnosticSchemaMatching<TMessageSchema,TParameters...>(),
             "Projection must use exact owner-generated EDP-Localisation types");
         using Projection=GeneratedLogRecordWireProjection<TWidth,TParameters...>;
         static_assert(System::SchemaType<Projection> &&
@@ -171,8 +190,9 @@ namespace ESPressio::Logging {
         [&]<std::size_t... I>(std::index_sequence<I...>) noexcept {
             (([&]() noexcept {
                 if(!outcome.IsSuccessful()) return;
-                if(!Detail::ConvertGeneratedValue<TParameters>(
-                    *std::get<I>(scratch),std::get<I>(candidate.Arguments))) {
+                if (Detail::ConvertGeneratedValue<TParameters>(
+                    *std::get<I>(scratch),std::get<I>(candidate.Arguments)
+                ) != Detail::GeneratedValueConversionResult::Succeeded) {
                     outcome={GeneratedLogRecordProjectionStatus::ArgumentRejected,I};
                 }
             }()),...);

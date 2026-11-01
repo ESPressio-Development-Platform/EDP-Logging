@@ -39,7 +39,7 @@ Separate raw-media test **`20261028T174032-c580c906 PASS exit0`** read actual Li
 
 ## Causal interpretation and design consequences
 
-The dominant **measured operation** is repeated file reads and size queries: **21,877 calls across 256 records**, **87.37%** of total wall time. Current immutable-pair implementation intentionally rechecks the same CRC-qualified records multiple times in `Recover`, `InspectProtectedRollingPlanWithScratch`, `PublishEdlsSuccessorIntoEmptySlotWithScratch`, `ConfirmProtectedRollingPredecessorsWithScratch` and `FinishEdlsProtectedRollingRetirementWithScratch`. The timing identifies the **filesystem read/metadata path**, not specifically whether the underlying per-call latency comes from LittleFS access, the VFS bridge, CRC checks (outside provider duration), flash controller, or GC. Revalidating everything blindly on each record is costly.
+The dominant **measured operation** is repeated file reads and size queries: **21,877 calls across 256 records**, **87.37%** of total wall time. Current immutable-pair implementation intentionally rechecks the same CRC-qualified records multiple times in `Recover`, `InspectProtectedRollingPlanWithScratch`, `PublishEdlsSuccessorIntoEmptySlotWithScratch`, `IsProtectedPredecessorSetVerifiedWithScratch` and `FinishEdlsProtectedRollingRetirementWithScratch`. The timing identifies the **filesystem read/metadata path**, not specifically whether the underlying per-call latency comes from LittleFS access, the VFS bridge, CRC checks (outside provider duration), flash controller, or GC. Revalidating everything blindly on each record is costly.
 
 **Recommended next optimisation order (no implementation authorised by this measurement alone):**
 

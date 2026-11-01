@@ -462,13 +462,13 @@ namespace ESPressio::Logging {
             return RecordQueueResult::GenerationExhausted;
         }
 
-        [[nodiscard]] bool Matches(Ticket ticket) const noexcept {
+        [[nodiscard]] bool IsMatchingTicket(Ticket ticket) const noexcept {
             return ticket.IsValid() && _slots.IsOccupied(ticket.Slot) &&
                    _records[static_cast<std::size_t>(ticket.Slot.Value())].Generation ==
                        ticket.Generation;
         }
 
-        [[nodiscard]] static constexpr bool Live(Phase phase) noexcept {
+        [[nodiscard]] static constexpr bool IsPhaseLive(Phase phase) noexcept {
             return phase == Phase::AwaitingMemory || phase == Phase::Reserved ||
                    phase == Phase::Queued || phase == Phase::InFlight || phase == Phase::Retiring;
         }
@@ -483,7 +483,7 @@ namespace ESPressio::Logging {
             if (outcome != RecordQueueResult::Succeeded)
                 return outcome;
 
-            if (!Matches(ticket)) {
+            if (!IsMatchingTicket(ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
             auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
@@ -548,7 +548,7 @@ namespace ESPressio::Logging {
             }
             if (outcome != RecordQueueResult::Succeeded)
                 return outcome;
-            if (!Matches(ticket) || record.State != Phase::Retiring ||
+            if (!IsMatchingTicket(ticket) || record.State != Phase::Retiring ||
                 _slots.Release(ticket.Slot) !=
                     ESPressio::BoundedTopology::BoundedSlotReleaseResult::Succeeded) {
                 _integrityFailed.store(
@@ -583,7 +583,7 @@ namespace ESPressio::Logging {
             auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
             if (outcome != RecordQueueResult::Succeeded)
                 return outcome;
-            if (!Matches(ticket)) {
+            if (!IsMatchingTicket(ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
             auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
@@ -651,7 +651,7 @@ namespace ESPressio::Logging {
             // the coordinator observing its actual release. It is a Bootstrap
             // lifecycle violation to destroy a queue before explicit drain.
             for (const auto& record : _records) {
-                if (Live(record.State))
+                if (IsPhaseLive(record.State))
                     std::terminate();
             }
         }
@@ -738,7 +738,7 @@ namespace ESPressio::Logging {
             const auto acquired = LockWith(mutexRemaining);
             if (acquired != RecordQueueResult::Succeeded)
                 return acquired;
-            if (!Matches(out._ticket)) {
+            if (!IsMatchingTicket(out._ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
             auto& record = _records[static_cast<std::size_t>(out._ticket.Slot.Value())];
@@ -845,7 +845,7 @@ namespace ESPressio::Logging {
                 return nullptr;
             }
             TLease* borrowed = nullptr;
-            if (Matches(ticket)) {
+            if (IsMatchingTicket(ticket)) {
                 auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
                 if (record.State == Phase::Reserved || record.State == Phase::InFlight) {
                     borrowed = &record.Lease;

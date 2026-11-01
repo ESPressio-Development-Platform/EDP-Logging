@@ -21,21 +21,39 @@ namespace S = ESPressio::System;
 namespace C = ESPressio::Clock;
 
 static_assert(
-    L::DiagnosticSchemaMatches<
+    static_cast<std::uint8_t>(
+        L::Detail::GeneratedValueConversionResult::Succeeded
+    ) == 0U
+);
+static_assert(
+    static_cast<std::uint8_t>(
+        L::Detail::GeneratedValueConversionResult::OwnerRejected
+    ) == 1U
+);
+static_assert(std::is_same_v<
+    decltype(L::Detail::ConvertGeneratedValue(
+        std::declval<const std::uint16_t&>(),
+        std::declval<std::uint16_t&>()
+    )),
+    L::Detail::GeneratedValueConversionResult
+>);
+
+static_assert(
+    L::IsDiagnosticSchemaMatching<
         StrongFixture,
         S::Identity::RuntimeIncarnationId,
         C::ClockEra
     >()
 );
 static_assert(
-    !L::DiagnosticSchemaMatches<
+    !L::IsDiagnosticSchemaMatching<
         StrongFixture,
         std::uint32_t,
         C::ClockEra
     >()
 );
 static_assert(
-    !L::DiagnosticSchemaMatches<
+    !L::IsDiagnosticSchemaMatching<
         StrongFixture,
         S::Identity::RuntimeIncarnationId,
         std::uint64_t

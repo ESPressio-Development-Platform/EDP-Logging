@@ -14,7 +14,7 @@ namespace S=ESPressio::System;
 namespace C=ESPressio::Clock;
 using Schema=Fixture::Diagnostic::DiagnosticMessageSchema<1U,0U,4U>;
 using Device=S::Identity::DeviceIdentifier;
-static_assert(L::DiagnosticSchemaMatches<Schema,Device,bool,std::uint16_t,float,double>());
+static_assert(L::IsDiagnosticSchemaMatching<Schema,Device,bool,std::uint16_t,float,double>());
 
 int main() {
     Device::Storage id{};

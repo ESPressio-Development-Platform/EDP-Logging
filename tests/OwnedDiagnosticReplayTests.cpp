@@ -15,7 +15,7 @@ namespace {
     using GeneratedSchema =
         Fixture::Diagnostic::DiagnosticMessageSchema<1U, 0U, 3U>;
 
-    static_assert(L::DiagnosticSchemaMatches<
+    static_assert(L::IsDiagnosticSchemaMatching<
         GeneratedSchema, std::uint16_t, bool
     >());
 

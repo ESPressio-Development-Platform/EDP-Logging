@@ -2,7 +2,7 @@
 
 **Package 0.1.0**, opt-in `logging/DiagnosticArgumentEncoding.hpp`, branch `feature/logging-v1`. No complete LogRecord Typed Envelope/TypeIdentifier is claimed. Existing scalar call signatures are backward compatible.
 
-The authoritative **EDP-Localisation generator** already declares canonical `DiagnosticParameterKind::{Utf8,Bytes,TypeIdentifier,FieldIdentifier}`, and emits each governed message's exact `DiagnosticMessageSchema<D,S,I>::ArgumentKinds`. The EDP-Logging adapter now introduces `DiagnosticSchemaMatches<TGeneratedMessageSchema,TValues...>()`, a C++20 compile-time check of the generated numeric identity, argument count, exact kind, positional order and explicit opt-in `Declared`. The pre-existing `ScalarDiagnosticSchemaMatches` remains as a source-compatible delegating alias. The mapping extends the exact old fixed-width scalar support to these **owner-certified** C++ types:
+The authoritative **EDP-Localisation generator** already declares canonical `DiagnosticParameterKind::{Utf8,Bytes,TypeIdentifier,FieldIdentifier}`, and emits each governed message's exact `DiagnosticMessageSchema<D,S,I>::ArgumentKinds`. The EDP-Logging adapter now introduces `IsDiagnosticSchemaMatching<TGeneratedMessageSchema,TValues...>()`, a C++20 compile-time check of the generated numeric identity, argument count, exact kind, positional order and explicit opt-in `Declared`. The pre-existing `IsScalarDiagnosticSchemaMatching` remains as a source-compatible delegating alias. The mapping extends the exact old fixed-width scalar support to these **owner-certified** C++ types:
 
 | Generated kind | Permitted application value |
 |---|---|

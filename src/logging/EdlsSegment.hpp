@@ -75,7 +75,7 @@ namespace ESPressio::Logging {
         }
 
         /// Reject uninitialized or externally corrupted archive identities.
-        [[nodiscard]] inline bool ValidEdlsIdentity(
+        [[nodiscard]] inline bool IsValidEdlsIdentity(
             const EdlsHeader& header
         ) noexcept {
             if (header.Generation == 0U || header.RuntimeIncarnation == 0U) {
@@ -101,7 +101,7 @@ namespace ESPressio::Logging {
         const EdlsHeader& header,
         std::span<std::byte> destination
     ) noexcept {
-        if (!Detail::ValidEdlsIdentity(header) ||
+        if (!Detail::IsValidEdlsIdentity(header) ||
             (header.Profile != EdlsContentProfile::Unsealed &&
              header.Profile != EdlsContentProfile::SealedFrames)) {
             return EdlsHeaderStatus::InvalidArguments;
@@ -177,7 +177,7 @@ namespace ESPressio::Logging {
         parsed.RuntimeIncarnation = static_cast<std::uint32_t>(
             Detail::ReadEdlsLe(source, 32U, 4U)
         );
-        if (!Detail::ValidEdlsIdentity(parsed)) {
+        if (!Detail::IsValidEdlsIdentity(parsed)) {
             return EdlsHeaderStatus::MalformedHeader;
         }
         destination = parsed;

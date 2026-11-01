@@ -155,7 +155,7 @@ namespace ESPressio::Logging {
             OwnedPositionalScratch<TValues...>& scratch,
             std::index_sequence<TIndices...>
         ) noexcept {
-            static_assert(DiagnosticSchemaMatches<TGeneratedSchema,TValues...>(),
+            static_assert(IsDiagnosticSchemaMatching<TGeneratedSchema,TValues...>(),
                 "Owned positions must exactly match the generated Localisation schema");
             static_assert((ESPressio::Serialisation::SerialisableType<TValues> && ...),
                 "Rehydrated values must have EDP-Serialisation owner support");

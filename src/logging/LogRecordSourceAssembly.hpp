@@ -157,7 +157,7 @@ namespace ESPressio::Logging {
         static_assert(TMessageSchema::Declared,
             "LogRecord requires one declared, generated EDP-Localisation message schema");
         static_assert(
-            DiagnosticSchemaMatches<TMessageSchema, TValues...>(),
+            IsDiagnosticSchemaMatching<TMessageSchema, TValues...>(),
             "LogRecord arguments must exactly match the generated Localisation diagnostic schema"
         );
         static_assert(

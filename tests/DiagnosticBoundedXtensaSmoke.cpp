@@ -18,7 +18,7 @@ struct DiagnosticSchema final {
         DiagnosticKind::TypeIdentifier, DiagnosticKind::FieldIdentifier
     };
 };
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<
     DiagnosticSchema,
     ESPressio::Bounded::String<12U>,
     ESPressio::Bounded::Bytes<8U>,

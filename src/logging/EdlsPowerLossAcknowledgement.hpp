@@ -329,7 +329,7 @@ namespace ESPressio::Logging {
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
-                if (!Detail::PriorNewestEdlsStillCleanWithScratch<
+                if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
                         TPayloadMaximum>(
                             *files_,
                             paths_[slot],
@@ -375,7 +375,7 @@ namespace ESPressio::Logging {
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
-                if (!Detail::PriorNewestEdlsStillCleanWithScratch<
+                if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
                         TPayloadMaximum>(
                             *files_,
                             paths_[slot],
@@ -503,7 +503,7 @@ namespace ESPressio::Logging {
                 return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
                         ack,
                         posted.Slot};
-            if (!Detail::ConfirmProtectedRollingPredecessorsWithScratch<
+            if (!Detail::IsProtectedPredecessorSetVerifiedWithScratch<
                     TPhysicalSlots,
                     TPayloadMaximum>(
                         *files_,

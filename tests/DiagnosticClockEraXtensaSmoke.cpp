@@ -36,10 +36,10 @@ struct CompileOnlyClockEraSchema final {
 };
 
 using Era = ESPressio::Clock::ClockEra;
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<
     CompileOnlyClockEraSchema,Era
 >());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<
     CompileOnlyClockEraSchema,std::uint64_t
 >());
 

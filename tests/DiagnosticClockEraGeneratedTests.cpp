@@ -12,9 +12,9 @@ using Era = ESPressio::Clock::ClockEra;
 using Schema = Fixture::Diagnostic::DiagnosticMessageSchema<1U,0U,3U>;
 
 static_assert(ESPressio::Serialisation::SerialisableType<Era>);
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<Schema,Era>());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<Schema,std::uint64_t>());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<Schema,Era,Era>());
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Era>());
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,std::uint64_t>());
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Era,Era>());
 
 int main() {
     const Era sample = Era::FromValue(0x0102030405060708ULL);

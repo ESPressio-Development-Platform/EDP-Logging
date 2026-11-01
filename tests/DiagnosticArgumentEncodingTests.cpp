@@ -46,16 +46,16 @@ namespace GeneratedFixture {
 }
 using Schema = GeneratedFixture::DiagnosticMessageSchema<1U, 0U, 3U>;
 
-static_assert(ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     Schema, std::uint16_t, bool, float
 >());
-static_assert(!ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     Schema, std::uint32_t, bool, float
 >());
-static_assert(!ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     Schema, std::uint16_t, bool
 >());
-static_assert(!ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     GeneratedFixture::DiagnosticMessageSchema<1U, 0U, 4U>, std::uint16_t
 >());
 

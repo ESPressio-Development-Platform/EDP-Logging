@@ -12,13 +12,13 @@
 using ActualGovernedFixture =
     Fixture::Diagnostic::DiagnosticMessageSchema<1U, 0U, 3U>;
 
-static_assert(ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     ActualGovernedFixture, std::uint16_t, bool
 >());
-static_assert(!ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     ActualGovernedFixture, std::uint32_t, bool
 >());
-static_assert(!ESPressio::Logging::ScalarDiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsScalarDiagnosticSchemaMatching<
     ActualGovernedFixture, std::uint16_t, bool, std::uint8_t
 >());
 static_assert(ActualGovernedFixture::SourceDomain == 1U);

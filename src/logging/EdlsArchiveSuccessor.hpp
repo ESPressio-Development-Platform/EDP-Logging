@@ -95,7 +95,7 @@ namespace ESPressio::Logging {
         }
         header.DeviceIdentifier=deviceIdentifier;
         header.RuntimeIncarnation=runtimeIncarnation;
-        if (!Detail::ValidEdlsIdentity(EdlsHeader{
+        if (!Detail::IsValidEdlsIdentity(EdlsHeader{
                 0U, 1U, deviceIdentifier, runtimeIncarnation
             }) ||
             completeEdlg.empty() ||

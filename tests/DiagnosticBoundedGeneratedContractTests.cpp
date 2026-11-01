@@ -20,16 +20,16 @@ static_assert(ESPressio::Serialisation::SerialisableType<Text>);
 static_assert(ESPressio::Serialisation::SerialisableType<Bytes>);
 static_assert(ESPressio::Serialisation::SerialisableType<TypeId>);
 static_assert(ESPressio::Serialisation::SerialisableType<FieldId>);
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<
     Schema,Text,Bytes,TypeId,FieldId
 >());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<
     Schema,Bytes,Text,TypeId,FieldId
 >());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<
     Schema,Text,Bytes,FieldId,TypeId
 >());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<
     Schema,Text,Bytes,TypeId
 >());
 

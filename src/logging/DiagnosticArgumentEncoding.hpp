@@ -84,7 +84,7 @@ namespace ESPressio::Logging {
     /// GENERATED DiagnosticMessageSchema descriptor. Never substitutes
     /// a hand-written TypeId or a run-time parameter registry.
     template<class TGeneratedMessageSchema, class... TValues>
-    consteval bool DiagnosticSchemaMatches() {
+    consteval bool IsDiagnosticSchemaMatching() {
         using KindArray = std::remove_cv_t<decltype(TGeneratedMessageSchema::ArgumentKinds)>;
         using Kind = typename KindArray::value_type;
         if constexpr (
@@ -101,11 +101,11 @@ namespace ESPressio::Logging {
     }
 
     /// Source-compatible alias for previous scalar-only instrumentation.
-    /// New callers can use DiagnosticSchemaMatches for owner-certified
+    /// New callers can use IsDiagnosticSchemaMatching for owner-certified
     /// bounded UTF-8, Bytes and strong System identifiers as well.
     template<class TGeneratedMessageSchema, class... TValues>
-    consteval bool ScalarDiagnosticSchemaMatches() {
-        return DiagnosticSchemaMatches<TGeneratedMessageSchema, TValues...>();
+    consteval bool IsScalarDiagnosticSchemaMatching() {
+        return IsDiagnosticSchemaMatching<TGeneratedMessageSchema, TValues...>();
     }
 
     /// Strict compile-time governed scalar positional CBOR encoder. Caller
@@ -117,7 +117,7 @@ namespace ESPressio::Logging {
         const TValues&... values
     ) noexcept {
         static_assert(
-            DiagnosticSchemaMatches<TGeneratedMessageSchema, TValues...>(),
+            IsDiagnosticSchemaMatching<TGeneratedMessageSchema, TValues...>(),
             "Diagnostic argument types/widths/count do not match the EDP-Localisation generated message schema"
         );
         static_assert(
@@ -137,7 +137,7 @@ namespace ESPressio::Logging {
         const TValues&... values
     ) noexcept {
         static_assert(
-            DiagnosticSchemaMatches<TGeneratedMessageSchema, TValues...>(),
+            IsDiagnosticSchemaMatching<TGeneratedMessageSchema, TValues...>(),
             "Diagnostic argument types/widths/count do not match the EDP-Localisation generated message schema"
         );
         static_assert(

@@ -111,7 +111,7 @@ namespace ESPressio::Logging {
         /// Duplicate/empty physical keys would alias protected and inactive
         /// storage, invalidating the entire atomic two-key safety argument.
         /// Detect at the boundary before any storage operation or mutation.
-        [[nodiscard]] bool KeysValid() const noexcept {
+        [[nodiscard]] bool IsKeySetValid() const noexcept {
             for(std::size_t i=0U;i<TSlots;++i) {
                 if(keys_[i].Data()==nullptr || keys_[i].Size()==0U)
                     return false;
@@ -184,7 +184,7 @@ namespace ESPressio::Logging {
         /// degraded; never rewrite it silently to make recovery look clean.
         [[nodiscard]] DurableEdlsObservation<TSlots> Inspect() const noexcept {
             DurableEdlsObservation<TSlots> result{};
-            if(!KeysValid()) {
+            if(!IsKeySetValid()) {
                 result.Status=DurableEdlsStatus::Ambiguous;
                 return result;
             }
@@ -343,7 +343,7 @@ namespace ESPressio::Logging {
             header.DeviceIdentifier=identity;
             header.RuntimeIncarnation=incarnation;
             header.Generation=1U;
-            if(!Detail::ValidEdlsIdentity(header)) {
+            if(!Detail::IsValidEdlsIdentity(header)) {
                 result.Status=DurableEdlsStatus::InvalidRecord;
                 return result;
             }

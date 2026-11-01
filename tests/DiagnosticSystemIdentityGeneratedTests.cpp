@@ -14,9 +14,9 @@ using Incarnation = ESPressio::System::Identity::RuntimeIncarnationId;
 
 static_assert(ESPressio::Serialisation::SerialisableType<Device>);
 static_assert(ESPressio::Serialisation::SerialisableType<Incarnation>);
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<Schema,Device,Incarnation>());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<Schema,Incarnation,Device>());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<Schema,Device>());
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Device,Incarnation>());
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Incarnation,Device>());
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Device>());
 
 int main() {
     constexpr Device::Storage bytes{

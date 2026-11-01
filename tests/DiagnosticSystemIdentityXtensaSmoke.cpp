@@ -19,8 +19,8 @@ struct Schema final {
 };
 using Device=ESPressio::System::Identity::DeviceIdentifier;
 using Incarnation=ESPressio::System::Identity::RuntimeIncarnationId;
-static_assert(ESPressio::Logging::DiagnosticSchemaMatches<Schema,Device,Incarnation>());
-static_assert(!ESPressio::Logging::DiagnosticSchemaMatches<Schema,Incarnation,Device>());
+static_assert(ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Device,Incarnation>());
+static_assert(!ESPressio::Logging::IsDiagnosticSchemaMatching<Schema,Incarnation,Device>());
 void Test(std::span<std::byte> output,const Device& device,const Incarnation& incarnation) noexcept {
     const auto status=ESPressio::Logging::EncodeDiagnosticArgumentsCbor<Schema>(
         output,device,incarnation
