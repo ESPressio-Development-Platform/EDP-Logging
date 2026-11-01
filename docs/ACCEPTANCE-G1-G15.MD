@@ -46,6 +46,10 @@ Application Bootstrap chooses persistent storage and an immutable byte capacity.
 | EDP-Platform and platform concretes / respective heads | Explicit concurrency, atomic and native SDK boundary | Reuse approved provider abstractions, retain SDK confinement and explicit provider selection |
 | Other touched dependency/identity owners | Correct ownership, dependency graph, Wiki, CI, code convention | Full repository-by-repository certification **not yet performed**; GitHub history and pinned test dependencies must be reconciled first |
 
+## 1 November 2026 strict UTF-8 consumer reconciliation
+
+Following explicit user approval and an all-37-repository consumer audit, optional OwnedDiagnosticArguments::AddUtf8 delegates to the sole strict EDP-Serialisation validator and rejects embedded NUL; AddBytes remains unchanged for binary input where generated schema permits it. The Serialisation default JSON/CBOR text domain, error offsets, canonical encodings, and all versions are unchanged. Cross-library changed-source GCC/Clang and target evidence must be checked on the exact commits before this is considered complete. The original human decision below is historical and resolved for this specific change.
+
 ## Open acceptance and human decision points
 
 - **V2 component reuse/UTF-8:** Logging currently accepts ASCII U+0000 inside its private UTF-8 validation while the existing Serialisation validator explicitly rejects it and has different constexpr/linkage requirements. Direct substitution may change contracts and dependency closure. The correct lower-level reusable owner or explicit exception requires architectural approval under V2/COMPONENT_REUSE Rule1b; no code change was made.

@@ -6,6 +6,8 @@ Bounded, structured embedded diagnostic logging for the ESPressio Development Pl
 
 **Current technical contracts:** [Architecture](docs/ARCHITECTURE.MD), [G1–G15 acceptance and related-owner review](docs/ACCEPTANCE-G1-G15.MD), [Qualification status](docs/LOGGING-QUALIFICATION-STATUS.MD), [Immutable byte capacity](docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) and [bounded EDLS batching](docs/BOUNDED-EDLS-BATCHING.MD). These supersede earlier milestone-status language below.
 
+**Strict diagnostic text (1 November 2026):** the opt-in owned diagnostic arguments facility now reuses the dependency-light EDP-Serialisation strict UTF-8 validator; AddUtf8 rejects embedded U+0000 in line with canonical CBOR/JSON and BoundedTypes String, while AddBytes retains schema-qualified binary input. The lightweight Logging umbrella does not import this optional dependency.
+
 **Historical implementation chronology:** many of the sections below document intermediate 16–30 October work and deliberately retain their original limitations and test receipts; statements that a feature was *then* pending are not a denial of later published functionality. The dated handoff is authoritative for the sequence of changes. Where an older description conflicts with the current contracts linked above, the current contracts govern.
 
 ## Implemented API

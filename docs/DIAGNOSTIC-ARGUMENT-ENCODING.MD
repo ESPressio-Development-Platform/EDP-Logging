@@ -15,3 +15,8 @@ The helper accepts the **EDP-Localisation-generated** `DiagnosticMessageSchema<D
 ## 2026-10-22 — re-encoding already-owned heterogeneous source values
 
 The schema-qualified scalar/strong writer also supports **reconstructed** values from `OwnedDiagnosticArguments` via [Owned Diagnostic Positional Re-encoding](./OWNED-DIAGNOSTIC-POSITIONAL-REENCODING.MD). The generated message's exact parameter Types select each private source descriptor and owner conversion; private Kind/Offset/Size bytes are checked but never emitted as wire discriminators. Caller-owned `OwnedPositionalScratch<...>` is completely cleared even when the source count/kind/width is wrong or the canonical writer rejects an undersized destination. The writer remains EDP-Serialisation-owned, and no type identifier or wire tag is newly allocated.
+
+
+## 1 November 2026 - strict UTF-8 source consistency
+
+The optional OwnedDiagnosticArguments::AddUtf8 uses the sole EDP-Serialisation strict ValidateUtf8 implementation. It rejects embedded U+0000 before committing an argument slot, preserving count/bytes on refusal and retaining previous canonical CBOR/JSON semantics and wire bytes. Arbitrary NUL-containing data remains available using AddBytes only where the generated diagnostic schema declares byte-valued parameters.

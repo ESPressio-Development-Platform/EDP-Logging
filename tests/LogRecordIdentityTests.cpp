@@ -110,8 +110,20 @@ int main() {
     assert(validText.AddUtf8({"\xF4\x90\x80\x80",4U})==Result::InvalidUtf8);
     assert(validText.AddUtf8({"\xE2\x82",2U})==Result::InvalidUtf8);
     assert(validText.Count()==0U && validText.BytesUsed()==0U);
-    assert(validText.AddUtf8({"\xF0\x9F\x98\x80",4U})==Result::Added);
-    assert(validText.Count()==1U && validText.BytesUsed()==4U);
+    const char embeddedNull[] = {'O','K','\0','!'};
+    assert(validText.AddUtf8({embeddedNull,sizeof(embeddedNull)})==Result::InvalidUtf8);
+    assert(validText.Count()==0U && validText.BytesUsed()==0U);
+    const auto rawWithNull = std::as_bytes(std::span(embeddedNull,sizeof(embeddedNull)));
+    assert(validText.AddBytes(rawWithNull)==Result::Added);
+    assert(validText.Count()==1U && validText.BytesUsed()==sizeof(embeddedNull));
+    std::span<const std::byte> binaryArgument{};
+    assert(validText.GetArgumentBytes(0U,binaryArgument)==
+           L::OwnedArgumentAccessResult::Available);
+    assert(binaryArgument[2U]==std::byte{0U});
+    L::OwnedDiagnosticArguments<1U,8U> canonicalText;
+
+    assert(canonicalText.AddUtf8({"\xF0\x9F\x98\x80",4U})==Result::Added);
+    assert(canonicalText.Count()==1U && canonicalText.BytesUsed()==4U);
 
     L::LogRecord record{};
     assert(L::ValidateLogRecord(record)==L::LogRecordValidation::InvalidDevice);

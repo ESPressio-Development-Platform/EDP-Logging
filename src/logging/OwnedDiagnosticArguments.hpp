@@ -8,9 +8,11 @@
 #include <string_view>
 #include <type_traits>
 
+#include <serialisation/Utf8Validation.hpp>
 #include <identity/DeviceIdentifier.hpp>
 #include <identity/RuntimeIncarnationId.hpp>
 #include <types/TypeIdentifier.hpp>
+#include <types/FieldIdentifier.hpp>
 
 namespace ESPressio::Clock {
     class ClockEra;
@@ -118,64 +120,6 @@ namespace ESPressio::Logging {
 
 
         // UTF-8 validation and transactional append helpers.
-
-        /// Validates scalar Unicode sequences, rejecting overlong encodings,
-        /// invalid continuation bytes, UTF-16 surrogates and out-of-range code points.
-        /// @param input Borrowed bytes during this call only.
-        /// @returns True only when the complete input is valid UTF-8.
-        [[nodiscard]] static constexpr bool IsValidUtf8(
-            std::string_view input
-        ) noexcept {
-            for (std::size_t index = 0U; index < input.size();) {
-                const auto first = static_cast<std::uint8_t>(input[index]);
-                if (first < 0x80U) {
-                    ++index;
-                    continue;
-                }
-
-                std::size_t sequence = 0U;
-                std::uint32_t value = 0U;
-
-                if (first >= 0xC2U && first <= 0xDFU) {
-                    sequence = 2U;
-                    value = first & 0x1FU;
-                } else if (first >= 0xE0U && first <= 0xEFU) {
-                    sequence = 3U;
-                    value = first & 0x0FU;
-                } else if (first >= 0xF0U && first <= 0xF4U) {
-                    sequence = 4U;
-                    value = first & 0x07U;
-                } else {
-                    return false;
-                }
-
-                if (sequence > input.size() - index) {
-                    return false;
-                }
-                for (std::size_t part = 1U; part < sequence; ++part) {
-                    const auto continuation =
-                        static_cast<std::uint8_t>(input[index + part]);
-                    if ((continuation & 0xC0U) != 0x80U) {
-                        return false;
-                    }
-                    value = (value << 6U) | (continuation & 0x3FU);
-                }
-
-                if (
-                    (sequence == 2U && value < 0x80U) ||
-                    (sequence == 3U && value < 0x800U) ||
-                    (sequence == 4U && value < 0x10000U) ||
-                    (value >= 0xD800U && value <= 0xDFFFU) ||
-                    value > 0x10FFFFU
-                ) {
-                    return false;
-                }
-                index += sequence;
-            }
-
-            return true;
-        }
-
 
         /// Atomically captures a complete native argument byte slice.
         /// @param kind Source-side kind of the argument.
@@ -338,13 +282,18 @@ namespace ESPressio::Logging {
             return Store(kind, data);
         }
 
-        /// Validates UTF-8 and copies all bytes before returning.
+        /// Validates strict canonical UTF-8 (including rejection of embedded NUL)
+        /// using the sole EDP-Serialisation validator, then copies all bytes.
+        /// Supply arbitrary NUL-bearing binary data using AddBytes and an
+        /// appropriately approved generated diagnostic argument schema.
         /// @param text Borrowed UTF-8 input.
         /// @returns Added or typed malformed/capacity failure.
         [[nodiscard]] OwnedArgumentResult AddUtf8(
             std::string_view text
         ) noexcept {
-            if (!IsValidUtf8(text)) {
+            if (!ESPressio::Serialisation::ValidateUtf8(
+                text.data(), text.size()
+            ).IsSuccessful()) {
                 return OwnedArgumentResult::InvalidUtf8;
             }
 
