@@ -58,7 +58,7 @@ namespace ESPressio::Logging {
         static constexpr std::size_t DrainSlot = TProducerCount;
 
         void WakeDrain() noexcept {
-            if (_lifecycle.ShutdownRequested() &&
+            if (_lifecycle.IsShutdownRequested() &&
                 _waitWake->Wake(DrainSlot) != ESPressio::Threading::BoundedWaitWakeResult::Woken) {
                 _wakeFailures.fetch_add(1U, std::memory_order_relaxed);
             }

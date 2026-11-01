@@ -48,9 +48,9 @@ namespace {
         }
         ready.wait();
         assert(lifecycle.ActiveAdmissions() == 4U);
-        assert(!lifecycle.ShutdownRequested());
+        assert(!lifecycle.IsShutdownRequested());
         static_cast<void>(lifecycle.RequestShutdown());
-        assert(lifecycle.ShutdownRequested());
+        assert(lifecycle.IsShutdownRequested());
         release.count_down();
         for (auto& thread : threads) {
             thread.join();
@@ -129,7 +129,7 @@ namespace {
         assert(completed.load() == 2U);
         assert(unexpected.load() == 0U);
         assert(lifecycle.ActiveAdmissions() == 0U);
-        assert(lifecycle.ShutdownRequested());
+        assert(lifecycle.IsShutdownRequested());
         // Quiescence means no in-flight admission calls: both previously granted
         // leases are still OWNED and must be released before Memory teardown.
         assert(!held0.IsEmpty() && !held1.IsEmpty());

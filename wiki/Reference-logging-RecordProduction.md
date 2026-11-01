@@ -30,7 +30,7 @@ noexcept synchronous sinks in argument order and returns
 RecordFanoutOutcome<TResultCount>. Source is the underlying
 RecordDrainOutcome; Submissions is a fixed array of native sink
 statuses; Attempted, Accepted, Unaccepted are exact counts.
-FullySubmittedAndReclaimed() requires all sinks accept and native
+IsFullySubmittedAndReclaimed() requires all sinks accept and native
 Memory reclamation succeeds. Each sink is called exactly once,
 including after another sink rejects; no automatic retry. Borrowed
 source contents become invalid after the final sink and reclamation.

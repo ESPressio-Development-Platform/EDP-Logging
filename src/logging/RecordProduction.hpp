@@ -102,11 +102,11 @@ namespace ESPressio::Logging {
             outcome.Status = RecordProductionStatus::OutputOccupied;
             return outcome;
         }
-        if (!admission.ValidProducerSlot(producerSlot)) {
+        if (!admission.IsValidProducerSlot(producerSlot)) {
             outcome.Status = RecordProductionStatus::InvalidProducerSlot;
             return outcome;
         }
-        if (stopRequested() || admission.ShutdownRequested()) {
+        if (stopRequested() || admission.IsShutdownRequested()) {
             outcome.Status = RecordProductionStatus::StopRequested;
             return outcome;
         }
@@ -300,7 +300,7 @@ namespace ESPressio::Logging {
         std::size_t Unaccepted{0U};
 
         /// All participating submissions accepted AND native lease reclaimed.
-        [[nodiscard]] bool FullySubmittedAndReclaimed() const noexcept {
+        [[nodiscard]] bool IsFullySubmittedAndReclaimed() const noexcept {
             return Source.Status == RecordDrainStatus::AcceptedAndReclaimed &&
                    Attempted == TResultCount && Accepted == TResultCount;
         }

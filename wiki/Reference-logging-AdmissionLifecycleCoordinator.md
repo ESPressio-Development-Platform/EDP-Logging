@@ -13,7 +13,7 @@
 - `RequestShutdown() noexcept`: monotonic one-way shutdown flag followed by best-effort wake publication to all producer slots; returns wake health separately. Caller must address failed publication.
 - `AcquireUntil<MaxWakeRetries>(slot,pool,lease,absoluteMonotonicDeadline,args...) noexcept`: one exclusive slot per producer. Uses existing Memory **NoWait** and Threading WaitUntil with a **stop predicate**. Returns typed admission and wake health. `ShutdownRequested=10` means *no new lease*; `GrantedDuringShutdown=11` means **a new lease WAS granted and remains owned**, and caller must release explicitly. Active call count decremented on every exit and drain slot signaled on shutdown.
 - `ShutdownUntil<MaxDrainWakes>(absoluteMonotonicDeadline) noexcept`: signals stop and event-drains in-flight *admission calls* on the Threading **reserved drain slot**; strictly one caller; finite wake budget and original deadline, no polling sleeps; reports active count and wake health.
-- `ShutdownRequested() const noexcept`, `ActiveAdmissions() const noexcept`: lock-free state snapshots, not a substitute for task join.
+- `IsShutdownRequested() const noexcept`, `ActiveAdmissions() const noexcept`: lock-free state snapshots, not a substitute for task join.
 - `ReleaseAndNotify(lease) noexcept`: forwards to the composed Memory lease return/wake fanout, remains usable during stop.
 
 ## Lifecycle and failure semantics
@@ -30,7 +30,7 @@ TrackAdmission() returns an internal noncopyable scope which registers an active
 
 ## Producer slot validity helper
 
-ValidProducerSlot(slot) is public static constexpr, no state mutation: true iff slot is below TProducerCount; false for shutdown-drainer slot TProducerCount and out-of-range slots. The bounded record composer uses it before the queue stage so a producer never borrows the shutdown-drainer Threading wait point.
+IsValidProducerSlot(slot) is public static constexpr, no state mutation: true iff slot is below TProducerCount; false for shutdown-drainer slot TProducerCount and out-of-range slots. The bounded record composer uses it before the queue stage so a producer never borrows the shutdown-drainer Threading wait point.
 
 
 ## Canonical atomic binding

@@ -91,7 +91,7 @@ namespace ESPressio::Logging {
         }
         // The producer must NEVER borrow the lifecycle's reserved drain slot
         // during a queue wait; check before reserving any queue capacity.
-        if (!admission.ValidProducerSlot(producerSlot)) {
+        if (!admission.IsValidProducerSlot(producerSlot)) {
             outcome.Status = RecordAdmissionStatus::InvalidProducerSlot;
             return outcome;
         }
@@ -100,7 +100,7 @@ namespace ESPressio::Logging {
 
         std::size_t queueWakes = 0U;
         while (true) {
-            if (stopRequested() || admission.ShutdownRequested()) {
+            if (stopRequested() || admission.IsShutdownRequested()) {
                 outcome.Status = RecordAdmissionStatus::ShutdownRequested;
                 return outcome;
             }
@@ -169,7 +169,7 @@ namespace ESPressio::Logging {
             }
         };
 
-        if (stopRequested() || admission.ShutdownRequested()) {
+        if (stopRequested() || admission.IsShutdownRequested()) {
             outcome.Status = RecordAdmissionStatus::ShutdownRequested;
             abortOutput();
             return outcome;
@@ -219,9 +219,9 @@ namespace ESPressio::Logging {
             return outcome;
         }
 
-        if (stopRequested() || admission.ShutdownRequested() ||
+        if (stopRequested() || admission.IsShutdownRequested() ||
             ESPressio::Clock::MonotonicNow() >= deadline) {
-            outcome.Status = (stopRequested() || admission.ShutdownRequested())
+            outcome.Status = (stopRequested() || admission.IsShutdownRequested())
                                  ? RecordAdmissionStatus::ShutdownRequested
                                  : RecordAdmissionStatus::LateMemoryGrantReturned;
             releaseScratch();
@@ -246,7 +246,7 @@ namespace ESPressio::Logging {
         // timeout, but finish moving/unlocking the owned Memory lease after
         // the caller's canonical Clock deadline. An on-time Memory grant
         // alone is not permission to admit the record late.
-        const bool stoppedAfterAttach = stopRequested() || admission.ShutdownRequested();
+        const bool stoppedAfterAttach = stopRequested() || admission.IsShutdownRequested();
         if (stoppedAfterAttach || ESPressio::Clock::MonotonicNow() >= deadline) {
             outcome.Status = stoppedAfterAttach ? RecordAdmissionStatus::ShutdownRequested
                                                 : RecordAdmissionStatus::DeadlineElapsed;

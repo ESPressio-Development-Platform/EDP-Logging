@@ -146,7 +146,7 @@ namespace {
         assert(queue.Abort(ticket) == Result::ReleasedNotificationFailed);
         assert(callbacks.Releases == 2);
         assert(queue.Abort(ticket) == Result::InvalidTicket);
-        assert(!queue.IntegrityFailed());
+        assert(!queue.IsIntegrityFailed());
     }
 
     void TestMutexBusyAndFailure() {
@@ -168,7 +168,7 @@ namespace {
         assert(queue.Complete(out) == Result::Succeeded);
         mutex.FailAcquire = true;
         assert(queue.Pop(out) == Result::IntegrityFailure);
-        assert(queue.IntegrityFailed());
+        assert(queue.IsIntegrityFailed());
     }
 
     void TestNativeMutexReleaseFailureIsNotHidden() {
@@ -178,7 +178,7 @@ namespace {
         TestQueue::Ticket empty;
         mutex.FailRelease = true;
         assert(queue.Pop(empty) == Result::IntegrityFailure);
-        assert(queue.IntegrityFailed());
+        assert(queue.IsIntegrityFailed());
     }
 
     void TestMoveOnlyRaiiTransactionAndConsumerClaim() {
@@ -229,7 +229,7 @@ namespace {
         assert(coordinator.Releases == 2U);
         TestQueue::Ticket empty;
         assert(queue.Pop(empty) == Result::Empty);
-        assert(!queue.IntegrityFailed());
+        assert(!queue.IsIntegrityFailed());
     }
 
     void TestQueueSlotReservationBeforeMemoryOwnership() {
@@ -264,7 +264,7 @@ namespace {
             assert(consuming.Complete() == Result::Succeeded);
         }
         assert(callbacks.Releases == 1U);
-        assert(!queue.IntegrityFailed());
+        assert(!queue.IsIntegrityFailed());
     }
 
     void TestCompileTimeMemoryBudgetAndEmptyLease() {

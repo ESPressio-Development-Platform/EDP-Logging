@@ -157,7 +157,7 @@ namespace {
                Result::DeadlineElapsed);
         assert(mutex.Waits[0U] == 900U && mutex.Waits[1U] == 200U);
         assert(claim.IsActive() && claim.Borrow() == nullptr);
-        assert(release.Native.Releases == 1U && !queue.IntegrityFailed());
+        assert(release.Native.Releases == 1U && !queue.IsIntegrityFailed());
         DeadlineQueue::ConsumerClaim empty{};
         assert(queue.Pop(empty) == Result::Empty);
         release.AfterRelease = 0U;

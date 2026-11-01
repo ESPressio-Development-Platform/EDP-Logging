@@ -103,7 +103,7 @@ namespace ESPressio::Logging {
                     return result;
                 }
                 ++result.Processed;
-                if (outcome.FullySubmittedAndReclaimed()) {
+                if (outcome.IsFullySubmittedAndReclaimed()) {
                     ++result.AcceptedByAll;
                 } else {
                     ++result.FailedSubmissionRecords;

@@ -178,7 +178,7 @@ namespace ESPressio::Logging {
                 // The shutdown drainer may already be waiting. A latched wake
                 // handles completion-before-registration and is also safe when
                 // no shutdown is requested yet.
-                if (Owner->ShutdownRequested()) {
+                if (Owner->IsShutdownRequested()) {
                     static_cast<void>(Owner->_waitWake->Wake(DrainSlot));
                 }
             }
@@ -206,7 +206,7 @@ namespace ESPressio::Logging {
         // Read-only lifecycle observations.
 
         /// Indicates whether shutdown has been published.
-        [[nodiscard]] bool ShutdownRequested() const noexcept {
+        [[nodiscard]] bool IsShutdownRequested() const noexcept {
             return LoadAcquire(_shuttingDown) != 0U;
         }
 
@@ -217,7 +217,7 @@ namespace ESPressio::Logging {
 
         /// Valid producer slots exclude the dedicated shutdown-drainer slot.
         /// This must be checked before a higher-level queue-capacity wait.
-        [[nodiscard]] static constexpr bool ValidProducerSlot(
+        [[nodiscard]] static constexpr bool IsValidProducerSlot(
             std::size_t slot) noexcept {
             return slot < TProducerCount;
         }
@@ -267,7 +267,7 @@ namespace ESPressio::Logging {
             // Count before examining shutdown. If shutdown is already set,
             // no pool claim can occur; this call only briefly enters/exits.
             ActiveAdmissionScope active{this};
-            if (ShutdownRequested()) {
+            if (IsShutdownRequested()) {
                 return {
                     AdmissionWaitResult::ShutdownRequested,
                     AdmissionWakePublicationResult::NotAttempted};
@@ -275,7 +275,7 @@ namespace ESPressio::Logging {
 
             Detail::ThreadingWaitSlot<TWaitWakeProvider> waitPoint{_waitWake, slot};
             const auto stop = [this]() noexcept -> bool {
-                return ShutdownRequested();
+                return IsShutdownRequested();
             };
             const auto status = AcquirePoolUntilGuarded<TMaximumWakeRetries>(
                 pool,

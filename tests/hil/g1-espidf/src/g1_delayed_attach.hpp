@@ -51,7 +51,7 @@ bool VerifyInjectedLateQueueAttachmentRollback(Pool& pool) noexcept {
         result.MemoryAttempted &&
         result.WakePublication==Logging::AdmissionWakePublicationResult::Published &&
         scratch.IsEmpty() && !output.IsActive() &&
-        !queue.IntegrityFailed() &&
+        !queue.IsIntegrityFailed() &&
         Record::Live.load()==0 && lifecycle.ActiveAdmissions()==0U &&
         elapsed>=40000LL && elapsed<300000LL;
     std::printf(
@@ -91,7 +91,7 @@ bool VerifyCancellationAtFinalQueueAttachment(Pool& pool) noexcept {
         result.Queue==Logging::RecordQueueResult::Succeeded &&
         result.Memory==Logging::AdmissionWaitResult::Admitted &&
         result.MemoryAttempted && scratch.IsEmpty() &&
-        !output.IsActive() && !queue.IntegrityFailed() &&
+        !output.IsActive() && !queue.IsIntegrityFailed() &&
         Record::Live.load()==0 && lifecycle.ActiveAdmissions()==0U &&
         elapsed>=80000LL && elapsed<300000LL;
     std::printf(

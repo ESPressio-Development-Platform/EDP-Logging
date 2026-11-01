@@ -147,7 +147,7 @@ namespace ESPressio::Logging {
             }
 
             [[nodiscard]] TLease* Borrow() noexcept {
-                return _owner && !_owner->IntegrityFailed() ? _borrowedLease : nullptr;
+                return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
 
             [[nodiscard]] RecordQueueResult Commit() noexcept {
@@ -265,7 +265,7 @@ namespace ESPressio::Logging {
             }
 
             [[nodiscard]] TLease* Borrow() noexcept {
-                return _owner && !_owner->IntegrityFailed() ? _borrowedLease : nullptr;
+                return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
 
             /// Completes this source exactly once under one canonical retirement budget.
@@ -872,7 +872,7 @@ namespace ESPressio::Logging {
             );
         }
 
-        [[nodiscard]] bool IntegrityFailed() const noexcept {
+        [[nodiscard]] bool IsIntegrityFailed() const noexcept {
             return _integrityFailed.load(std::memory_order_acquire);
         }
     };

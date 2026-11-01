@@ -58,7 +58,7 @@ void TestDeadlineCannotBeOverrunByFinalQueueAttachment() {
     assert(result.WakePublication==
         L::AdmissionWakePublicationResult::Published);
     assert(scratch.IsEmpty() && !output.IsActive());
-    assert(!queue.IntegrityFailed());
+    assert(!queue.IsIntegrityFailed());
     assert(TestSupport::PooledObject::LiveCount.load()==0);
     assert(lifecycle.ActiveAdmissions()==0U);
     assert(runtime.TearDown()==
@@ -99,7 +99,7 @@ void TestCancellationAtFinalQueueAttachment() {
     assert(result.MemoryAttempted);
     assert(result.Memory==L::AdmissionWaitResult::Admitted);
     assert(scratch.IsEmpty() && !output.IsActive());
-    assert(!queue.IntegrityFailed());
+    assert(!queue.IsIntegrityFailed());
     assert(TestSupport::PooledObject::LiveCount.load()==0);
     assert(lifecycle.ActiveAdmissions()==0U);
     assert(runtime.TearDown()==Memory::MemoryTopologyTeardownResult::Succeeded);

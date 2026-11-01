@@ -30,7 +30,7 @@ The public TrackAdmission() method returns a noncopyable RAII admission scope, c
 
 ## Producer-slot validation for composed outer admission
 
-ValidProducerSlot(slot) noexcept is a public static constexpr predicate over [0, TProducerCount), excluding the reserved shutdown-drainer slot TProducerCount. Higher-domain consumers MUST reject invalid producer slots before a Queue wait; the older AcquireUntil already rejects them internally, but that is too late for a queue-before-Memory composer. No capacity, signal, timing or dependency change accompanies this additive method.
+IsValidProducerSlot(slot) noexcept is a public static constexpr predicate over [0, TProducerCount), excluding the reserved shutdown-drainer slot TProducerCount. Higher-domain consumers MUST reject invalid producer slots before a Queue wait; the older AcquireUntil already rejects them internally, but that is too late for a queue-before-Memory composer. No capacity, signal, timing or dependency change accompanies this additive method.
 
 ## Explicit canonical atomic binding
 

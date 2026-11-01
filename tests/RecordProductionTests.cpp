@@ -215,7 +215,7 @@ void TestFanout() {
   empty.Attempted==0U&&first==0&&second==0);
  produce(909);
  auto full=L::DrainOneRecordToSinks(queue,claim,ok1,ok2);
- assert(full.FullySubmittedAndReclaimed()&&
+ assert(full.IsFullySubmittedAndReclaimed()&&
   full.Submissions[0]==L::RecordSinkSubmission::Accepted&&
   full.Submissions[1]==L::RecordSinkSubmission::Accepted);
  assert(full.Attempted==2U&&full.Accepted==2U&&full.Unaccepted==0U);
@@ -228,7 +228,7 @@ void TestFanout() {
  auto sinkReject=[&](const Rec& rec) noexcept -> L::RecordSinkSubmission {
   ++second;assert(rec.Value==910);return L::RecordSinkSubmission::Rejected;};
  auto mixed=L::DrainOneRecordToSinks(queue,claim,sinkAccepted,sinkReject);
- assert(!mixed.FullySubmittedAndReclaimed()&&
+ assert(!mixed.IsFullySubmittedAndReclaimed()&&
   mixed.Source.Status==L::RecordDrainStatus::FailedAndReclaimed);
  assert(mixed.Source.Submission==L::RecordSinkSubmission::Partial);
  assert(mixed.Attempted==2U&&mixed.Accepted==1U&&mixed.Unaccepted==1U);
@@ -479,7 +479,7 @@ void TestSingleSinkCoordinatorPipeline() {
 
     produce(1);
     const auto first = L::DrainOneRecordToSinks(queue, claim, soleSink);
-    assert(first.FullySubmittedAndReclaimed());
+    assert(first.IsFullySubmittedAndReclaimed());
     assert(first.Attempted == 1U && first.Accepted == 1U);
     assert(first.Submissions[0] == L::RecordSinkSubmission::Accepted);
     assert(!claim.IsActive() && Rec::Live.load() == 0);
