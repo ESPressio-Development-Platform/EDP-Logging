@@ -52,3 +52,16 @@
 - [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)
 
 - [Bounded queue transitions](Reference-logging-BoundedQueueTransitions.md)
+
+### Current V2 developer spine
+
+- [Architecture](Architecture)
+- [Dependency Contracts](Dependency-Contracts)
+- [Public API](Public-API)
+- [Internal API](Internal-API)
+- [Private Implementation](Private-Implementation)
+- [Resources and Lifecycle](Resources-Lifecycle-Concurrency)
+- [Build, Tests and Source](Build-Test-and-Source)
+- [Compiler Definitions](Compiler-Definitions)
+- [Reference Index](Reference-Index)
+- [Tooling Reference](Tooling-Reference)

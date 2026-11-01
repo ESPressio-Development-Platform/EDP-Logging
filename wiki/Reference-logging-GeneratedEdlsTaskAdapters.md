@@ -1,0 +1,32 @@
+# GeneratedEdlsTaskAdapters — implementation reference
+
+**Classification:** Internal/public optional integration adapters. **Owning header:** [src/logging/GeneratedEdlsTaskAdapters.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp). **Version:** 0.1.0, source branch feature/logging-v1. This page describes implementation and owner requirements; it does not replace normative ./docs contracts.
+
+## Responsibility and boundaries
+
+Connects generated 15-field LogRecord projection, canonical Serialisation CBOR, finite owned representations, Threading asynchronous delivery, bounded segment batching, and strict archive acknowledgement. It distinguishes volatile acceptance, worker/source retirement and durable completion.
+
+## Resource, failure and lifecycle invariants
+
+The callback/provider cannot retain borrowed source beyond its sanctioned lifetime, and accepting a work item does not promise future durable completion. Bootstrap supplies queue, Task, all provider lifetimes and configured bounds.
+
+## Source declarations and responsibilities
+
+The following source-indexed inventory distinguishes defined types/contracts from operations. Descriptions reflect implementation documentation at the cited line; callers must also respect the preconditions, result meanings, provider choices and lifetimes described above.
+
+- **TTarget** (Type or Concept, [line 24](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L24)): Existing bounded batch operations required by this ordinary delivery callback.
+- **BatchDeliveryTarget** (Type or Concept, [line 25](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L25)): Existing bounded batch operations required by this ordinary delivery callback.
+- **TMessageSchema** (Type or Concept, [line 39](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L39)): Schema-qualified canonical-CBOR encoder, for the EXISTING EncodeOnceAndSubmitToSinks / EDP-Memory pooled representation owner. This adapter has no queue, worker, storage or SDK of its own.
+- **GeneratedLogRecordCborEncoder** (Type or Concept, [line 44](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L44)): Defines a named type/contract within GeneratedEdlsTaskAdapters; read its source for exact conditional semantics and provider requirements.
+- **operator** (Method or Function, [line 57](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L57)): Defines a named operation within GeneratedEdlsTaskAdapters; read its source for exact conditional semantics and provider requirements.
+- **TypedEdlsTaskCompletion** (Type or Concept, [line 83](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L83)): Defines a named type/contract within GeneratedEdlsTaskAdapters; read its source for exact conditional semantics and provider requirements.
+- **TMessageSchema** (Type or Concept, [line 124](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L124)): fields and owner identities, then uses existing immutable EDLS owner. Bootstrap controls the SINGLE writer's lifetime and serialisation. An explicit BoundedEdlsBatch target copies framed RAM on Accepted, reports BufferedForBatch, and exposes optional ServiceCoordinator. Offer and service MUST use the same ser
+- **TStorage** (Type or Concept, [line 130](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L130)): Defines a named type/contract within GeneratedEdlsTaskAdapters; read its source for exact conditional semantics and provider requirements.
+- **TypedCborProtectedEdlsTaskDelivery** (Type or Concept, [line 132](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L132)): Defines a named type/contract within GeneratedEdlsTaskAdapters; read its source for exact conditional semantics and provider requirements.
+- **BatchAcknowledgementStatus** (Type or Concept, [line 134](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L134)): Private operational outcome when observing a strict batch completion.
+- **ObserveBatchAcknowledgement** (Method or Function, [line 160](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L160)): Caller-owned canonical re-encoding and CRC frame scratch. Caller-owned immutable archive inspection/publication scratch. Fixed physical archive names selected at Bootstrap. Expected source device identity preserved across every record. Expected nonzero source runtime incarnation. Confirmed completions not yet
+- **ServiceCoordinator** (Method or Function, [line 237](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedEdlsTaskAdapters.hpp#L237)): Services an opt-in batch from its SAME serialized ordinary owner. This does not create a worker/timer or retry uncertain publication. Returned per-sink completion deltas are consumed exactly once.
+
+## Dependency and test qualification
+
+The implementation owns no replacement EDP-Platform/Memory/Threading/Persistence abstraction. The actual include closure is determined by its opt-in header and the consuming application; the default Logging umbrella remains deliberately narrow. See the current [Dependency Graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD), [Architecture](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD), and [G1–G15 acceptance matrix](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ACCEPTANCE-G1-G15.MD) for exact validation and limitation claims. Never translate an unrelated historical fixture into current production proof.

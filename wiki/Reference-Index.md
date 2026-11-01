@@ -1,0 +1,46 @@
+# Reference Index — EDP-Logging 0.1.0
+
+This repository-local Wiki index covers each maintained C++20 production header, including aggregate headers and internal/private implementation seams. These references describe the feature branch code; runtime and PowerLoss claims remain limited to approved profiles and recorded finite evidence. Follow [Home](Home) and [Dependency Contracts](Dependency-Contracts) before composing providers.
+
+- [ESPressio_Logging.hpp](Reference-logging-ESPressio_Logging): foundation umbrella; optional facility activation remains explicit
+- [logging/AdmissionLifecycleCoordinator.hpp](Reference-logging-AdmissionLifecycleCoordinator): owning declaration/source reference
+- [logging/AdmissionWakeCoordinator.hpp](Reference-logging-AdmissionWakeCoordinator): owning declaration/source reference
+- [logging/AsyncCopyingTaskSink.hpp](Reference-logging-AsyncCopyingTaskSink): owning declaration/source reference
+- [logging/AttemptSequence.hpp](Reference-logging-AttemptSequence): owning declaration/source reference
+- [logging/BoundedAdmission.hpp](Reference-logging-BoundedAdmission): owning declaration/source reference
+- [logging/BoundedEdlsBatch.hpp](Reference-logging-BoundedEdlsBatch): owning declaration/source reference
+- [logging/BoundedRecordAdmission.hpp](Reference-logging-BoundedRecordAdmission): owning declaration/source reference
+- [logging/CoordinatorQuantum.hpp](Reference-logging-CoordinatorQuantum): owning declaration/source reference
+- [logging/CoordinatorSinkService.hpp](Reference-logging-CoordinatorSinkService): owning declaration/source reference
+- [logging/DedicatedCoordinator.hpp](Reference-logging-DedicatedCoordinator): owning declaration/source reference
+- [logging/DiagnosticArgumentEncoding.hpp](Reference-logging-DiagnosticArgumentEncoding): owning declaration/source reference
+- [logging/DiagnosticClockEraArguments.hpp](Reference-logging-DiagnosticClockEraArguments): owning declaration/source reference
+- [logging/EdlgCheckpoint.hpp](Reference-logging-EdlgCheckpoint): owning declaration/source reference
+- [logging/EdlgFrame.hpp](Reference-logging-EdlgFrame): owning declaration/source reference
+- [logging/EdlgFrameReader.hpp](Reference-logging-EdlgFrameReader): owning declaration/source reference
+- [logging/EdlsArchiveAppend.hpp](Reference-logging-EdlsArchiveAppend): owning declaration/source reference
+- [logging/EdlsArchiveInspection.hpp](Reference-logging-EdlsArchiveInspection): owning declaration/source reference
+- [logging/EdlsArchiveRotation.hpp](Reference-logging-EdlsArchiveRotation): owning declaration/source reference
+- [logging/EdlsArchiveSuccessor.hpp](Reference-logging-EdlsArchiveSuccessor): owning declaration/source reference
+- [logging/EdlsPowerLossAcknowledgement.hpp](Reference-logging-EdlsPowerLossAcknowledgement): owning declaration/source reference
+- [logging/EdlsSegment.hpp](Reference-logging-EdlsSegment): owning declaration/source reference
+- [logging/GeneratedEdlsTaskAdapters.hpp](Reference-logging-GeneratedEdlsTaskAdapters): owning declaration/source reference
+- [logging/GeneratedLogRecordEdlsArchive.hpp](Reference-logging-GeneratedLogRecordEdlsArchive): owning declaration/source reference
+- [logging/GeneratedLogRecordWireProjection.hpp](Reference-logging-GeneratedLogRecordWireProjection): owning declaration/source reference
+- [logging/Instrumentation.hpp](Reference-logging-Instrumentation): owning declaration/source reference
+- [logging/LogRecord.hpp](Reference-logging-LogRecord): owning declaration/source reference
+- [logging/LogRecordApprovedFieldsSerialisation.hpp](Reference-logging-LogRecordApprovedFieldsSerialisation): owning declaration/source reference
+- [logging/LogRecordCoreFieldSerialisation.hpp](Reference-logging-LogRecordCoreFieldSerialisation): owning declaration/source reference
+- [logging/LogRecordSourceAssembly.hpp](Reference-logging-LogRecordSourceAssembly): owning declaration/source reference
+- [logging/LogTemporalEvidence.hpp](Reference-logging-LogTemporalEvidence): owning declaration/source reference
+- [logging/OwnedDiagnosticArguments.hpp](Reference-logging-OwnedDiagnosticArguments): owning declaration/source reference
+- [logging/OwnedDiagnosticPositionalReencoding.hpp](Reference-logging-OwnedDiagnosticPositionalReencoding): owning declaration/source reference
+- [logging/OwnedDiagnosticReplay.hpp](Reference-logging-OwnedDiagnosticReplay): owning declaration/source reference
+- [logging/OwnedRepresentationFanout.hpp](Reference-logging-OwnedRepresentationFanout): owning declaration/source reference
+- [logging/PowerLossEdlsJournal.hpp](Reference-logging-PowerLossEdlsJournal): owning declaration/source reference
+- [logging/PowerLossEdlsSnapshots.hpp](Reference-logging-PowerLossEdlsSnapshots): owning declaration/source reference
+- [logging/RecordProduction.hpp](Reference-logging-RecordProduction): owning declaration/source reference
+- [logging/Severity.hpp](Reference-logging-Severity): owning declaration/source reference
+- [logging/TrackedAdmissionCoordinator.hpp](Reference-logging-TrackedAdmissionCoordinator): owning declaration/source reference
+- [logging/TransactionalRecordQueue.hpp](Reference-logging-TransactionalRecordQueue): owning declaration/source reference
+- [logging/detail/ThreadingWaitSlot.hpp](Reference-logging-ThreadingWaitSlot): owning declaration/source reference

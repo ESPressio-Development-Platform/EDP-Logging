@@ -37,3 +37,7 @@ requires five ordered phases, monotone high-water and ≥2,048 B margin.
 The JSON encoding owner path is the dominant observed stack-pressure
 point; this is not a production-wide or worst-case promise.
 See [G4 wire evidence](../docs/G4-GENERATED-WHOLE-RECORD.MD).
+
+## 1 November 2026 V2 result and schema naming correction
+
+The private generated-value adaptation operation `Detail::ConvertGeneratedValue` now returns `Detail::GeneratedValueConversionResult` with explicit `Succeeded = 0U` and `OwnerRejected = 1U`, rather than a Boolean indicating the outcome of a fallible operation. `ProjectGeneratedLogRecord` requires the typed `Succeeded` status and otherwise refuses publication with `ArgumentRejected`. Compile-time schema qualification is now named `IsDiagnosticSchemaMatching`; callers must migrate rather than rely on removed aliases. These changes do not alter canonical fifteen-field CBOR/JSON payloads or grant new hardware durability.

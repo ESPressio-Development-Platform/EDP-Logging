@@ -21,3 +21,7 @@ was absent and the mixed-type test was only compiled. The new facade
 fixture validates direct CBOR/JSON equivalence and typed negative
 outcomes without any external argument borrowing or new wire tags.
 See the normative owned-positional-reencoding document.
+
+## 1 November 2026 EDP-Memory provider reuse
+
+Source-side positional rehydration now receives the compile-time `TByteOperationsProvider` already selected by `OwnedDiagnosticArguments`. Scalar/strong-identity scratch byte copies use its existing EDP-Memory `CopyBytes` method, not private loops. The stateless default is the existing portable C++ provider. Generated schema ordering, typed refusals, caller-owned scratch and canonical EDP-Serialisation output remain unchanged. `EncodeOwnedDiagnosticArgumentsCbor/Json` deduce the exact provider from the source; no provider pointer or retained cross-task scratch ownership is introduced.

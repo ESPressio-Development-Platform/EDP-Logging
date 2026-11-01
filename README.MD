@@ -890,3 +890,20 @@ The [existing lifecycle coordinator](docs/ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD)
 accepts an explicit existing Platform AtomicWord32 provider while retaining
 the legacy standard-atomic requirement and SDK compiler settings.
 Remaining interruption/endurance/product gates stay in the qualification ledger.
+
+## Additional focused documentation
+
+The following existing focused contracts and qualification reports remain part of the maintained technical reference. Historical experiments are labelled by their own dates and do not override the current acceptance matrix.
+
+- [Bounded queue transitions](./docs/BOUNDED-QUEUE-TRANSITIONS.MD)
+- [Coordinator sink service](./docs/COORDINATOR-SINK-SERVICE.MD)
+- [Edls strict ack exclusive writer scan reuse 2026 10 28](./docs/EDLS-STRICT-ACK-EXCLUSIVE-WRITER-SCAN-REUSE-2026-10-28.MD)
+- [Edls strict ack same transaction plan reuse 2026 10 28](./docs/EDLS-STRICT-ACK-SAME-TRANSACTION-PLAN-REUSE-2026-10-28.MD)
+- [Forensic csv export](./docs/FORENSIC-CSV-EXPORT.MD)
+- [G4 g10 owned root fanout](./docs/G4-G10-OWNED-ROOT-FANOUT.MD)
+- [Long managed workload qualification](./docs/LONG-MANAGED-WORKLOAD-QUALIFICATION.MD)
+- [Managed batch capacity cut qualification](./docs/MANAGED-BATCH-CAPACITY-CUT-QUALIFICATION.MD)
+- [Managed batch write cut qualification](./docs/MANAGED-BATCH-WRITE-CUT-QUALIFICATION.MD)
+- [Production retention endurance review](./docs/PRODUCTION-RETENTION-ENDURANCE-REVIEW.MD)
+- [Sealed batch retirement cut qualification](./docs/SEALED-BATCH-RETIREMENT-CUT-QUALIFICATION.MD)
+- [Sealed batch write activity qualification](./docs/SEALED-BATCH-WRITE-ACTIVITY-QUALIFICATION.MD)

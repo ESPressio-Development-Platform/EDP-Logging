@@ -20,3 +20,7 @@ The owner distinguishes Busy mutex, no record, capacity exhaustion, stale token,
 ## Pre-Memory reservation surface
 
 ReserveSlot(Reservation&, WaitTimeout) establishes move-only RAII ownership of a fixed queue entitlement in the new AwaitingMemory state. AttachLease(Reservation&, TLease&, WaitTimeout) transfers EDP-Memory ownership into that entitlement before Commit. WaitTimeout is calculated externally from one canonical EDP-Clock deadline; neither operation owns a Clock. Empty AwaitingMemory Abort reclaims a slot and wakes the preexisting EDP-Threading producer slots without native Memory release. The [composed bounded admission owner](Reference-logging-BoundedRecordAdmission) uses both operations and retains all original FIFO/RAII/provider failure semantics.
+
+## 1 November 2026 V2 predicate names
+
+Private ticket/slot state predicates are now named `IsMatchingTicket` and `IsPhaseLive`; their Boolean semantics and queue generation, release, and deadline ordering have not changed. No old spellings or compatibility aliases remain, in accordance with the approved V2 breaking-source correction.

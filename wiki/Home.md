@@ -33,3 +33,11 @@ implemented G10 feature.
 [Bounded EDLS batching](Reference-logging-BoundedEdlsBatch) documents configurable canonical dwell, finite owned records and sealed-segment durable ACK.
 
 - [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)
+
+## Current implementation navigation (0.1.0)
+
+- [Architecture](Architecture), [Dependency Contracts](Dependency-Contracts), [Public API](Public-API), [Internal API](Internal-API), [Private Implementation](Private-Implementation)
+- [Resources, Lifecycle and Concurrency](Resources-Lifecycle-Concurrency), [Build, Test and Source](Build-Test-and-Source), [Compiler Definitions](Compiler-Definitions)
+- [Exhaustive Reference Index](Reference-Index), [Tooling Reference](Tooling-Reference)
+
+These pages describe the current feature branch. Compile and physical persistence qualifications are scoped to their recorded application/provider configuration.
