@@ -246,8 +246,32 @@ struct Storage {
         }
     }
 
+
+    /// Rule 2 and Rule 19: numeric states and exact-read operational outcomes.
+    void ExactReadResultContractTests() {
+        static_assert(static_cast<std::uint8_t>(L::EdlsSlotCondition::Empty) == 0U);
+        static_assert(static_cast<std::uint8_t>(L::EdlsSlotCondition::ProviderFailure) == 5U);
+        static_assert(static_cast<std::uint8_t>(L::EdlsArchiveCondition::GenerationExhausted) == 2U);
+        constexpr auto path = P::FilePathView::Validate("slot0");
+        Storage store{};
+        store.header(0U, 11U);
+        std::array<std::byte, 40U> exact{};
+        assert(L::Detail::ReadExactEdlsBytes(
+            store, path.Value, 0U, exact
+        ) == L::Detail::EdlsExactReadResult::Succeeded);
+        std::array<std::byte, 41U> tooLong{};
+        assert(L::Detail::ReadExactEdlsBytes(
+            store, path.Value, 0U, tooLong
+        ) == L::Detail::EdlsExactReadResult::IncompleteRead);
+        store.fault = true;
+        assert(L::Detail::ReadExactEdlsBytes(
+            store, path.Value, 0U, exact
+        ) == L::Detail::EdlsExactReadResult::ProviderFailure);
+    }
+
 }
 int main(){
+    ExactReadResultContractTests();
     WholeAndStreamingCorruptionParity();
     BulkFailureCannotAuthoriseForeignRemoval();
  namespace L=ESPressio::Logging;

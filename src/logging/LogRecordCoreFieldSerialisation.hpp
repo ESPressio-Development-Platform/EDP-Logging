@@ -26,34 +26,36 @@ namespace ESPressio::Logging {
         struct LogRecordScalarRepresentation<
             LogMessageIdentifier, std::array<std::uint32_t,3U>
         > final {
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const LogMessageIdentifier& v,
                 std::array<std::uint32_t,3U>& w
             ) noexcept {
-                if(v.String < 3U) return false;
+                if(v.String < 3U) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 w = {v.Domain, v.SubDomain, v.String};
-                return true;
+                return LogRecordCoreFieldConversion::Succeeded;
             }
-            static constexpr bool From(
+            static constexpr LogRecordCoreFieldConversion From(
                 const std::array<std::uint32_t,3U>& w,
                 LogMessageIdentifier& v
             ) noexcept {
-                if(w[2] < 3U) return false;
+                if(w[2] < 3U) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 v = {w[0], w[1], w[2]};
-                return true;
+                return LogRecordCoreFieldConversion::Succeeded;
             }
         };
 
         template<>
         struct LogRecordScalarRepresentation<Severity,std::uint8_t> final {
-            static constexpr bool To(const Severity& v, std::uint8_t& w) noexcept {
+            static constexpr LogRecordCoreFieldConversion To(const Severity& v, std::uint8_t& w) noexcept {
                 w = static_cast<std::uint8_t>(v);
-                return w <= static_cast<std::uint8_t>(Severity::Fatal);
+                return w <= static_cast<std::uint8_t>(Severity::Fatal)
+                    ? LogRecordCoreFieldConversion::Succeeded
+                    : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
-            static constexpr bool From(const std::uint8_t& w, Severity& v) noexcept {
-                if(w > static_cast<std::uint8_t>(Severity::Fatal)) return false;
+            static constexpr LogRecordCoreFieldConversion From(const std::uint8_t& w, Severity& v) noexcept {
+                if(w > static_cast<std::uint8_t>(Severity::Fatal)) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 v = static_cast<Severity>(w);
-                return true;
+                return LogRecordCoreFieldConversion::Succeeded;
             }
         };
 
@@ -63,18 +65,20 @@ namespace ESPressio::Logging {
             typename AttemptSequence<TWidth>::Storage
         > final {
             using Storage = typename AttemptSequence<TWidth>::Storage;
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const AttemptSequence<TWidth>& v, Storage& w
             ) noexcept {
                 w = v.Value();
-                return w != 0U;
+                return w != 0U
+                    ? LogRecordCoreFieldConversion::Succeeded
+                    : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
-            static constexpr bool From(
+            static constexpr LogRecordCoreFieldConversion From(
                 const Storage& w, AttemptSequence<TWidth>& v
             ) noexcept {
-                if(w == 0U) return false;
+                if(w == 0U) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 v = AttemptSequence<TWidth>::FromValidatedValue(w);
-                return true;
+                return LogRecordCoreFieldConversion::Succeeded;
             }
         };
 
@@ -82,44 +86,46 @@ namespace ESPressio::Logging {
         struct LogRecordScalarRepresentation<
             Clock::MonotonicTimestamp,std::uint64_t
         > final {
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const Clock::MonotonicTimestamp& v,std::uint64_t& w
-            ) noexcept {w = v.Nanoseconds();return true;}
-            static constexpr bool From(
+            ) noexcept {w = v.Nanoseconds();return LogRecordCoreFieldConversion::Succeeded;}
+            static constexpr LogRecordCoreFieldConversion From(
                 const std::uint64_t& w,Clock::MonotonicTimestamp& v
-            ) noexcept {v = Clock::MonotonicTimestamp::FromNanoseconds(w);return true;}
+            ) noexcept {v = Clock::MonotonicTimestamp::FromNanoseconds(w);return LogRecordCoreFieldConversion::Succeeded;}
         };
 
         template<>
         struct LogRecordScalarRepresentation<
             Clock::SynchronizedTimestamp,std::uint64_t
         > final {
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizedTimestamp& v,std::uint64_t& w
-            ) noexcept {w = v.Nanoseconds();return true;}
-            static constexpr bool From(
+            ) noexcept {w = v.Nanoseconds();return LogRecordCoreFieldConversion::Succeeded;}
+            static constexpr LogRecordCoreFieldConversion From(
                 const std::uint64_t& w,Clock::SynchronizedTimestamp& v
-            ) noexcept {v = Clock::SynchronizedTimestamp::FromNanoseconds(w);return true;}
+            ) noexcept {v = Clock::SynchronizedTimestamp::FromNanoseconds(w);return LogRecordCoreFieldConversion::Succeeded;}
         };
 
         template<>
         struct LogRecordScalarRepresentation<
             Clock::SynchronizationState,std::uint8_t
         > final {
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizationState& v,std::uint8_t& w
             ) noexcept {
                 w = static_cast<std::uint8_t>(v);
                 return w <= static_cast<std::uint8_t>(
-                    Clock::SynchronizationState::LostSynchronization);
+                    Clock::SynchronizationState::LostSynchronization)
+                    ? LogRecordCoreFieldConversion::Succeeded
+                    : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
-            static constexpr bool From(
+            static constexpr LogRecordCoreFieldConversion From(
                 const std::uint8_t& w,Clock::SynchronizationState& v
             ) noexcept {
                 if(w > static_cast<std::uint8_t>(
-                    Clock::SynchronizationState::LostSynchronization)) return false;
+                    Clock::SynchronizationState::LostSynchronization)) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 v = static_cast<Clock::SynchronizationState>(w);
-                return true;
+                return LogRecordCoreFieldConversion::Succeeded;
             }
         };
 
@@ -127,12 +133,12 @@ namespace ESPressio::Logging {
         struct LogRecordScalarRepresentation<
             Clock::SynchronizationUncertainty,std::uint32_t
         > final {
-            static constexpr bool To(
+            static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizationUncertainty& v,std::uint32_t& w
-            ) noexcept {w = v.Nanoseconds();return true;}
-            static constexpr bool From(
+            ) noexcept {w = v.Nanoseconds();return LogRecordCoreFieldConversion::Succeeded;}
+            static constexpr LogRecordCoreFieldConversion From(
                 const std::uint32_t& w,Clock::SynchronizationUncertainty& v
-            ) noexcept {v = Clock::SynchronizationUncertainty::FromNanoseconds(w);return true;}
+            ) noexcept {v = Clock::SynchronizationUncertainty::FromNanoseconds(w);return LogRecordCoreFieldConversion::Succeeded;}
         };
     }
 }
@@ -188,8 +194,7 @@ namespace ESPressio::Logging::Detail {
         static constexpr ResultType Convert(
             const TSemantic& source,TWire& wire
         ) noexcept {
-            return LogRecordScalarRepresentation<TSemantic,TWire>::To(source,wire)
-                ? ResultType::Succeeded : ResultType::InvalidSemanticValue;
+            return LogRecordScalarRepresentation<TSemantic,TWire>::To(source,wire);
         }
     };
     template<class TWire,class TSemantic>
@@ -203,8 +208,7 @@ namespace ESPressio::Logging::Detail {
         static constexpr ResultType Convert(
             const TWire& wire,TSemantic& source
         ) noexcept {
-            return LogRecordScalarRepresentation<TSemantic,TWire>::From(wire,source)
-                ? ResultType::Succeeded : ResultType::InvalidSemanticValue;
+            return LogRecordScalarRepresentation<TSemantic,TWire>::From(wire,source);
         }
     };
 }

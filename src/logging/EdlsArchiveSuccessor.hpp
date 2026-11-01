@@ -232,12 +232,12 @@ namespace ESPressio::Logging {
             return outcome;
         }
         if constexpr (TMaximumFrames > 1U) {
-            if (!Detail::ReadExactEdlsBytes(
+            if (Detail::ReadExactEdlsBytes(
                     storage,
                     paths[outcome.Slot],
                     0U,
                     callerScratch.first(used)
-                )) {
+                ) != Detail::EdlsExactReadResult::Succeeded) {
                 outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
                 return outcome;
             }

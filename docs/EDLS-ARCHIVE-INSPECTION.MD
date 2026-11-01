@@ -24,3 +24,17 @@ atomicity and PowerLoss guarantees when its concrete binding qualifies.
 Tests exercise clean and corrupt EDLS/EDLG slots, verified prefix, duplicate
 generations, mixed device identity, generation wrap and provider failures
 under GCC and Clang. Versions remain 0.1.0.
+
+
+## V2 strongly typed read outcome (1 November 2026)
+
+The internal `Detail::ReadExactEdlsBytes` now returns an explicit
+`EdlsExactReadResult`: `Succeeded=0`, `ProviderFailure=1`,
+`IncompleteRead=2`. A provider that reports success but transfers fewer
+bytes is not a success and remains fail-closed. Archive scanning and the
+successor/rotation readback still reject either failure; no original
+integrity check, protected-history provenance or byte requirement is
+weakened. `EdlsSlotCondition` and `EdlsArchiveCondition` now explicitly
+preserve their previous numeric enumerators. The focused native test verifies
+exact, short and provider-rejected outcomes separately. These are C++ source
+result contracts, **not** changes to the EDLS on-storage encoding.

@@ -326,10 +326,10 @@ namespace ESPressio::Logging {
         for (std::size_t offset = 0U; offset < used;) {
             const auto chunk = used - offset > observed.size()
                 ? observed.size() : used - offset;
-            if (!Detail::ReadExactEdlsBytes(
+            if (Detail::ReadExactEdlsBytes(
                 storage, paths[oldest], offset,
                 std::span<std::byte>(observed.data(),chunk)
-            )) {
+            ) != Detail::EdlsExactReadResult::Succeeded) {
                 result.Status = EdlsRollingStatus::ReadbackUnconfirmed;
                 return result;
             }

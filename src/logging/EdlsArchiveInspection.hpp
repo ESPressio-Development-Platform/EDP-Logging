@@ -15,12 +15,12 @@ namespace ESPressio::Logging {
 
     /// Truthful result of inspecting one fixed EDLS archive slot in bounded memory.
     enum class EdlsSlotCondition : std::uint8_t {
-        Empty,
-        Clean,
-        DamagedTail,
-        InvalidHeader,
-        SlotMismatch,
-        ProviderFailure
+        Empty = 0U,
+        Clean = 1U,
+        DamagedTail = 2U,
+        InvalidHeader = 3U,
+        SlotMismatch = 4U,
+        ProviderFailure = 5U
     };
 
     /// Read-only facts of a single physical slot, never a write authorization.
@@ -43,9 +43,17 @@ namespace ESPressio::Logging {
 
     namespace Detail {
 
+        /// Strongly typed result for bounded exact-file reads.
+        enum class EdlsExactReadResult : std::uint8_t {
+            Succeeded = 0U,
+            ProviderFailure = 1U,
+            IncompleteRead = 2U
+        };
+
         /// One exact bounded read, with no assumption of atomic file mutation.
+        /// Report provider rejection separately from successful short transfer.
         template<class TStorage>
-        [[nodiscard]] bool ReadExactEdlsBytes(
+        [[nodiscard]] EdlsExactReadResult ReadExactEdlsBytes(
             const TStorage& storage,
             ESPressio::Persistence::FilePathView path,
             std::uint64_t offset,
@@ -57,8 +65,12 @@ namespace ESPressio::Logging {
                 StorageOffset{offset},
                 DestinationBufferView{destination.data(), destination.size()}
             );
-            return result.Status == FileReadStatus::Succeeded &&
-                   result.BytesTransferred == destination.size();
+            if (result.Status != FileReadStatus::Succeeded) {
+                return EdlsExactReadResult::ProviderFailure;
+            }
+            return result.BytesTransferred == destination.size()
+                ? EdlsExactReadResult::Succeeded
+                : EdlsExactReadResult::IncompleteRead;
         }
 
     } // ESPressio::Logging::Detail
@@ -105,16 +117,16 @@ namespace ESPressio::Logging {
         bool captureFailed = false;
         if (size <= frameScratch.size()) {
             const auto complete = frameScratch.first(static_cast<std::size_t>(size));
-            if (Detail::ReadExactEdlsBytes(storage, path, 0U, complete)) {
+            if (Detail::ReadExactEdlsBytes(storage, path, 0U, complete) == Detail::EdlsExactReadResult::Succeeded) {
                 captured = complete;
                 headerBytes = captured.first(EdlsHeaderBytes);
             } else {
                 captureFailed = true;
             }
         }
-        if (captured.empty() && !Detail::ReadExactEdlsBytes(
+        if (captured.empty() && Detail::ReadExactEdlsBytes(
                 storage, path, 0U, std::span<std::byte>(headerBuffer)
-            )) {
+            ) != Detail::EdlsExactReadResult::Succeeded) {
             return {EdlsSlotCondition::ProviderFailure};
         }
         EdlsHeader header{};
@@ -156,9 +168,9 @@ namespace ESPressio::Logging {
                 frameHeaderBytes = captured.subspan(
                     static_cast<std::size_t>(position), frameHeader.size()
                 );
-            } else if (!Detail::ReadExactEdlsBytes(
+            } else if (Detail::ReadExactEdlsBytes(
                     storage, path, position, std::span<std::byte>(frameHeader)
-                )) {
+                ) != Detail::EdlsExactReadResult::Succeeded) {
                 result.Condition = EdlsSlotCondition::ProviderFailure;
                 return result;
             }
@@ -182,9 +194,9 @@ namespace ESPressio::Logging {
                     static_cast<std::size_t>(position), frameBytes
                 );
             } else {
-                if (!Detail::ReadExactEdlsBytes(
+                if (Detail::ReadExactEdlsBytes(
                         storage, path, position, frameScratch.first(frameBytes)
-                    )) {
+                    ) != Detail::EdlsExactReadResult::Succeeded) {
                     result.Condition = EdlsSlotCondition::ProviderFailure;
                     return result;
                 }
@@ -216,9 +228,9 @@ namespace ESPressio::Logging {
                 sealBytes = captured.subspan(
                     static_cast<std::size_t>(frameEnd), EdlsSealBytes
                 );
-            } else if (!Detail::ReadExactEdlsBytes(
+            } else if (Detail::ReadExactEdlsBytes(
                     storage, path, frameEnd, seal
-                )) {
+                ) != Detail::EdlsExactReadResult::Succeeded) {
                 result.Condition = EdlsSlotCondition::ProviderFailure;
                 return result;
             }
@@ -258,9 +270,9 @@ namespace ESPressio::Logging {
     /// Conservative cross-slot generation/identity assessment. Never issues
     /// a generation when ANY slot is unreadable, inconsistent or exhausted.
     enum class EdlsArchiveCondition : std::uint8_t {
-        Unambiguous,
-        Ambiguous,
-        GenerationExhausted
+        Unambiguous = 0U,
+        Ambiguous = 1U,
+        GenerationExhausted = 2U
     };
 
     /// No segment is mutated or reserved; this is read-only planning evidence.

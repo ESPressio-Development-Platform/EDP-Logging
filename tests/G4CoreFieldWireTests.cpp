@@ -97,7 +97,22 @@ void TestMalformedCoreWire() {
         .IsSuccessful());
 }
 
+void TestTypedCoreConversionResult() {
+    using Mapper = L::Detail::LogRecordScalarRepresentation<L::Severity,std::uint8_t>;
+    std::uint8_t value = 0U;
+    assert(Mapper::To(L::Severity::Info, value) ==
+           L::LogRecordCoreFieldConversion::Succeeded);
+    assert(Mapper::To(static_cast<L::Severity>(0xffU), value) ==
+           L::LogRecordCoreFieldConversion::InvalidSemanticValue);
+    L::Severity restored = L::Severity::Info;
+    const std::uint8_t invalid = 0xffU;
+    assert(Mapper::From(invalid, restored) ==
+           L::LogRecordCoreFieldConversion::InvalidSemanticValue);
+    assert(restored == L::Severity::Info);
+}
+
 int main() {
+    TestTypedCoreConversionResult();
     TestMalformedCoreWire();
     TestMessageIdentity();
     TestAttempt<L::AttemptSequenceWidth::Bits16>(0xBABEU);

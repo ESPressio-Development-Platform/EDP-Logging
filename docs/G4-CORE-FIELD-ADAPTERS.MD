@@ -97,3 +97,16 @@ representation. These tests prove each supported **core child field**
 is portable and reversible through owner codecs, not a complete
 15-parent-field Typed Envelope, historian end-to-end producer identity,
 actual unexpected PowerLoss or completed G1–G15 production gate.
+
+
+## V2 typed scalar conversion result (1 November 2026)
+
+The existing `LogRecordCoreFieldConversion` result enum now flows directly
+from all seven pairs of internal scalar `To`/`From` adapters, rather than
+collapsing a fallible operation to `bool` before mapping it back into the same
+status. Existing `Succeeded=0` and `InvalidSemanticValue=1` are unchanged.
+The caller-facing BoundedTypes adapter `ResultType` and `IsSuccessful`
+predicate are unchanged. Reserved message IDs, zero tickets, invalid enum
+values and all existing CBOR/JSON golden representations retain their
+previous acceptance semantics. This is a source contract correction only,
+not a different Logging record/wire format.
