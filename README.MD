@@ -2,7 +2,11 @@
 
 Bounded, structured embedded diagnostic logging for the ESPressio Development Platform.
 
-**Status — `feature/logging-v1`: partial implementation, NOT a production logging pipeline.** Severity, attempt tickets, EDLG/EDLS framing, partial Clock/diagnostic tooling, bounded Memory/Threading admission, tracked leases and now a transactional FIFO record queue are implemented as opt-in facilities. The complete governed LogRecord, unified producer, optional coherent synchronized Clock source, production sinks and embedded durable archive remain incomplete. Do not use this library as a functioning end-to-end logging pipeline.
+**Status — `feature/logging-v1`, 1 November 2026: substantial finite host/native/physical qualification, NOT a release-wide production sign-off.** The governed fifteen-field source record, generated canonical CBOR representation, bounded Memory/Threading producer queue and dedicated worker, typed sink service, configurable sealed EDLS batching and strict NVS-ACKed finite history are implemented and tested for specifically recorded configurations. These do not establish universal synchronized Clock/Era support, all Serial providers, arbitrary Flash/GC interruption atomicity, indefinite throughput or Flash lifespan. All library versions remain `0.1.0`.
+
+**Current technical contracts:** [Architecture](docs/ARCHITECTURE.MD), [G1–G15 acceptance and related-owner review](docs/ACCEPTANCE-G1-G15.MD), [Qualification status](docs/LOGGING-QUALIFICATION-STATUS.MD), [Immutable byte capacity](docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) and [bounded EDLS batching](docs/BOUNDED-EDLS-BATCHING.MD). These supersede earlier milestone-status language below.
+
+**Historical implementation chronology:** many of the sections below document intermediate 16–30 October work and deliberately retain their original limitations and test receipts; statements that a feature was *then* pending are not a denial of later published functionality. The dated handoff is authoritative for the sequence of changes. Where an older description conflicts with the current contracts linked above, the current contracts govern.
 
 ## Implemented API
 

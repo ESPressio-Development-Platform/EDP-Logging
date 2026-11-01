@@ -1,6 +1,6 @@
 # EDP-Logging Dependency Graph
 
-**Branch:** `feature/logging-v1`. **Package:** `0.1.0`. Revalidated 2026-10-16.
+**Branch:** `feature/logging-v1`. **Package:** `0.1.0`. This graph includes dated optional dependency profiles and historical 16 October prerequisites; the [current architecture](docs/ARCHITECTURE.MD) and [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD) define the later implemented/qualified surfaces. A new exhaustive transitive-graph certification against all current and conditional branches remains open; the historical profiles below must not be mistaken for that certification.
 
 ## Core/default source graph
 

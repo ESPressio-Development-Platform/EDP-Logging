@@ -1,10 +1,16 @@
 # Dedicated Logging coordinator — topology-owned G10 runtime
 
-**2026-10-17 status:** opt-in compiled C++20 callable and physical HIL
-integration candidate on `feature/logging-v1`. This is the
-application-directed EDP-Threading execution substrate; the end-to-end
-Logging product, governed LogRecord wire, format fork, sinks and
-power-loss-proof retention are separate gates.
+**Current status, 1 November 2026:** this document preserves the original
+17 October coordinator topology and lifecycle design. Subsequent published
+work added the existing coordinator's optional deadline-based sink service,
+full typed managed CBOR batching and finite ESP32/three-build-target tests.
+See [coordinator sink service](COORDINATOR-SINK-SERVICE.MD),
+[architecture](ARCHITECTURE.MD) and
+[G1–G15 acceptance](ACCEPTANCE-G1-G15.MD) for the current contract and
+the boundaries still unqualified. The older prerequisite/future wording
+below describes the 17 October implementation state, not a current claim
+that all later facilities are absent. No arbitrary blocking provider,
+unqualified physical cut or lifetime assertion follows from these changes.
 
 ## Bootstrap topology and ownership
 
