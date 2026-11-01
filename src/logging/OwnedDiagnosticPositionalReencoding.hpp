@@ -44,20 +44,23 @@ namespace ESPressio::Logging {
     using OwnedPositionalScratch = std::tuple<std::optional<TValues>...>;
 
     namespace Detail {
-        template<class TValue>
+        template<class TValue, class TByteOperationsProvider>
         [[nodiscard]] TValue LoadOwnedNativeScalar(
             std::span<const std::byte> bytes
         ) noexcept {
             std::array<std::byte, sizeof(TValue)> storage{};
-            for (std::size_t i=0U; i<storage.size(); ++i) {
-                storage[i]=bytes[i];
-            }
+            TByteOperationsProvider{}.CopyBytes(
+                storage.data(),
+                bytes.data(),
+                storage.size()
+            );
             return std::bit_cast<TValue>(storage);
         }
 
-        template<class TValue, std::size_t N, std::size_t B>
+        template<class TValue, std::size_t N, std::size_t B,
+                 class TByteOperationsProvider>
         [[nodiscard]] OwnedPositionalReencodingStatus LoadOwnedPosition(
-            const OwnedDiagnosticArguments<N,B>& source,
+            const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source,
             std::size_t index,
             std::optional<TValue>& output
         ) noexcept {
@@ -83,7 +86,7 @@ namespace ESPressio::Logging {
             } else if constexpr (std::is_arithmetic_v<Value>) {
                 if (bytes.size()!=sizeof(Value))
                     return OwnedPositionalReencodingStatus::ValueWidthMismatch;
-                output.emplace(LoadOwnedNativeScalar<Value>(bytes));
+                output.emplace(LoadOwnedNativeScalar<Value,TByteOperationsProvider>(bytes));
             } else if constexpr (IsBoundedDiagnosticString<Value>::value) {
                 Value next{};
                 const auto status=next.Assign(std::string_view(
@@ -106,12 +109,12 @@ namespace ESPressio::Logging {
                 Value, ESPressio::System::Identity::RuntimeIncarnationId>) {
                 if (bytes.size()!=sizeof(std::uint32_t))
                     return OwnedPositionalReencodingStatus::ValueWidthMismatch;
-                output.emplace(LoadOwnedNativeScalar<std::uint32_t>(bytes));
+                output.emplace(LoadOwnedNativeScalar<std::uint32_t,TByteOperationsProvider>(bytes));
             } else if constexpr (IsCertifiedDiagnosticClockEra<Value>::value) {
                 if (bytes.size()!=sizeof(std::uint64_t))
                     return OwnedPositionalReencodingStatus::ValueWidthMismatch;
                 output.emplace(Value::FromValue(
-                    LoadOwnedNativeScalar<std::uint64_t>(bytes)));
+                    LoadOwnedNativeScalar<std::uint64_t,TByteOperationsProvider>(bytes)));
             } else if constexpr (
                 std::is_same_v<Value,ESPressio::System::TypeIdentifier> ||
                 std::is_same_v<Value,ESPressio::System::Identity::DeviceIdentifier>
@@ -119,8 +122,11 @@ namespace ESPressio::Logging {
                 if (bytes.size()!=Value::Size)
                     return OwnedPositionalReencodingStatus::ValueWidthMismatch;
                 typename Value::Storage array{};
-                for (std::size_t i=0U;i<array.size();++i)
-                    array[i]=std::to_integer<std::uint8_t>(bytes[i]);
+                TByteOperationsProvider{}.CopyBytes(
+                    array.data(),
+                    bytes.data(),
+                    array.size()
+                );
                 Value next{array};
                 if (!next.IsValid())
                     return OwnedPositionalReencodingStatus::OwnerValueRejected;
@@ -140,10 +146,11 @@ namespace ESPressio::Logging {
             class... TValues,
             std::size_t N,
             std::size_t B,
+            class TByteOperationsProvider,
             std::size_t... TIndices
         >
         [[nodiscard]] OwnedPositionalReencodingOutcome EncodeOwnedImpl(
-            const OwnedDiagnosticArguments<N,B>& source,
+            const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source,
             std::span<std::byte> destination,
             OwnedPositionalScratch<TValues...>& scratch,
             std::index_sequence<TIndices...>
@@ -200,11 +207,12 @@ namespace ESPressio::Logging {
     /// The scratch is cleared on EVERY path, including an encode refusal.
     template<
         class TGeneratedSchema, class... TValues,
-        std::size_t N, std::size_t B
+        std::size_t N, std::size_t B,
+        class TByteOperationsProvider
     >
     [[nodiscard]] OwnedPositionalReencodingOutcome
     EncodeOwnedDiagnosticArgumentsCbor(
-        const OwnedDiagnosticArguments<N,B>& source,
+        const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source,
         std::span<std::byte> destination,
         OwnedPositionalScratch<TValues...>& scratch
     ) noexcept {
@@ -216,11 +224,12 @@ namespace ESPressio::Logging {
     /// EDP-Serialisation canonical positional JSON encoder.
     template<
         class TGeneratedSchema, class... TValues,
-        std::size_t N, std::size_t B
+        std::size_t N, std::size_t B,
+        class TByteOperationsProvider
     >
     [[nodiscard]] OwnedPositionalReencodingOutcome
     EncodeOwnedDiagnosticArgumentsJson(
-        const OwnedDiagnosticArguments<N,B>& source,
+        const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source,
         std::span<std::byte> destination,
         OwnedPositionalScratch<TValues...>& scratch
     ) noexcept {

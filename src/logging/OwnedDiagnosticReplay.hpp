@@ -32,11 +32,12 @@ namespace ESPressio::Logging {
     // caller-owned scratch overload in OwnedDiagnosticPositionalReencoding.hpp.
     template<
         class TGeneratedMessageSchema, class TCodec,
-        class... TValues, std::size_t N, std::size_t B
+        class... TValues, std::size_t N, std::size_t B,
+        class TByteOperationsProvider
     >
     [[nodiscard]] OwnedArgumentReplayResult EncodeOwnedDiagnosticArguments(
         std::span<std::byte> destination,
-        const OwnedDiagnosticArguments<N,B>& source
+        const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source
     ) noexcept {
         static_assert(
             std::is_same_v<TCodec,ESPressio::Serialisation::Cbor> ||

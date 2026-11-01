@@ -8,6 +8,8 @@ Bounded, structured embedded diagnostic logging for the ESPressio Development Pl
 
 **Strict diagnostic text (1 November 2026):** the opt-in owned diagnostic arguments facility now reuses the dependency-light EDP-Serialisation strict UTF-8 validator; AddUtf8 rejects embedded U+0000 in line with canonical CBOR/JSON and BoundedTypes String, while AddBytes retains schema-qualified binary input. The lightweight Logging umbrella does not import this optional dependency.
 
+**Owned-argument Memory reuse (1 November 2026):** the optional record/owned-argument module no longer maintains its own general byte-copy loops. It composes EDP-Memory ByteOperations, with a stateless, compile-time-selectable provider and portable default. This is an opt-in C++ platform-provider dependency rather than a default-umbrella import. Binary copy routines are runtime only; read-only observations remain constexpr. See [exact contract](docs/OWNED-ARGUMENT-BYTE-OPERATIONS.MD) and [dependency graph](DEPENDENCY_GRAPH.MD).
+
 **Historical implementation chronology:** many of the sections below document intermediate 16–30 October work and deliberately retain their original limitations and test receipts; statements that a feature was *then* pending are not a denial of later published functionality. The dated handoff is authoritative for the sequence of changes. Where an older description conflicts with the current contracts linked above, the current contracts govern.
 
 ## Implemented API

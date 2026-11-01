@@ -9,6 +9,8 @@
 #include <type_traits>
 
 #include <serialisation/Utf8Validation.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+#include <memory/ByteOperationsContract.hpp>
 #include <identity/DeviceIdentifier.hpp>
 #include <identity/RuntimeIncarnationId.hpp>
 #include <types/TypeIdentifier.hpp>
@@ -86,9 +88,13 @@ namespace ESPressio::Logging {
     ///
     /// @tparam TMaximumArguments Maximum total captured argument count.
     /// @tparam TMaximumBytes Maximum aggregate captured data bytes.
+    /// @tparam TByteOperationsProvider Stateless EDP-Memory ByteOperations
+    /// provider chosen by the owning application; default portable.
     template<
         std::size_t TMaximumArguments = 8U,
-        std::size_t TMaximumBytes = 128U
+        std::size_t TMaximumBytes = 128U,
+        class TByteOperationsProvider =
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider
     >
     class OwnedDiagnosticArguments final {
 
@@ -99,6 +105,20 @@ namespace ESPressio::Logging {
         static_assert(
             TMaximumBytes >= 1U && TMaximumBytes <= 4096U,
             "Owned argument byte capacity must be in the finite range 1..4096"
+        );
+
+        // A compile-time-selected Memory provider performs all byte copies,
+        // introducing no per-record object, pointer, or dynamic ownership.
+        static_assert(
+            sizeof(ESPressio::Memory::Detail::ByteOperationsProviderTraits<
+                TByteOperationsProvider
+            >) > 0U,
+            "Argument copying requires a valid EDP-Memory ByteOperations provider"
+        );
+        static_assert(
+            std::is_empty_v<TByteOperationsProvider> &&
+            std::is_nothrow_default_constructible_v<TByteOperationsProvider>,
+            "Argument copying requires a stateless, noexcept Memory provider"
         );
 
 
@@ -125,7 +145,7 @@ namespace ESPressio::Logging {
         /// @param kind Source-side kind of the argument.
         /// @param data Borrowed span valid only during the call.
         /// @returns Typed capacity/status result with no partial append.
-        [[nodiscard]] constexpr OwnedArgumentResult Store(
+        [[nodiscard]] OwnedArgumentResult Store(
             OwnedArgumentKind kind,
             std::span<const std::byte> data
         ) noexcept {
@@ -136,9 +156,15 @@ namespace ESPressio::Logging {
                 return OwnedArgumentResult::BytesExceeded;
             }
 
-            // A failed preflight leaves all descriptor/data counters unchanged.
-            for (std::size_t offset = 0U; offset < data.size(); ++offset) {
-                _data[_used + offset] = data[offset];
+            // The Memory owner copies the complete preflight-qualified
+            // range; zero bytes require no native pointer dereference.
+            // No ownership/descriptor state is changed until copy returns.
+            if (!data.empty()) {
+                TByteOperationsProvider{}.CopyBytes(
+                    _data.data() + _used,
+                    data.data(),
+                    data.size()
+                );
             }
 
             _items[_count] = {
@@ -305,7 +331,7 @@ namespace ESPressio::Logging {
         /// Copies an arbitrary binary argument into private memory.
         /// @param bytes Borrowed binary input.
         /// @returns Typed append/capacity result.
-        [[nodiscard]] constexpr OwnedArgumentResult AddBytes(
+        [[nodiscard]] OwnedArgumentResult AddBytes(
             std::span<const std::byte> bytes
         ) noexcept {
             return Store(OwnedArgumentKind::Bytes, bytes);
@@ -314,7 +340,7 @@ namespace ESPressio::Logging {
         /// Copies an issued EDP-System TypeIdentifier's canonical eight bytes.
         /// @param identifier Issued strong Type identity.
         /// @returns Added or UnsupportedType/finite-capacity result.
-        [[nodiscard]] constexpr OwnedArgumentResult AddTypeIdentifier(
+        [[nodiscard]] OwnedArgumentResult AddTypeIdentifier(
             const System::TypeIdentifier& identifier
         ) noexcept {
             if (!identifier.IsValid()) {
@@ -334,7 +360,7 @@ namespace ESPressio::Logging {
         /// Field 0 is a valid Type-local identifier. This is never a wire tag.
         /// @param identifier Strong one-byte Field identity.
         /// @returns Added or finite-capacity failure.
-        [[nodiscard]] constexpr OwnedArgumentResult AddFieldIdentifier(
+        [[nodiscard]] OwnedArgumentResult AddFieldIdentifier(
             System::FieldIdentifier identifier
         ) noexcept {
             const std::array<std::byte, 1U> bytes{
@@ -347,7 +373,7 @@ namespace ESPressio::Logging {
         /// Copies a valid strong 16-byte System DeviceIdentifier.
         /// @param identifier Issued source device identity.
         /// @returns Added or UnsupportedType/finite-capacity result.
-        [[nodiscard]] constexpr OwnedArgumentResult AddDeviceIdentifier(
+        [[nodiscard]] OwnedArgumentResult AddDeviceIdentifier(
             const System::Identity::DeviceIdentifier& identifier
         ) noexcept {
             if (!identifier.IsValid()) {
@@ -369,7 +395,7 @@ namespace ESPressio::Logging {
         /// this does NOT make it a valid emitting LogRecord root incarnation.
         /// @param identifier Owner-issued semantic incarnation value.
         /// @returns Added or a typed finite-capacity refusal.
-        [[nodiscard]] constexpr OwnedArgumentResult AddRuntimeIncarnationId(
+        [[nodiscard]] OwnedArgumentResult AddRuntimeIncarnationId(
             const System::Identity::RuntimeIncarnationId& identifier
         ) noexcept {
             const std::uint32_t value = identifier.Value();
@@ -391,7 +417,7 @@ namespace ESPressio::Logging {
         /// @param era Coordinator-issued or zero/unavailable era value.
         /// @returns Added or a typed finite-capacity refusal.
         template<class TEra>
-        [[nodiscard]] constexpr OwnedArgumentResult AddClockEra(
+        [[nodiscard]] OwnedArgumentResult AddClockEra(
             const TEra& era
         ) noexcept {
             static_assert(

@@ -10,6 +10,44 @@
 namespace S=ESPressio::System;
 namespace L=ESPressio::Logging;
 
+/// Test-only stateless Memory ByteOperations provider proving that the arena
+/// selects and invokes its owner-approved provider, not a hidden copy loop.
+class CountingByteOperationsProvider final :
+    public S::CompositionFramework::Provider<
+        ESPressio::Memory::Domain,
+        S::CompositionFramework::Offers<
+            S::CompositionFramework::Offer<ESPressio::Memory::ByteOperations>
+        >
+    > {
+public:
+    inline static std::size_t CopyCount = 0U;
+
+    void CopyBytes(void* target,const void* source,std::size_t size) const noexcept {
+        ++CopyCount;
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}.CopyBytes(
+            target,source,size
+        );
+    }
+    void MoveBytes(void* target,const void* source,std::size_t size) const noexcept {
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}.MoveBytes(
+            target,source,size
+        );
+    }
+    void FillBytes(void* target,std::uint8_t value,std::size_t size) const noexcept {
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}.FillBytes(
+            target,value,size
+        );
+    }
+    ESPressio::Memory::ByteComparison CompareBytes(
+        const void* left,const void* right,std::size_t size
+    ) const noexcept {
+        return ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}.CompareBytes(
+            left,right,size
+        );
+    }
+};
+
+
 static_assert(S::IdentifiedType<L::LogRecord>);
 static_assert(S::SchemaType<L::LogRecord>);
 static_assert(S::SchemaType<L::BasicLogRecord<L::AttemptSequenceWidth::Bits16,2U,16U>>);
@@ -120,6 +158,19 @@ int main() {
     assert(validText.GetArgumentBytes(0U,binaryArgument)==
            L::OwnedArgumentAccessResult::Available);
     assert(binaryArgument[2U]==std::byte{0U});
+    // Exact one-copy call on success; refused capacity never calls Memory.
+    CountingByteOperationsProvider::CopyCount = 0U;
+    L::OwnedDiagnosticArguments<1U,8U,CountingByteOperationsProvider> delegated{};
+    assert(delegated.AddBytes(rawWithNull) == Result::Added);
+    assert(CountingByteOperationsProvider::CopyCount == 1U);
+    assert(delegated.AddBytes(rawWithNull) == Result::CountExceeded);
+    assert(CountingByteOperationsProvider::CopyCount == 1U);
+    std::span<const std::byte> delegatedBytes{};
+    assert(delegated.GetArgumentBytes(0U,delegatedBytes) ==
+           L::OwnedArgumentAccessResult::Available);
+    assert(delegatedBytes.size() == sizeof(embeddedNull));
+    assert(delegatedBytes[2U] == std::byte{0U});
+
     L::OwnedDiagnosticArguments<1U,8U> canonicalText;
 
     assert(canonicalText.AddUtf8({"\xF0\x9F\x98\x80",4U})==Result::Added);

@@ -181,11 +181,21 @@ No concrete filesystem, Mesh, Serial or supplementary allocator.
   - EDP-Clock [strong monotonic/synchronized/era/uncertainty values]
   - EDP-Localisation [generated owner strong StringIdentifier inputs,
     widened ONLY in the in-memory source representation]
+  - EDP-Serialisation [strict UTF-8 validation in opt-in owned arguments]
+  - EDP-Memory [ByteOperations trait and owner-approved CopyBytes]
+  - EDP-Platform-Portable [stateless C++ ByteOperations concrete DEFAULT,
+    selected only in this opt-in header; application can supply another
+    stateless EDP-Memory-compliant provider at compile time]
   - EDP-Logging AttemptSequence/Severity [existing internal Types]
 - EDP-System/main/docs/TYPE-IDENTITY-REGISTRY.MD is the offline
   authoritative allocation record, NOT a code runtime dependency.
-- This addition does not import any concrete platform provider,
-  EDP-Mesh, native file adapter or run-time identity allocation.
+- This feature imports the expressly selected wholly portable Memory
+  byte-copy default (just as EDP-BoundedTypes does), but no native SDK,
+  EDP-Mesh, native file adapter or run-time identity allocation. Its default
+  C++20 umbrella remains independent of all these optional imports.
+  Callers must declare EDP-Memory and EDP-Platform-Portable when importing
+  this source; choosing an alternative provider is an application-level
+  stateless compile-time policy decision, not a runtime pointer/heap owner.
 
 ## Optional generated-source LogRecord assembly (2026-10-17)
 
