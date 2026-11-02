@@ -1180,11 +1180,47 @@ namespace {
                 "WORKER_COORDINATOR_START"
             );
             (void)worker->Wake();
+#if defined(EDP_WORKER_CAPACITY_CUT)
+            // Read-only diagnostic in the disposable physical cut fixture.
+            // Preserve the original finite 15 s deadline, but expose whether
+            // the worker is processing the backlog or waiting with it queued.
+            std::uint64_t nextDrainTrace =
+                C::MonotonicNow().Nanoseconds() + 2500000000ULL;
+            Await(
+                [&] {
+                    const auto durable = report.DurableSinkCompletions.load();
+                    const auto now = C::MonotonicNow().Nanoseconds();
+                    if (durable != 128U && now >= nextDrainTrace) {
+                        std::printf(
+                            "EDP_WORKER|PRESSURE_DRAIN_TRACE|retired=%llu|"
+                            "accepted=%llu|durable=%llu|offered=%u|confirmed=%u|"
+                            "sink_service_calls=%llu|worker_exit=%u|"
+                            "idle_timeouts=%llu|queue_contentions=%llu\n",
+                            static_cast<unsigned long long>(report.RecordsRetired.load()),
+                            static_cast<unsigned long long>(report.AllSinksAccepted.load()),
+                            static_cast<unsigned long long>(durable),
+                            sink.Offered,
+                            sink.Confirmed,
+                            static_cast<unsigned long long>(sink.ServiceCalls),
+                            static_cast<unsigned>(report.Exit.load()),
+                            static_cast<unsigned long long>(report.IdleTimeouts.load()),
+                            static_cast<unsigned long long>(report.QueueContentions.load())
+                        );
+                        std::fflush(stdout);
+                        nextDrainTrace = now + 2500000000ULL;
+                    }
+                    return durable == 128U;
+                },
+                15000U,
+                "WORKER_PRESSURE_DRAIN"
+            );
+#else
             Await(
                 [&] { return report.DurableSinkCompletions.load() == 128U; },
                 15000U,
                 "WORKER_PRESSURE_DRAIN"
             );
+#endif
 #if defined(EDP_WORKER_POWER_CUT)
             Require(
                 nvs_set_u8(
