@@ -1,6 +1,24 @@
 # EDP-Logging Dependency Graph
 
-**Branch:** `feature/logging-v1`. **Package:** `0.1.0`. This graph includes dated optional dependency profiles and historical 16 October prerequisites; the [current architecture](docs/ARCHITECTURE.MD) and [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD) define the later implemented/qualified surfaces. A new exhaustive transitive-graph certification against all current and conditional branches remains open; the historical profiles below must not be mistaken for that certification.
+**Branch:** feature/logging-v1. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. A complete independent current-branch transitive audit of all optional profiles remains separate work; older notes are not a substitute.
+
+## Current conditional dependency activation
+
+The root [README Dependencies tree](README.MD#dependencies) is the consuming-developer overview. The manifest has no mandatory EDP library dependencies; the default C++20 umbrella contains severity, attempt sequences, EDLG frame/reader, EDLS segment and instrumentation.
+
+| Feature imported by the application | Conditional direct dependencies and owning contracts |
+| --- | --- |
+| Admission, queues, lifecycle, worker and sink fan-out | EDP-Clock, EDP-Threading, EDP-Memory, EDP-Platform and EDP-BoundedTopology as selected by each exact header |
+| Optional temporal Clock/Era evidence | EDP-Clock; synchronized Clock qualification is an application responsibility and does not require Mesh imports |
+| Diagnostic arguments, generated records and codecs | EDP-Serialisation; EDP-Localisation generated schemas; EDP-System identity and EDP-BoundedTypes |
+| Owned diagnostic UTF-8 and runtime copying | EDP-Serialisation validated UTF-8, existing EDP-Memory byte operations and optional EDP-Platform-Portable copy provider |
+| Durable EDLS/EDLG persistence | EDP-Persistence abstract FileStorage/KeyValueStorage and independently qualified application-selected concrete implementations |
+| Optional Python historical diagnostic catalogue | EDP-Localisation host tools only for historical-resolution mode; no embedded dependency |
+| Complete HIL application and demos | Explicit host, ESP-IDF or Arduino platform providers are application/test dependencies only |
+
+Transitive closure of relevant existing owners: EDP-Clock reaches EDP-System and EDP-Platform; EDP-Memory reaches EDP-System, EDP-Platform and EDP-BoundedTopology; EDP-Threading reaches Clock, Memory, Platform, System and BoundedTopology; EDP-Serialisation reaches System, BoundedTypes, BoundedTopology, Memory, Localisation and Platform-Portable for its chosen codec profile; EDP-Persistence reaches System. The application explicitly lists its direct dependencies and chooses concrete platform providers at Bootstrap. EDP-Serial and EDP-Mesh are not required by Logging.
+
+The dated profiles below describe earlier implementation discoveries. Statements about what was *then* unfinished are historical; current source and linked architecture/acceptance documents own the actual contracts. This README/documentation edit does not introduce any implementation or dependency edge.
 
 ## Core/default source graph
 
@@ -65,7 +83,7 @@ No reverse EDP-BoundedTopology→Logging/Memory dependency exists. Queue ‘Comm
 
 `logging/DiagnosticArgumentEncoding.hpp` activates a direct abstract dependency on `EDP-Serialisation` at its **`feature/logging-v1` positional CBOR/JSON API**, and on the generated **EDP-Localisation** diagnostic message schema descriptor Type provided by an application. The header itself imports the EDP-Serialisation umbrella; the pre-existing Serialisation mandatory transitive dependencies are EDP-System, EDP-BoundedTypes, EDP-BoundedTopology, EDP-Memory, EDP-Platform-Portable and EDP-Localisation with EDP-Platform/System underneath. This is a purely **opt-in** G3 profile, never imported by default. No reverse dependency Serialisation→Logging and no new platform-concrete library chosen by Logging. Generated diagnostic schema objects must be provided as compile-time descriptor Types and are *not* runtime registries.
 
-## Planned but not yet activated by Logging
+## Historical planning baseline (superseded by later conditional implementations)
 
 - EDP-System — governed Logging root TypeIdentifier, generated schemas and Composition
 - EDP-Localisation — historical schema/pack contracts

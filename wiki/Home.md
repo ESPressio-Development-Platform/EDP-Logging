@@ -1,43 +1,36 @@
-# EDP-Logging Wiki
+# EDP-Logging — Developer Wiki
 
-Status: partial Logging foundation on `feature/logging-v1`, package version 0.1.0.
+This is the **internal implementation and extension reference** for EDP-Logging (`0.1.0`). For a consuming developer's introduction, installation, examples and feature navigation, start with the repository [README](../README.MD). For normative public contracts, use [`./docs`](../docs/ARCHITECTURE.MD); the Wiki expands on implementation details but does not redefine those contracts.
 
-Implemented: [Severity](Reference-logging-Severity), [Attempt Sequence](Reference-logging-AttemptSequence), the [partial bounded admission bridge](Reference-logging-BoundedAdmission), the [composed fixed-slot wake coordinator](Reference-logging-AdmissionWakeCoordinator), the [finite admission shutdown/drain](Reference-logging-AdmissionLifecycleCoordinator), the [tracked RAII lease and strict drain](Reference-logging-TrackedAdmissionCoordinator), the [transactional FIFO record queue](Reference-logging-TransactionalRecordQueue), the [optional G2 temporal evidence qualifier](Reference-logging-LogTemporalEvidence), and the [governed scalar/bounded diagnostic argument adapter](Reference-logging-DiagnosticArgumentEncoding), and [Python host framing](Host-Decoder). The [Architecture](../docs/ARCHITECTURE.MD) describes the actual source boundary; the complete approved architecture remains governed by Policy/main.
+## What Logging owns
 
-No functional Logging producer/sinks exist yet. The existing C++20 foundation suites passed GCC and Clang on RPI400 on 2026-10-16; the Python host suite (20 tests including exact-byte schema-pin regression) also passed. Firmware/physical storage and end-to-end runtime validation remain outstanding. The [Host Decoder](Host-Decoder) page describes the source-level schema pin verification boundary.
+Logging owns finite diagnostic source capture, attempt sequences, record production and queue admission, dedicated coordinator/sink delivery, EDLG/EDLS framing, sealed batch publication, finite protected rolling and strict acknowledged recovery. It composes existing EDP owners rather than implementing its own allocator, thread scheduler, timer, generic filesystem or CBOR encoder.
 
-The [optional historical diagnostic schema host bridge](Tooling-edp-logging-historical-diagnostic) links pinned Localisation archived ContractFamilies to the offline decoder without a new embedded library dependency.
+Bootstrap selects the existing **Clock**, **Memory**, **Threading**, **System**, **Serialisation**, **Localisation**, **Persistence** and appropriate concrete platform providers when the selected optional feature requires them. Network Mesh and a synchronized remote Clock are **not required** for basic local Logging.
 
-[System Identity generated diagnostic arguments](Reference-logging-SystemIdentityDiagnosticArguments) extend the optional owner-certified G3 path without adding new direct dependencies.
+## Implementation map
 
-[Optional generated ClockEra parameter](Reference-logging-ClockEraDiagnostic) preserves exact temporal-identity Types without claiming G2 coherence.
+- [Architecture](Architecture) — ownership and source-level boundaries.
+- [Dependency Contracts](Dependency-Contracts) — conditional imports, provider lifetimes and Bootstrap requirements.
+- [Public API](Public-API) — supported consuming interfaces.
+- [Internal API](Internal-API) and [Private Implementation](Private-Implementation) — helper types, invariants and extension guidance.
+- [Resources, Lifecycle and Concurrency](Resources-Lifecycle-Concurrency) — finite source ownership, safe shutdown, worker coordination and persistent acknowledgement.
+- [Compiler Definitions](Compiler-Definitions) — optional feature and provider-selection configuration.
+- [Build, Test and Source](Build-Test-and-Source) — build procedures, test fixtures, generated records and physical qualification.
+- [Reference Index](Reference-Index) — source-oriented public/internal/private declarations and maintained modules.
+- [Tooling Reference](Tooling-Reference) — host decoder, schema and forensic tooling.
 
-- [Generated-schema-bound LogRecord source assembly](Reference-logging-LogRecordSourceAssembly.md) — optional owner-generated identity and finite owned source preparation, not a wire envelope.
+## Important components
 
-### G11 WROOM resource fixture
+- [Severity](Reference-logging-Severity), [Attempt Sequence](Reference-logging-AttemptSequence) and [Instrumentation](Reference-logging-Instrumentation) form the lightweight C++20 umbrella.
+- [Transactional Record Queue](Reference-logging-TransactionalRecordQueue), [Record Production](Reference-logging-RecordProduction) and [Bounded Admission](Reference-logging-BoundedRecordAdmission) use application-owned Memory, Threading and Clock capabilities.
+- [LogRecord Source Assembly](Reference-logging-LogRecordSourceAssembly), [Generated Whole-Record Projection](Reference-logging-GeneratedLogRecordWireProjection) and [Owned Representation Fan-out](Reference-logging-OwnedRepresentationFanout) compose generated identities, canonical field encoding and independently owned sinks.
+- [Bounded EDLS Batching](Reference-logging-BoundedEdlsBatch) and [Coordinator Sink Service](Reference-logging-CoordinatorSinkService) implement finite flushing and acknowledged delivery.
+- [PowerLoss EDLS Journal](Reference-logging-PowerLossEdlsJournal) and [Archive Rotation](Reference-logging-EdlsArchiveRotation) document protected history and recovery.
+- [Host Decoder](Host-Decoder) and [Historical Diagnostic Tool](Tooling-edp-logging-historical-diagnostic) cover optional offline processing.
 
-The physical WROOM Logging HIL captures full-test heap and task-stack
-measurements, with an explicit dedicated app_main stack configuration.
-See docs/WROOM-RESOURCE-QUALIFICATION.MD. This is not a measured
-Logging-only product footprint and does not prove all G11 gates.
+## Qualification boundaries
 
-## G10 one-sink output composition
+The core has **finite, configuration-specific** native ESP32-WROOM-32 throughput, resource and relay-controlled PowerLoss evidence, and GCC/Clang regression coverage. It is not a claim that every Flash provider is interruption-atomic, that all hardware sustains the same rate indefinitely, or that any Flash lifespan is guaranteed.
 
-The opt-in
-[EDP-Memory-owned representation fanout](Reference-logging-OwnedRepresentationFanout.md)
-accepts 1–8 synchronous copying sinks; see issue #7 for the previously
-incorrect two-sink minimum. An accepted callback must have independently
-copied its output before return; asynchronous sink borrowing is not yet an
-implemented G10 feature.
-
-[Bounded EDLS batching](Reference-logging-BoundedEdlsBatch) documents configurable canonical dwell, finite owned records and sealed-segment durable ACK.
-
-- [Existing coordinator sink service](Reference-logging-CoordinatorSinkService.md)
-
-## Current implementation navigation (0.1.0)
-
-- [Architecture](Architecture), [Dependency Contracts](Dependency-Contracts), [Public API](Public-API), [Internal API](Internal-API), [Private Implementation](Private-Implementation)
-- [Resources, Lifecycle and Concurrency](Resources-Lifecycle-Concurrency), [Build, Test and Source](Build-Test-and-Source), [Compiler Definitions](Compiler-Definitions)
-- [Exhaustive Reference Index](Reference-Index), [Tooling Reference](Tooling-Reference)
-
-These pages describe the current feature branch. Compile and physical persistence qualifications are scoped to their recorded application/provider configuration.
+For the authoritative tested configurations, failures, and unfinished optional coverage, consult [G1–G15 Acceptance](../docs/ACCEPTANCE-G1-G15.MD) and [Qualification Status](../docs/LOGGING-QUALIFICATION-STATUS.MD). The historical execution narrative belongs in the governed Policy living handoff, not the Wiki landing page.
