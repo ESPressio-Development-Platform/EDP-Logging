@@ -17,12 +17,11 @@
 
 namespace ESPressio::Logging {
 
-
     namespace Detail {
 
         /// Existing bounded batch operations required by this ordinary delivery callback.
         template <class TTarget>
-        concept BatchDeliveryTarget = requires(TTarget& target, std::span<const std::byte> frame) {
+        concept BatchDeliveryTarget = requires(TTarget &target, std::span<const std::byte> frame) {
             { target.Offer(frame) } noexcept -> std::same_as<EdlsBatchOutcome>;
             { target.Service() } noexcept -> std::same_as<EdlsBatchOutcome>;
             { target.Flush() } noexcept -> std::same_as<EdlsBatchOutcome>;
@@ -45,22 +44,21 @@ namespace ESPressio::Logging {
         using Source = BasicLogRecord<TWidth, TMaximumArguments, TArgumentBytes>;
         using Projection = GeneratedLogRecordWireProjection<TWidth, TParameters...>;
         /// Borrowed generated projection used only during synchronous encoding.
-        Projection* _projection;
+        Projection *_projection;
         /// Borrowed source-owned positional encoding scratch.
-        OwnedPositionalScratch<TParameters...>* _scratch;
+        OwnedPositionalScratch<TParameters...> *_scratch;
 
       public:
         explicit GeneratedLogRecordCborEncoder(
-            Projection& projection, OwnedPositionalScratch<TParameters...>& scratch) noexcept
+            Projection &projection, OwnedPositionalScratch<TParameters...> &scratch) noexcept
             : _projection(&projection), _scratch(&scratch) {}
 
-        [[nodiscard]] RepresentationEncodeResult operator()(const Source& record,
+        [[nodiscard]] RepresentationEncodeResult operator()(const Source &record,
                                                             std::span<std::byte> output) noexcept {
             if (!ProjectGeneratedLogRecord<TMessageSchema, TWidth, TParameters...>(
-                record,
-                *_projection,
-                *_scratch
-            )
+                     record,
+                     *_projection,
+                     *_scratch)
                      .IsSuccessful())
                 return {RepresentationEncodeStatus::Rejected, 0U};
             const auto measured =
@@ -71,9 +69,8 @@ namespace ESPressio::Logging {
             const auto written =
                 Serialisation::Serialise<Serialisation::Cbor,
                                          Serialisation::RootProfile::TypedEnvelope>(
-                                             *_projection,
-                                             output.first(measured.RequiredBytes)
-                                         );
+                    *_projection,
+                    output.first(measured.RequiredBytes));
             if (!written.IsSuccessful() || written.BytesWritten != measured.RequiredBytes)
                 return {RepresentationEncodeStatus::ProviderFailure, 0U};
             return {RepresentationEncodeStatus::Succeeded, written.BytesWritten};
@@ -140,9 +137,9 @@ namespace ESPressio::Logging {
 
         using Projection = GeneratedLogRecordWireProjection<TWidth, TParameters...>;
         /// Bootstrap-selected existing archive or bounded batch target.
-        TStorage* _storage;
+        TStorage *_storage;
         /// Worker-exclusive generated decode and canonical-validation projection.
-        Projection* _decoded;
+        Projection *_decoded;
         /// Caller-owned canonical re-encoding and CRC frame scratch.
         std::span<std::byte> _framingScratch;
         /// Caller-owned immutable archive inspection/publication scratch.
@@ -158,7 +155,7 @@ namespace ESPressio::Logging {
 
         /// Records only an actual strict segment/NVS completion, never RAM acceptance.
         [[nodiscard]] BatchAcknowledgementStatus ObserveBatchAcknowledgement(
-            const EdlsBatchOutcome& outcome) noexcept {
+            const EdlsBatchOutcome &outcome) noexcept {
             if (outcome.Status != EdlsBatchStatus::DurablyAcknowledged &&
                 outcome.Status != EdlsBatchStatus::DurablyAcknowledgedPendingRetirement) {
                 LastCompletion = TypedEdlsTaskCompletion::ArchiveFailure;
@@ -182,12 +179,12 @@ namespace ESPressio::Logging {
 
         /// Borrows stable Bootstrap owners without configuring storage or admitting a record.
         TypedCborProtectedEdlsTaskDelivery(
-            TStorage& storage,
-            Projection& decoded,
+            TStorage &storage,
+            Projection &decoded,
             std::span<std::byte> framingScratch,
             std::span<std::byte> archiveScratch,
-            const std::array<ESPressio::Persistence::FilePathView, TPhysicalSlots>& paths,
-            const std::array<std::byte, 16U>& deviceIdentifier,
+            const std::array<ESPressio::Persistence::FilePathView, TPhysicalSlots> &paths,
+            const std::array<std::byte, 16U> &deviceIdentifier,
             std::uint32_t runtimeIncarnation) noexcept
             : _storage(&storage), _decoded(&decoded), _framingScratch(framingScratch),
               _archiveScratch(archiveScratch), _paths(paths), _device(deviceIdentifier),
@@ -197,37 +194,37 @@ namespace ESPressio::Logging {
 
         /// Legacy callbacks retain value semantics; a batch callback owns
         /// consumable completion deltas and must never fork that ownership.
-        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery&) noexcept
+        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery &) noexcept
             requires(!Detail::BatchDeliveryTarget<TStorage>)
         = default;
         /// Prevents copying consumable completion ownership for batch targets.
-        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery&) noexcept
+        TypedCborProtectedEdlsTaskDelivery(const TypedCborProtectedEdlsTaskDelivery &) noexcept
             requires Detail::BatchDeliveryTarget<TStorage>
         = delete;
         /// Preserves legacy nonbatch copy assignment.
-        TypedCborProtectedEdlsTaskDelivery& operator=(
-            const TypedCborProtectedEdlsTaskDelivery&) noexcept
+        TypedCborProtectedEdlsTaskDelivery &operator=(
+            const TypedCborProtectedEdlsTaskDelivery &) noexcept
             requires(!Detail::BatchDeliveryTarget<TStorage>)
         = default;
         /// Prevents assigning a second batch completion-delta owner.
-        TypedCborProtectedEdlsTaskDelivery& operator=(
-            const TypedCborProtectedEdlsTaskDelivery&) noexcept
+        TypedCborProtectedEdlsTaskDelivery &operator=(
+            const TypedCborProtectedEdlsTaskDelivery &) noexcept
             requires Detail::BatchDeliveryTarget<TStorage>
         = delete;
         /// Preserves legacy nonbatch move construction.
-        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery &&) noexcept
             requires(!Detail::BatchDeliveryTarget<TStorage>)
         = default;
         /// Keeps a batch completion owner at its stable Bootstrap address.
-        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+        TypedCborProtectedEdlsTaskDelivery(TypedCborProtectedEdlsTaskDelivery &&) noexcept
             requires Detail::BatchDeliveryTarget<TStorage>
         = delete;
         /// Preserves legacy nonbatch move assignment.
-        TypedCborProtectedEdlsTaskDelivery& operator=(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+        TypedCborProtectedEdlsTaskDelivery &operator=(TypedCborProtectedEdlsTaskDelivery &&) noexcept
             requires(!Detail::BatchDeliveryTarget<TStorage>)
         = default;
         /// Prevents transferring a live batch completion-delta owner.
-        TypedCborProtectedEdlsTaskDelivery& operator=(TypedCborProtectedEdlsTaskDelivery&&) noexcept
+        TypedCborProtectedEdlsTaskDelivery &operator=(TypedCborProtectedEdlsTaskDelivery &&) noexcept
             requires Detail::BatchDeliveryTarget<TStorage>
         = delete;
 
@@ -269,9 +266,8 @@ namespace ESPressio::Logging {
             const auto decoded =
                 Serialisation::Deserialise<Serialisation::Cbor,
                                            Serialisation::RootProfile::TypedEnvelope>(
-                                               encoded,
-                                               *_decoded
-                                           );
+                    encoded,
+                    *_decoded);
             if (!decoded.IsSuccessful() ||
                 _decoded->Message.Domain != TMessageSchema::SourceDomain ||
                 _decoded->Message.SubDomain != TMessageSchema::SourceSubDomain ||
@@ -305,9 +301,8 @@ namespace ESPressio::Logging {
             const auto canonical =
                 Serialisation::Serialise<Serialisation::Cbor,
                                          Serialisation::RootProfile::TypedEnvelope>(
-                                             *_decoded,
-                                             _framingScratch.first(measured.RequiredBytes)
-                                         );
+                    *_decoded,
+                    _framingScratch.first(measured.RequiredBytes));
             if (!canonical.IsSuccessful() || canonical.BytesWritten != encoded.size()) {
                 LastCompletion = TypedEdlsTaskCompletion::InvalidTypedRecord;
                 return RecordSinkSubmission::Rejected;
@@ -320,20 +315,18 @@ namespace ESPressio::Logging {
             }
             std::size_t framed = 0U;
             if (WriteEdlgFrame(
-                EdlgCodec::Cbor,
-                encoded,
-                _framingScratch,
-                framed,
-                TMaximumPayload
-            ) != EdlgFrameWriteResult::Succeeded) {
+                    EdlgCodec::Cbor,
+                    encoded,
+                    _framingScratch,
+                    framed,
+                    TMaximumPayload) != EdlgFrameWriteResult::Succeeded) {
                 LastCompletion = TypedEdlsTaskCompletion::FramingFailure;
                 return RecordSinkSubmission::Rejected;
             }
             if constexpr (Detail::BatchDeliveryTarget<TStorage>) {
                 const auto complete = std::span<const std::byte>(
                     _framingScratch.data(),
-                    framed
-                );
+                    framed);
                 auto offered = _storage->Offer(complete);
                 if (offered.Status == EdlsBatchStatus::FlushRequired) {
                     // The new input was NOT consumed. Complete the existing
@@ -360,23 +353,20 @@ namespace ESPressio::Logging {
                 // Compile-time optional strict durability. The SAME canonical
                 // full-LogRecord validation and existing EDLG frame owner above
                 // are reused; only the injected archive publisher changes.
-                if constexpr (requires(TStorage& archive,
+                if constexpr (requires(TStorage &archive,
                                        std::span<const std::byte> complete,
                                        std::span<std::byte> scratch) {
                                   {
                                       archive.Publish(
                                           complete,
-                                          scratch
-                                      )
+                                          scratch)
                                   } noexcept -> std::same_as<EdlsAcknowledgedObservation>;
                               }) {
                     LastAcknowledgement = _storage->Publish(
                         std::span<const std::byte>(
                             _framingScratch.data(),
-                            framed
-                        ),
-                        _archiveScratch
-                    );
+                            framed),
+                        _archiveScratch);
                     if (LastAcknowledgement.Status ==
                             EdlsAcknowledgedStatus::AcknowledgedWithinCapacity ||
                         LastAcknowledgement.Status ==
@@ -393,16 +383,14 @@ namespace ESPressio::Logging {
                                                                                   TProtectedSlots,
                                                                                   TMaximumPayload,
                                                                                   TMaximumSegment>(
-                                                                                      *_storage,
-                                                                                      _paths,
-                                                                                      _device,
-                                                                                      _incarnation,
-                                                                                      std::span<const std::byte>(
+                        *_storage,
+                        _paths,
+                        _device,
+                        _incarnation,
+                        std::span<const std::byte>(
                             _framingScratch.data(),
-                            framed
-                        ),
-                                                                                      _archiveScratch
-                                                                                  );
+                            framed),
+                        _archiveScratch);
                     if (LastArchive.Status == EdlsProtectedRollingStatus::PublishedWithinCapacity ||
                         LastArchive.Status == EdlsProtectedRollingStatus::PublishedAndRetired) {
                         LastCompletion = TypedEdlsTaskCompletion::Archived;

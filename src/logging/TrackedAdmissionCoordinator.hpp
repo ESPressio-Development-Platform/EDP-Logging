@@ -38,17 +38,16 @@ namespace ESPressio::Logging {
         std::uint32_t WakeFailures;
     };
 
-
     /// Opt-in, bounded owner of grants made THROUGH this class only.
     /// Does not retroactively track raw ObjectPoolLease instances.
     /// Bootstrap must stop new calls and join tasks before destruction.
-    template<std::size_t TProducerCount, class TWaitWakeProvider>
+    template <std::size_t TProducerCount, class TWaitWakeProvider>
     class TrackedAdmissionCoordinator final {
         static_assert(TProducerCount > 0U);
         static_assert(TWaitWakeProvider::Capacity > TProducerCount);
         static_assert(std::atomic<std::uint32_t>::is_always_lock_free);
 
-        TWaitWakeProvider* _waitWake;
+        TWaitWakeProvider *_waitWake;
         AdmissionLifecycleCoordinator<TProducerCount, TWaitWakeProvider> _lifecycle;
         std::atomic<std::uint32_t> _inflight{0U};
         std::atomic<std::uint32_t> _outstanding{0U};
@@ -77,33 +76,32 @@ namespace ESPressio::Logging {
         }
 
         struct InflightScope final {
-            TrackedAdmissionCoordinator* Owner;
-            explicit InflightScope(TrackedAdmissionCoordinator* owner) noexcept : Owner(owner) {}
-            InflightScope(const InflightScope&) = delete;
-            InflightScope& operator=(const InflightScope&) = delete;
+            TrackedAdmissionCoordinator *Owner;
+            explicit InflightScope(TrackedAdmissionCoordinator *owner) noexcept : Owner(owner) {}
+            InflightScope(const InflightScope &) = delete;
+            InflightScope &operator=(const InflightScope &) = delete;
             ~InflightScope() noexcept {
                 Owner->_inflight.fetch_sub(1U, std::memory_order_acq_rel);
                 Owner->WakeDrain();
             }
         };
 
-    public:
-        explicit TrackedAdmissionCoordinator(TWaitWakeProvider& owner) noexcept :
-            _waitWake(&owner), _lifecycle(owner) {}
+      public:
+        explicit TrackedAdmissionCoordinator(TWaitWakeProvider &owner) noexcept : _waitWake(&owner), _lifecycle(owner) {}
 
-        TrackedAdmissionCoordinator(const TrackedAdmissionCoordinator&) = delete;
-        TrackedAdmissionCoordinator& operator=(const TrackedAdmissionCoordinator&) = delete;
-        TrackedAdmissionCoordinator(TrackedAdmissionCoordinator&&) = delete;
-        TrackedAdmissionCoordinator& operator=(TrackedAdmissionCoordinator&&) = delete;
+        TrackedAdmissionCoordinator(const TrackedAdmissionCoordinator &) = delete;
+        TrackedAdmissionCoordinator &operator=(const TrackedAdmissionCoordinator &) = delete;
+        TrackedAdmissionCoordinator(TrackedAdmissionCoordinator &&) = delete;
+        TrackedAdmissionCoordinator &operator=(TrackedAdmissionCoordinator &&) = delete;
 
         /// RAII owner: a native pool lease is PRIVATE and cannot be manually
         /// destroyed, moved, or returned without the owner notification.
         /// The trailing notifier is declared BEFORE NativeLease, so its
         /// destructor executes AFTER the native lease's own destructor.
-        template<class TLease>
+        template <class TLease>
         class TrackedLease final {
             struct NativeDestructorNotifier final {
-                TrackedAdmissionCoordinator* Owner;
+                TrackedAdmissionCoordinator *Owner;
                 bool MayHaveReleasedCapacity{false};
 
                 ~NativeDestructorNotifier() noexcept {
@@ -115,23 +113,22 @@ namespace ESPressio::Logging {
 
             NativeDestructorNotifier _postNative;
             TLease _lease{};
-            TrackedAdmissionCoordinator* _owner;
+            TrackedAdmissionCoordinator *_owner;
             bool _tracked{false};
 
             friend class TrackedAdmissionCoordinator;
 
-        public:
-            explicit TrackedLease(TrackedAdmissionCoordinator& owner) noexcept :
-                _postNative{&owner}, _owner(&owner) {
+          public:
+            explicit TrackedLease(TrackedAdmissionCoordinator &owner) noexcept : _postNative{&owner}, _owner(&owner) {
                 static_assert(std::is_default_constructible_v<TLease>);
-                static_assert(noexcept(std::declval<TLease&>().Release()));
-                static_assert(noexcept(std::declval<const TLease&>().IsEmpty()));
+                static_assert(noexcept(std::declval<TLease &>().Release()));
+                static_assert(noexcept(std::declval<const TLease &>().IsEmpty()));
             }
 
-            TrackedLease(const TrackedLease&) = delete;
-            TrackedLease& operator=(const TrackedLease&) = delete;
-            TrackedLease(TrackedLease&&) = delete;
-            TrackedLease& operator=(TrackedLease&&) = delete;
+            TrackedLease(const TrackedLease &) = delete;
+            TrackedLease &operator=(const TrackedLease &) = delete;
+            TrackedLease(TrackedLease &&) = delete;
+            TrackedLease &operator=(TrackedLease &&) = delete;
 
             ~TrackedLease() noexcept {
                 if (_tracked) {
@@ -142,8 +139,7 @@ namespace ESPressio::Logging {
                         // outcome cannot be observed; therefore conservatively
                         // retain outstanding accounting and report uncertainty.
                         _owner->_unconfirmedReleases.fetch_add(
-                            1U, std::memory_order_relaxed
-                        );
+                            1U, std::memory_order_relaxed);
                         _postNative.MayHaveReleasedCapacity = true;
                     }
                 }
@@ -159,8 +155,7 @@ namespace ESPressio::Logging {
                 const auto status = _owner->_lifecycle.ReleaseAndNotify(_lease);
                 if (
                     status == CoordinatedReleaseResult::ReleasedAndNotified ||
-                    status == CoordinatedReleaseResult::ReleasedNotificationFailed
-                ) {
+                    status == CoordinatedReleaseResult::ReleasedNotificationFailed) {
                     _tracked = false;
                     _owner->_outstanding.fetch_sub(1U, std::memory_order_acq_rel);
                     if (status == CoordinatedReleaseResult::ReleasedNotificationFailed) {
@@ -172,32 +167,28 @@ namespace ESPressio::Logging {
             }
         };
 
-        template<
+        template <
             std::size_t TMaximumWakeRetries,
             class TObjectPool,
             class TLease,
-            class... TArguments
-        >
+            class... TArguments>
         [[nodiscard]] TrackedAdmissionResult AcquireUntil(
             std::size_t slot,
-            TObjectPool& pool,
-            TrackedLease<TLease>& guardedLease,
+            TObjectPool &pool,
+            TrackedLease<TLease> &guardedLease,
             ESPressio::Clock::MonotonicTimestamp deadline,
-            TArguments&&... arguments
-        ) noexcept {
+            TArguments &&...arguments) noexcept {
             if (guardedLease._owner != this) {
                 return {
                     TrackedAdmissionValidation::WrongCoordinator,
                     {AdmissionWaitResult::OutputLeaseOccupied,
-                     AdmissionWakePublicationResult::NotAttempted}
-                };
+                     AdmissionWakePublicationResult::NotAttempted}};
             }
             if (guardedLease._tracked || !guardedLease._lease.IsEmpty()) {
                 return {
                     TrackedAdmissionValidation::LeaseOccupied,
                     {AdmissionWaitResult::OutputLeaseOccupied,
-                     AdmissionWakePublicationResult::NotAttempted}
-                };
+                     AdmissionWakePublicationResult::NotAttempted}};
             }
 
             // This *outer* active reservation bridges the interval between
@@ -206,14 +197,11 @@ namespace ESPressio::Logging {
             _inflight.fetch_add(1U, std::memory_order_acq_rel);
             InflightScope scope{this};
             const auto result = _lifecycle.template AcquireUntil<TMaximumWakeRetries>(
-                slot, pool, guardedLease._lease, deadline,
-                std::forward<TArguments>(arguments)...
-            );
+                slot, pool, guardedLease._lease, deadline, std::forward<TArguments>(arguments)...);
             if (
                 result.Admission == AdmissionWaitResult::Admitted ||
                 result.Admission == AdmissionWaitResult::GrantedAfterDeadline ||
-                result.Admission == AdmissionWaitResult::GrantedDuringShutdown
-            ) {
+                result.Admission == AdmissionWaitResult::GrantedDuringShutdown) {
                 _outstanding.fetch_add(1U, std::memory_order_acq_rel);
                 guardedLease._tracked = true;
             }
@@ -235,10 +223,9 @@ namespace ESPressio::Logging {
         /// Finite, single-caller drain of both active acquisition operations
         /// and all *tracked* leases. It does NOT join Tasks or track leases
         /// issued via the old raw admission coordinator.
-        template<std::size_t TMaximumDrainWakes>
+        template <std::size_t TMaximumDrainWakes>
         [[nodiscard]] TrackedDrainResult ShutdownTrackedUntil(
-            ESPressio::Clock::MonotonicTimestamp deadline
-        ) noexcept {
+            ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             static_assert(TMaximumDrainWakes > 0U);
             const auto publication = RequestShutdown();
 
@@ -249,11 +236,10 @@ namespace ESPressio::Logging {
                     _inflight.load(std::memory_order_acquire),
                     _outstanding.load(std::memory_order_acquire),
                     _unconfirmedReleases.load(std::memory_order_acquire),
-                    _wakeFailures.load(std::memory_order_acquire)
-                };
+                    _wakeFailures.load(std::memory_order_acquire)};
             };
 
-            for (std::size_t attempt=0U; attempt<TMaximumDrainWakes; ++attempt) {
+            for (std::size_t attempt = 0U; attempt < TMaximumDrainWakes; ++attempt) {
                 if (UnconfirmedReleases() != 0U) {
                     return snapshot(TrackedDrainStatus::UnconfirmedNativeRelease);
                 }

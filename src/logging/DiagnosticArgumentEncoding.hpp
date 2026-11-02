@@ -76,7 +76,7 @@ namespace ESPressio::Logging {
                 );
             }
         }
-    }
+    } // ESPressio::Logging::Detail
 
 
     /// Proves bounded arguments and exact strong semantic identifiers against

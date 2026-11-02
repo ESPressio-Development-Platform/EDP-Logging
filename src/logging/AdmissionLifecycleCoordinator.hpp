@@ -14,9 +14,7 @@
 
 namespace ESPressio::Logging {
 
-
     namespace Detail {
-
 
         /// Selects an existing canonical atomic word without creating a provider.
         /// @tparam TAtomicWordProvider Bootstrap-selected Platform AtomicWord32 owner.
@@ -82,7 +80,7 @@ namespace ESPressio::Logging {
         // Stable dependencies and finite lifecycle state.
 
         /// Existing wake owner; it outlives admission scopes and shutdown.
-        TWaitWakeProvider* _waitWake;
+        TWaitWakeProvider *_waitWake;
         /// Existing capacity fanout and guarded Memory admission owner.
         AdmissionWakeCoordinator<TProducerCount, TWaitWakeProvider> _coordinator;
         /// Existing selected word representation, validated by its owning contract.
@@ -97,7 +95,7 @@ namespace ESPressio::Logging {
         // Ordering over the selected existing word operations.
 
         /// Reads a lifecycle value with the same acquire ordering in both bindings.
-        [[nodiscard]] static std::uint32_t LoadAcquire(const AtomicWord& word) noexcept {
+        [[nodiscard]] static std::uint32_t LoadAcquire(const AtomicWord &word) noexcept {
             if constexpr (std::is_void_v<TAtomicWordProvider>) {
                 return word.load(std::memory_order_acquire);
             } else {
@@ -106,12 +104,11 @@ namespace ESPressio::Logging {
         }
 
         /// Initializes an unpublished word without assuming a provider's default value.
-        static void InitializeWord(AtomicWord& word) noexcept {
+        static void InitializeWord(AtomicWord &word) noexcept {
             if constexpr (std::is_void_v<TAtomicWordProvider>) {
                 word.store(
                     0U,
-                    std::memory_order_relaxed
-                );
+                    std::memory_order_relaxed);
             } else {
                 word.StoreRelaxed(0U);
             }
@@ -122,8 +119,7 @@ namespace ESPressio::Logging {
             if constexpr (std::is_void_v<TAtomicWordProvider>) {
                 _shuttingDown.store(
                     1U,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
             } else {
                 _shuttingDown.StoreRelease(1U);
             }
@@ -136,20 +132,17 @@ namespace ESPressio::Logging {
                 if (adjustment > 0) {
                     _activeAdmissions.fetch_add(
                         1U,
-                        std::memory_order_acq_rel
-                    );
+                        std::memory_order_acq_rel);
                 } else {
                     _activeAdmissions.fetch_sub(
                         1U,
-                        std::memory_order_acq_rel
-                    );
+                        std::memory_order_acq_rel);
                 }
             } else {
                 auto observed = _activeAdmissions.LoadAcquire();
                 while (!_activeAdmissions.CompareExchangeAcqRel(
                     observed,
-                    observed + static_cast<std::uint32_t>(adjustment)
-                )) {
+                    observed + static_cast<std::uint32_t>(adjustment))) {
                 }
             }
         }
@@ -158,19 +151,19 @@ namespace ESPressio::Logging {
         /// All active calls retain the parent coordinator's lifetime.
         struct ActiveAdmissionScope final {
             /// Parent remains alive until this complete admission operation exits.
-            AdmissionLifecycleCoordinator* Owner;
+            AdmissionLifecycleCoordinator *Owner;
 
             /// Registers before queue waits or Memory acquisition may begin.
-            explicit ActiveAdmissionScope(AdmissionLifecycleCoordinator* owner) noexcept
+            explicit ActiveAdmissionScope(AdmissionLifecycleCoordinator *owner) noexcept
                 : Owner(owner) {
                 // Register before any queue wait or Memory acquisition can start.
                 Owner->ChangeActiveCount(1);
             }
 
             /// Ownership of an active operation cannot be copied.
-            ActiveAdmissionScope(const ActiveAdmissionScope&) = delete;
+            ActiveAdmissionScope(const ActiveAdmissionScope &) = delete;
             /// Assignment cannot duplicate an active operation.
-            ActiveAdmissionScope& operator=(const ActiveAdmissionScope&) = delete;
+            ActiveAdmissionScope &operator=(const ActiveAdmissionScope &) = delete;
 
             /// Leaves once and wakes the existing drainer after shutdown.
             ~ActiveAdmissionScope() noexcept {
@@ -188,20 +181,20 @@ namespace ESPressio::Logging {
         // Stable Bootstrap lifecycle.
 
         /// Binds the existing wake owner and initializes both unpublished words.
-        explicit AdmissionLifecycleCoordinator(TWaitWakeProvider& owner) noexcept
+        explicit AdmissionLifecycleCoordinator(TWaitWakeProvider &owner) noexcept
             : _waitWake(&owner), _coordinator(owner) {
             InitializeWord(_shuttingDown);
             InitializeWord(_activeAdmissions);
         }
 
         /// Copying would duplicate live wake and scope ownership.
-        AdmissionLifecycleCoordinator(const AdmissionLifecycleCoordinator&) = delete;
+        AdmissionLifecycleCoordinator(const AdmissionLifecycleCoordinator &) = delete;
         /// Assignment cannot replace live lifecycle state.
-        AdmissionLifecycleCoordinator& operator=(const AdmissionLifecycleCoordinator&) = delete;
+        AdmissionLifecycleCoordinator &operator=(const AdmissionLifecycleCoordinator &) = delete;
         /// A lifecycle owner stays address-stable while scopes reference it.
-        AdmissionLifecycleCoordinator(AdmissionLifecycleCoordinator&&) = delete;
+        AdmissionLifecycleCoordinator(AdmissionLifecycleCoordinator &&) = delete;
         /// Moving cannot relocate live lifecycle state.
-        AdmissionLifecycleCoordinator& operator=(AdmissionLifecycleCoordinator&&) = delete;
+        AdmissionLifecycleCoordinator &operator=(AdmissionLifecycleCoordinator &&) = delete;
 
         // Read-only lifecycle observations.
 
@@ -254,10 +247,10 @@ namespace ESPressio::Logging {
             class... TArguments>
         [[nodiscard]] CoordinatedAdmissionResult AcquireUntil(
             std::size_t slot,
-            TObjectPool& pool,
-            TLease& lease,
+            TObjectPool &pool,
+            TLease &lease,
             ESPressio::Clock::MonotonicTimestamp deadline,
-            TArguments&&... arguments) noexcept {
+            TArguments &&...arguments) noexcept {
             if (slot >= TProducerCount) {
                 return {
                     AdmissionWaitResult::InvalidProducerSlot,
@@ -283,8 +276,7 @@ namespace ESPressio::Logging {
                 lease,
                 deadline,
                 stop,
-                std::forward<TArguments>(arguments)...
-            );
+                std::forward<TArguments>(arguments)...);
 
             if (
                 status == AdmissionWaitResult::Admitted ||
@@ -304,7 +296,7 @@ namespace ESPressio::Logging {
         /// Remains usable during shutdown to return outstanding Memory leases.
         /// @tparam TLease Existing owned lease returned through its Memory contract.
         template <class TLease>
-        [[nodiscard]] CoordinatedReleaseResult ReleaseAndNotify(TLease& lease) noexcept {
+        [[nodiscard]] CoordinatedReleaseResult ReleaseAndNotify(TLease &lease) noexcept {
             return _coordinator.ReleaseAndNotify(lease);
         }
 
@@ -336,8 +328,7 @@ namespace ESPressio::Logging {
 
                 const auto result = _waitWake->WaitUntil(
                     DrainSlot,
-                    deadline
-                );
+                    deadline);
                 if (result == ESPressio::Threading::BoundedWaitWakeResult::TimedOut) {
                     return {
                         AdmissionShutdownStatus::DeadlineElapsed,

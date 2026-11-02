@@ -10,7 +10,6 @@
 
 namespace ESPressio::Logging {
 
-
     /// This API is an opt-in acknowledgement contract for an archive writer.
     /// An acknowledged EDLS generation is a complete verified segment AND
     /// a separately PowerLoss-atomic committed and reread watermark. The
@@ -110,8 +109,8 @@ namespace ESPressio::Logging {
             return SegmentByteCapacity() >= EdlsHeaderBytes + 21U;
         }
 
-        TFileStorage* files_;
-        TKeyValueStorage* watermark_;
+        TFileStorage *files_;
+        TKeyValueStorage *watermark_;
         std::array<ESPressio::Persistence::FilePathView, TPhysicalSlots> paths_;
         ESPressio::Persistence::KeyView watermarkKey_;
         std::array<std::byte, 16U> identity_;
@@ -136,14 +135,12 @@ namespace ESPressio::Logging {
             encoded.RuntimeIncarnation = incarnation_;
             std::array<std::byte, EdlsHeaderBytes> bytes{};
             if (WriteEdlsHeader(
-                encoded,
-                bytes
-            ) != EdlsHeaderStatus::Succeeded)
+                    encoded,
+                    bytes) != EdlsHeaderStatus::Succeeded)
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
             if (watermark_->StoreValue(
-                watermarkKey_,
-                P::SourceBufferView{bytes.data(), bytes.size()}
-            ) !=
+                    watermarkKey_,
+                    P::SourceBufferView{bytes.data(), bytes.size()}) !=
                 P::KeyValueStoreStatus::Succeeded)
                 return {EdlsAcknowledgedStatus::WatermarkStoreRejected};
             const auto checked = Read();
@@ -158,13 +155,13 @@ namespace ESPressio::Logging {
       public:
         /// Bind caller-owned, non-aliased owners and bounded physical names.
         explicit PowerLossAcknowledgedEdls(
-            TFileStorage& files,
-            TKeyValueStorage& watermark,
+            TFileStorage &files,
+            TKeyValueStorage &watermark,
             const std::array<
                 ESPressio::Persistence::FilePathView,
-                TPhysicalSlots>& paths,
+                TPhysicalSlots> &paths,
             ESPressio::Persistence::KeyView watermarkKey,
-            const std::array<std::byte, 16U>& identity,
+            const std::array<std::byte, 16U> &identity,
             std::uint32_t runtimeIncarnation,
             std::uint64_t byteCapacity =
                 EdlsHeaderBytes + static_cast<std::uint64_t>(TPhysicalSlots) * TSegmentMaximum) noexcept
@@ -188,24 +185,21 @@ namespace ESPressio::Logging {
                 watermarkKey_,
                 P::DestinationBufferView{
                     bytes.data(),
-                    bytes.size()}
-            );
+                    bytes.size()});
             if (native.Status == P::KeyValueReadStatus::NotFound)
                 return {EdlsAcknowledgedStatus::MissingWatermark};
             if (native.Status != P::KeyValueReadStatus::Succeeded ||
                 !P::HasFact(
                     native.Facts,
-                    P::ReadFact::AvailableDataSizeIsKnown
-                ))
+                    P::ReadFact::AvailableDataSizeIsKnown))
                 return {EdlsAcknowledgedStatus::ProviderFailure};
             if (native.BytesTransferred != EdlsHeaderBytes ||
                 native.AvailableDataSize.RawValue != EdlsHeaderBytes)
                 return {EdlsAcknowledgedStatus::InvalidWatermark};
             EdlsHeader decoded{};
             if (ReadEdlsHeader(
-                bytes,
-                decoded
-            ) != EdlsHeaderStatus::Succeeded ||
+                    bytes,
+                    decoded) != EdlsHeaderStatus::Succeeded ||
                 decoded.Profile != EdlsContentProfile::Unsealed ||
                 decoded.Slot != 0U ||
                 decoded.DeviceIdentifier != identity_)
@@ -274,9 +268,8 @@ namespace ESPressio::Logging {
                     *files_,
                     paths_[slot],
                     static_cast<std::uint16_t>(slot),
-                    scratch
-                );
-                const auto& found = before[slot];
+                    scratch);
+                const auto &found = before[slot];
                 if (found.Condition == EdlsSlotCondition::Clean &&
                     found.VerifiedFrames > 0U &&
                     found.HasHeader &&
@@ -324,19 +317,18 @@ namespace ESPressio::Logging {
             if (candidate == TPhysicalSlots)
                 return {EdlsAcknowledgedStatus::Ready, ack, candidate};
             for (std::size_t slot = 0U; slot < TPhysicalSlots; ++slot) {
-                const auto& prior = before[slot];
+                const auto &prior = before[slot];
                 if (prior.Condition != EdlsSlotCondition::Clean ||
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
                 if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
                         TPayloadMaximum>(
-                            *files_,
-                            paths_[slot],
-                            slot,
-                            prior,
-                            scratch
-                        ))
+                        *files_,
+                        paths_[slot],
+                        slot,
+                        prior,
+                        scratch))
                     return {EdlsAcknowledgedStatus::
                                 AcknowledgedHistoryChanged,
                             ack,
@@ -348,10 +340,9 @@ namespace ESPressio::Logging {
                         TPhysicalSlots,
                         TProtectedSlots,
                         TPayloadMaximum>(
-                            *files_,
-                            paths_,
-                            scratch
-                        );
+                        *files_,
+                        paths_,
+                        scratch);
                 if (completed.Status !=
                     EdlsProtectedRollingStatus::RecoveredPendingRetirement)
                     return {EdlsAcknowledgedStatus::ProviderFailure,
@@ -370,19 +361,18 @@ namespace ESPressio::Logging {
                         ack,
                         candidate};
             for (std::size_t slot = 0U; slot < TPhysicalSlots; ++slot) {
-                const auto& prior = before[slot];
+                const auto &prior = before[slot];
                 if (prior.Condition != EdlsSlotCondition::Clean ||
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
                 if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
                         TPayloadMaximum>(
-                            *files_,
-                            paths_[slot],
-                            slot,
-                            prior,
-                            scratch
-                        ))
+                        *files_,
+                        paths_[slot],
+                        slot,
+                        prior,
+                        scratch))
                     return {EdlsAcknowledgedStatus::
                                 AcknowledgedHistoryChanged,
                             ack,
@@ -461,10 +451,9 @@ namespace ESPressio::Logging {
                 TPhysicalSlots,
                 TProtectedSlots,
                 TPayloadMaximum>(
-                    *files_,
-                    paths_,
-                    scratch
-                );
+                *files_,
+                paths_,
+                scratch);
             const auto expected = ack < TProtectedSlots
                                       ? static_cast<std::size_t>(ack)
                                       : TProtectedSlots;
@@ -476,7 +465,7 @@ namespace ESPressio::Logging {
                 return {EdlsAcknowledgedStatus::NoPhysicalReserve, ack};
             // The exclusive-writer fast path must also reject externally
             // enlarged protected segments; never trust cached byte counts.
-            for (const auto& slot : prior.Inspected.Slots) {
+            for (const auto &slot : prior.Inspected.Slots) {
                 if (slot.Condition == EdlsSlotCondition::Clean &&
                     slot.VerifiedPrefixBytes > slotCapacity)
                     return {EdlsAcknowledgedStatus::ByteCapacityExceeded, ack};
@@ -487,14 +476,13 @@ namespace ESPressio::Logging {
                 TSegmentMaximum,
                 TFileStorage,
                 TMaximumFrames>(
-                    *files_,
-                    paths_,
-                    identity_,
-                    incarnation_,
-                    completeEdlg,
-                    scratch,
-                    &prior.Inspected
-                );
+                *files_,
+                paths_,
+                identity_,
+                incarnation_,
+                completeEdlg,
+                scratch,
+                &prior.Inspected);
             if (posted.Status != EdlsSuccessorStatus::PublishedAndVerified ||
                 posted.Generation != ack + 1U ||
                 posted.Slot >= TPhysicalSlots ||
@@ -506,11 +494,10 @@ namespace ESPressio::Logging {
             if (!Detail::IsProtectedPredecessorSetVerifiedWithScratch<
                     TPhysicalSlots,
                     TPayloadMaximum>(
-                        *files_,
-                        paths_,
-                        prior.Inspected,
-                        scratch
-                    ))
+                    *files_,
+                    paths_,
+                    prior.Inspected,
+                    scratch))
                 return {EdlsAcknowledgedStatus::AcknowledgedHistoryChanged,
                         ack,
                         posted.Slot};
@@ -531,10 +518,9 @@ namespace ESPressio::Logging {
                     TPhysicalSlots,
                     TProtectedSlots,
                     TPayloadMaximum>(
-                        *files_,
-                        paths_,
-                        scratch
-                    );
+                    *files_,
+                    paths_,
+                    scratch);
             if (retired.Status ==
                 EdlsProtectedRollingStatus::RecoveredPendingRetirement) {
                 exclusiveWriterAck_ = ack + 1U;
@@ -577,8 +563,7 @@ namespace ESPressio::Logging {
             std::span<std::byte> scratch) noexcept {
             return PublishFrameSequence<1U>(
                 completeEdlg,
-                scratch
-            );
+                scratch);
         }
 
         /// Commit one explicit bounded sequence of complete canonical frames.
@@ -592,8 +577,7 @@ namespace ESPressio::Logging {
             std::span<std::byte> scratch) noexcept {
             return PublishFrameSequence<TMaximumFrames>(
                 completeFrames,
-                scratch
-            );
+                scratch);
         }
     };
 

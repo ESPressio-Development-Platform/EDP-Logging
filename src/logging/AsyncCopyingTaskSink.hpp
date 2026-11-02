@@ -52,9 +52,7 @@ namespace ESPressio::Logging {
 
         /// Actual native release status when a release was attempted.
         ESPressio::Memory::ObjectPoolLeaseReleaseResult Release{
-            ESPressio::Memory::ObjectPoolLeaseReleaseResult::AlreadyEmpty
-        };
-
+            ESPressio::Memory::ObjectPoolLeaseReleaseResult::AlreadyEmpty};
     };
 
     /// One in-flight, copying, Task-backed sink, using exclusively owner-provided EDP
@@ -73,126 +71,107 @@ namespace ESPressio::Logging {
     /// One immutable Task callable bound by Bootstrap to a configured
     /// EDP-Threading Task facility or dedicated Worker lease. It retains no
     /// source borrow: Payload points into the independently leased Memory pool.
-    template<EdlgCodec TCodec, std::size_t TMaximumPayloadBytes, class TDeliverySink>
+    template <EdlgCodec TCodec, std::size_t TMaximumPayloadBytes, class TDeliverySink>
     struct AsyncOwnedDeliveryWork final {
 
         /// Stable native Memory object, retained until Task is terminal.
-        const OwnedEncodedPayload<TMaximumPayloadBytes>* Payload;
+        const OwnedEncodedPayload<TMaximumPayloadBytes> *Payload;
 
         /// Bootstrap-supplied sink, whose lifetime outlives Task completion.
-        TDeliverySink* Sink;
+        TDeliverySink *Sink;
 
         /// Executes one synchronous delivery while the independent lease is live.
         RecordSinkSubmission operator()() const noexcept {
             const auto bytes = std::span<const std::byte>(
                 Payload->Bytes.data(),
-                Payload->Used
-            );
+                Payload->Used);
             return (*Sink)(TCodec, bytes);
         }
-
     };
 
-    template<
+    template <
         EdlgCodec TCodec,
         std::size_t TMaximumPayloadBytes,
         class TPool,
         class TByteOperations,
         class TExecutor,
-        class TDeliverySink
-    >
+        class TDeliverySink>
     class AsyncCopyingTaskSink final {
 
         static_assert(TMaximumPayloadBytes > 0U);
         static_assert(TCodec == EdlgCodec::Cbor || TCodec == EdlgCodec::Json);
         static_assert(std::is_same_v<
-            typename TPool::ObjectType,
-            OwnedEncodedPayload<TMaximumPayloadBytes>
-        >);
+                      typename TPool::ObjectType,
+                      OwnedEncodedPayload<TMaximumPayloadBytes>>);
         static_assert(
             TByteOperations::CompositionOffers::template Contains<
-                ESPressio::Memory::ByteOperations
-            >,
-            "The byte-copy owner must offer EDP-Memory ByteOperations"
-        );
+                ESPressio::Memory::ByteOperations>,
+            "The byte-copy owner must offer EDP-Memory ByteOperations");
         using Lease = typename TPool::LeaseType;
         using Task = ESPressio::Threading::Task<RecordSinkSubmission>;
 
         // All services and runtime owners are application/Bootstrap supplied.
-        TPool* _pool;
-        Lease* _lease;
-        std::optional<Task>* _task;
-        const TByteOperations* _byteOperations;
-        TExecutor* _executor;
-        TDeliverySink* _sink;
+        TPool *_pool;
+        Lease *_lease;
+        std::optional<Task> *_task;
+        const TByteOperations *_byteOperations;
+        TExecutor *_executor;
+        TDeliverySink *_sink;
 
         /// Exactly the Task Type configured in the application's Threading topology.
         using DeliveryWork = AsyncOwnedDeliveryWork<
-            TCodec, TMaximumPayloadBytes, TDeliverySink
-        >;
+            TCodec,
+            TMaximumPayloadBytes,
+            TDeliverySink>;
 
-    public:
-
+      public:
         /// Captures already-initialized native owners; never transfers their lifetime.
         AsyncCopyingTaskSink(
-            TPool& pool,
-            Lease& lease,
-            std::optional<Task>& task,
-            const TByteOperations& bytes,
-            TExecutor& executor,
-            TDeliverySink& sink
-        ) noexcept :
-            _pool(&pool),
-            _lease(&lease),
-            _task(&task),
-            _byteOperations(&bytes),
-            _executor(&executor),
-            _sink(&sink) {
+            TPool &pool,
+            Lease &lease,
+            std::optional<Task> &task,
+            const TByteOperations &bytes,
+            TExecutor &executor,
+            TDeliverySink &sink) noexcept : _pool(&pool),
+                                            _lease(&lease),
+                                            _task(&task),
+                                            _byteOperations(&bytes),
+                                            _executor(&executor),
+                                            _sink(&sink) {
             static_assert(
-                noexcept(std::declval<TDeliverySink&>()(
+                noexcept(std::declval<TDeliverySink &>()(
                     TCodec,
-                    std::declval<std::span<const std::byte>>()
-                ))
-            );
+                    std::declval<std::span<const std::byte>>())));
             static_assert(
                 std::is_same_v<
-                    decltype(std::declval<TDeliverySink&>()(
+                    decltype(std::declval<TDeliverySink &>()(
                         TCodec,
-                        std::declval<std::span<const std::byte>>()
-                    )),
-                    RecordSinkSubmission
-                >
-            );
+                        std::declval<std::span<const std::byte>>())),
+                    RecordSinkSubmission>);
             static_assert(
                 std::is_same_v<
-                    decltype(std::declval<TExecutor&>().Dispatch(
+                    decltype(std::declval<TExecutor &>().Dispatch(
                         std::declval<DeliveryWork>(),
-                        ESPressio::Threading::TaskDispatchPolicy::AbandonImmediately
-                    )),
-                    ESPressio::Threading::TaskDispatchResult<Task>
-                >,
-                "EDP-Threading dispatcher must return Task<RecordSinkSubmission>"
-            );
+                        ESPressio::Threading::TaskDispatchPolicy::AbandonImmediately)),
+                    ESPressio::Threading::TaskDispatchResult<Task>>,
+                "EDP-Threading dispatcher must return Task<RecordSinkSubmission>");
             static_assert(
-                noexcept(std::declval<const TByteOperations&>().CopyBytes(
-                    std::declval<void*>(),
-                    std::declval<const void*>(),
-                    std::declval<std::size_t>()
-                ))
-            );
+                noexcept(std::declval<const TByteOperations &>().CopyBytes(
+                    std::declval<void *>(),
+                    std::declval<const void *>(),
+                    std::declval<std::size_t>())));
         }
 
-        AsyncCopyingTaskSink(const AsyncCopyingTaskSink&) = delete;
-        AsyncCopyingTaskSink& operator=(const AsyncCopyingTaskSink&) = delete;
-        AsyncCopyingTaskSink(AsyncCopyingTaskSink&&) = delete;
-        AsyncCopyingTaskSink& operator=(AsyncCopyingTaskSink&&) = delete;
+        AsyncCopyingTaskSink(const AsyncCopyingTaskSink &) = delete;
+        AsyncCopyingTaskSink &operator=(const AsyncCopyingTaskSink &) = delete;
+        AsyncCopyingTaskSink(AsyncCopyingTaskSink &&) = delete;
+        AsyncCopyingTaskSink &operator=(AsyncCopyingTaskSink &&) = delete;
 
         /// Synchronously copies into a real EDP-Memory lease before asynchronous
         /// EDP-Threading admission; never allows the incoming borrow to escape.
         AsyncSinkAdmissionStatus Submit(
             EdlgCodec codec,
-            std::span<const std::byte> source
-        ) {
+            std::span<const std::byte> source) {
             if (codec != TCodec) {
                 return AsyncSinkAdmissionStatus::CodecMismatch;
             }
@@ -204,8 +183,7 @@ namespace ESPressio::Logging {
             }
             const auto acquired = _pool->Acquire(
                 *_lease,
-                ESPressio::Platform::Synchronization::WaitTimeout::NoWait()
-            );
+                ESPressio::Platform::Synchronization::WaitTimeout::NoWait());
             if (acquired != ESPressio::Memory::ObjectPoolAcquisitionResult::Succeeded) {
                 if (acquired == ESPressio::Memory::ObjectPoolAcquisitionResult::CapacityUnavailable ||
                     acquired == ESPressio::Memory::ObjectPoolAcquisitionResult::TimedOut) {
@@ -218,7 +196,7 @@ namespace ESPressio::Logging {
                 return AsyncSinkAdmissionStatus::PoolProviderFailure;
             }
 
-            auto* payload = _lease->Get();
+            auto *payload = _lease->Get();
             if (payload == nullptr) {
                 // Ownership is uncertain: do not destroy the retained Lease.
                 return AsyncSinkAdmissionStatus::PoolProviderFailure;
@@ -226,19 +204,17 @@ namespace ESPressio::Logging {
             _byteOperations->CopyBytes(
                 payload->Bytes.data(),
                 source.data(),
-                source.size()
-            );
+                source.size());
             payload->Used = source.size();
 
             auto dispatched = _executor->Dispatch(
                 DeliveryWork{payload, _sink},
-                ESPressio::Threading::TaskDispatchPolicy::AbandonImmediately
-            );
+                ESPressio::Threading::TaskDispatchPolicy::AbandonImmediately);
             if (!dispatched.IsSucceeded()) {
                 const auto released = _lease->Release();
                 return released == ESPressio::Memory::ObjectPoolLeaseReleaseResult::Released
-                    ? AsyncSinkAdmissionStatus::DispatchRejected
-                    : AsyncSinkAdmissionStatus::ReclaimUnconfirmed;
+                           ? AsyncSinkAdmissionStatus::DispatchRejected
+                           : AsyncSinkAdmissionStatus::ReclaimUnconfirmed;
             }
             _task->emplace(dispatched.TakeTask());
             return AsyncSinkAdmissionStatus::Queued;
@@ -248,8 +224,7 @@ namespace ESPressio::Logging {
         /// Accepted is admission into Threading only, not final native delivery.
         RecordSinkSubmission operator()(
             EdlgCodec codec,
-            std::span<const std::byte> source
-        ) noexcept {
+            std::span<const std::byte> source) noexcept {
             const auto result = Submit(codec, source);
             if (result == AsyncSinkAdmissionStatus::Queued) {
                 return RecordSinkSubmission::Accepted;
@@ -271,8 +246,8 @@ namespace ESPressio::Logging {
             AsyncSinkCompletionOutcome result{};
             if (!_task->has_value()) {
                 result.Status = _lease->IsEmpty()
-                    ? AsyncSinkCompletionStatus::NoPendingTask
-                    : AsyncSinkCompletionStatus::ReclaimUnconfirmed;
+                                    ? AsyncSinkCompletionStatus::NoPendingTask
+                                    : AsyncSinkCompletionStatus::ReclaimUnconfirmed;
                 return result;
             }
             if (!(*_task)->IsFinished()) {
@@ -292,18 +267,18 @@ namespace ESPressio::Logging {
                 result.Delivery = taken.TakeResult();
                 _task->reset();
                 switch (result.Delivery) {
-                    case RecordSinkSubmission::Accepted:
-                        result.Status = AsyncSinkCompletionStatus::AcceptedAndReleased;
-                        break;
-                    case RecordSinkSubmission::Rejected:
-                        result.Status = AsyncSinkCompletionStatus::RejectedAndReleased;
-                        break;
-                    case RecordSinkSubmission::Partial:
-                        result.Status = AsyncSinkCompletionStatus::PartialAndReleased;
-                        break;
-                    case RecordSinkSubmission::ProviderFailure:
-                        result.Status = AsyncSinkCompletionStatus::ProviderFailureAndReleased;
-                        break;
+                case RecordSinkSubmission::Accepted:
+                    result.Status = AsyncSinkCompletionStatus::AcceptedAndReleased;
+                    break;
+                case RecordSinkSubmission::Rejected:
+                    result.Status = AsyncSinkCompletionStatus::RejectedAndReleased;
+                    break;
+                case RecordSinkSubmission::Partial:
+                    result.Status = AsyncSinkCompletionStatus::PartialAndReleased;
+                    break;
+                case RecordSinkSubmission::ProviderFailure:
+                    result.Status = AsyncSinkCompletionStatus::ProviderFailureAndReleased;
+                    break;
                 }
             }
             result.Release = _lease->Release();
@@ -317,8 +292,8 @@ namespace ESPressio::Logging {
         /// A request is not terminal; the caller must still observe TryFinalize.
         ESPressio::Threading::TaskCancelResult RequestCancellation() noexcept {
             return _task->has_value()
-                ? (*_task)->Cancel()
-                : ESPressio::Threading::TaskCancelResult::AlreadyFinished;
+                       ? (*_task)->Cancel()
+                       : ESPressio::Threading::TaskCancelResult::AlreadyFinished;
         }
 
         /// After a terminal Task with failed native release, make one explicit
@@ -329,7 +304,6 @@ namespace ESPressio::Logging {
             }
             return _lease->Release();
         }
-
     };
 
-} // ESPressio::Logging
+} // namespace ESPressio::Logging

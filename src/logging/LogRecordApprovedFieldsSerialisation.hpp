@@ -6,11 +6,15 @@
 #include "LogRecord.hpp"
 
 namespace ESPressio::Logging {
+
+    /// Typed result of strict, issued Field 11/14 canonical conversions.
     enum class ApprovedLogFieldConversion : std::uint8_t {
         Succeeded = 0U,
         UnknownClockValue = 1U,
         ReservedRecordFacts = 2U
     };
+
+    /// Rejects Clock status enum values outside the issued v1 provenance range.
     constexpr bool IsApprovedProvenance(
         const LogTemporalProvenance& p
     ) noexcept {
@@ -20,18 +24,26 @@ namespace ESPressio::Logging {
                static_cast<std::uint8_t>(p.Quality) <=
                    static_cast<std::uint8_t>(Clock::TemporalQualityAssessment::Reliable);
     }
-}
+
+} // ESPressio::Logging
 
 namespace ESPressio::Serialisation {
+
+    /// Field 11 canonical pair remains owned by the Serialisation framework.
     template<> struct CanonicalRepresentation<ESPressio::Logging::LogTemporalProvenance> final {
         using Type = std::array<std::uint8_t, 2U>;
     };
+
+    /// Field 14 canonical representation is exactly one unsigned byte.
     template<> struct CanonicalRepresentation<ESPressio::Logging::LogRecordFacts> final {
         using Type = std::uint8_t;
     };
-}
+
+} // ESPressio::Serialisation
 
 namespace ESPressio::Bounded {
+
+    /// Strict Clock provenance conversion into the owner-issued wire pair.
     template<> struct TypeConversionAdapter<
         ESPressio::Logging::LogTemporalProvenance,
         std::array<std::uint8_t, 2U>
@@ -55,6 +67,7 @@ namespace ESPressio::Bounded {
         }
     };
 
+    /// Strict restoration of the issued Clock provenance owner values.
     template<> struct TypeConversionAdapter<
         std::array<std::uint8_t, 2U>,
         ESPressio::Logging::LogTemporalProvenance
@@ -81,6 +94,7 @@ namespace ESPressio::Bounded {
         }
     };
 
+    /// Rejects unsupported nonzero source facts before encoding.
     template<> struct TypeConversionAdapter<
         ESPressio::Logging::LogRecordFacts, std::uint8_t
     > final {
@@ -100,6 +114,7 @@ namespace ESPressio::Bounded {
         }
     };
 
+    /// Rejects unsupported nonzero wire facts before restoring the owner value.
     template<> struct TypeConversionAdapter<
         std::uint8_t, ESPressio::Logging::LogRecordFacts
     > final {
@@ -118,7 +133,8 @@ namespace ESPressio::Bounded {
             return ResultType::Succeeded;
         }
     };
-}
+
+} // ESPressio::Bounded
 
 static_assert(ESPressio::Serialisation::SerialisableType<
     ESPressio::Logging::LogTemporalProvenance>);

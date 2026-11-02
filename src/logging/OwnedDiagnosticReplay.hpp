@@ -30,49 +30,51 @@ namespace ESPressio::Logging {
     // Compatibility API creates one fixed-size stack scratch matching exactly
     // the caller's compile-time Types. New call sites should use the explicit
     // caller-owned scratch overload in OwnedDiagnosticPositionalReencoding.hpp.
-    template<
-        class TGeneratedMessageSchema, class TCodec,
-        class... TValues, std::size_t N, std::size_t B,
-        class TByteOperationsProvider
-    >
+    template <
+        class TGeneratedMessageSchema,
+        class TCodec,
+        class... TValues,
+        std::size_t N,
+        std::size_t B,
+        class TByteOperationsProvider>
     [[nodiscard]] OwnedArgumentReplayResult EncodeOwnedDiagnosticArguments(
         std::span<std::byte> destination,
-        const OwnedDiagnosticArguments<N,B,TByteOperationsProvider>& source
-    ) noexcept {
+        const OwnedDiagnosticArguments<N, B, TByteOperationsProvider> &source) noexcept {
         static_assert(
-            std::is_same_v<TCodec,ESPressio::Serialisation::Cbor> ||
-            std::is_same_v<TCodec,ESPressio::Serialisation::Json>,
+            std::is_same_v<TCodec, ESPressio::Serialisation::Cbor> ||
+                std::is_same_v<TCodec, ESPressio::Serialisation::Json>,
             "Unsupported owner positional codec");
         OwnedPositionalScratch<TValues...> scratch{};
-        const auto result=[&]() noexcept {
-            if constexpr (std::is_same_v<TCodec,ESPressio::Serialisation::Cbor>)
+        const auto result = [&]() noexcept {
+            if constexpr (std::is_same_v<TCodec, ESPressio::Serialisation::Cbor>)
                 return EncodeOwnedDiagnosticArgumentsCbor<
-                    TGeneratedMessageSchema,TValues...>(source,destination,scratch);
+                    TGeneratedMessageSchema,
+                    TValues...>(source, destination, scratch);
             else
                 return EncodeOwnedDiagnosticArgumentsJson<
-                    TGeneratedMessageSchema,TValues...>(source,destination,scratch);
+                    TGeneratedMessageSchema,
+                    TValues...>(source, destination, scratch);
         }();
 
-        const auto status=[&]() constexpr noexcept {
+        const auto status = [&]() constexpr noexcept {
             switch (result.Status) {
-                case OwnedPositionalReencodingStatus::Succeeded:
-                    return OwnedArgumentReplayStatus::Succeeded;
-                case OwnedPositionalReencodingStatus::CountMismatch:
-                    return OwnedArgumentReplayStatus::CountMismatch;
-                case OwnedPositionalReencodingStatus::OwnerValueRejected:
-                    return OwnedArgumentReplayStatus::SourceScalarRejected;
-                case OwnedPositionalReencodingStatus::EncoderRejected:
-                    return OwnedArgumentReplayStatus::EncoderRejected;
-                case OwnedPositionalReencodingStatus::KindMismatch:
-                case OwnedPositionalReencodingStatus::SourceUnavailable:
-                case OwnedPositionalReencodingStatus::ValueWidthMismatch:
-                    return OwnedArgumentReplayStatus::SourceDescriptorRejected;
+            case OwnedPositionalReencodingStatus::Succeeded:
+                return OwnedArgumentReplayStatus::Succeeded;
+            case OwnedPositionalReencodingStatus::CountMismatch:
+                return OwnedArgumentReplayStatus::CountMismatch;
+            case OwnedPositionalReencodingStatus::OwnerValueRejected:
+                return OwnedArgumentReplayStatus::SourceScalarRejected;
+            case OwnedPositionalReencodingStatus::EncoderRejected:
+                return OwnedArgumentReplayStatus::EncoderRejected;
+            case OwnedPositionalReencodingStatus::KindMismatch:
+            case OwnedPositionalReencodingStatus::SourceUnavailable:
+            case OwnedPositionalReencodingStatus::ValueWidthMismatch:
+                return OwnedArgumentReplayStatus::SourceDescriptorRejected;
             }
             return OwnedArgumentReplayStatus::SourceDescriptorRejected;
         }();
         return {
             status,
-            result.IsSuccessful() ? result.Encoding.BytesWritten : 0U
-        };
+            result.IsSuccessful() ? result.Encoding.BytesWritten : 0U};
     }
 } // namespace ESPressio::Logging

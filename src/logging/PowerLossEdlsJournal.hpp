@@ -27,7 +27,6 @@ namespace ESPressio::Logging {
         std::size_t RetainedCount{0U};
     };
 
-
     /// Bounded, N-record historical journal constructed from the established
     /// PowerLossEdlsSnapshots owner. N+1 independent atomic keys maintain
     /// one sacrificial slot during the next append.
@@ -52,75 +51,71 @@ namespace ESPressio::Logging {
     /// @tparam TMaximumValueBytes Maximum bytes per EDLS key.
     /// @tparam TMaximumFramePayloadBytes Maximum EDLG payload bytes.
     /// @tparam TStorage Bootstrap-selected EDP-Persistence KeyValueStorage provider.
-    template<
+    template <
         std::size_t TSlots,
         std::size_t TMaximumValueBytes,
         std::size_t TMaximumFramePayloadBytes,
-        class TStorage
-    >
+        class TStorage>
     class PowerLossEdlsJournal final {
-    private:
-
+      private:
         /// Reuse of the established independently checked snapshot owner.
         PowerLossEdlsSnapshots<
             TSlots,
             TMaximumValueBytes,
             TMaximumFramePayloadBytes,
-            TStorage
-        > snapshots_;
+            TStorage>
+            snapshots_;
 
-    public:
-
+      public:
         /// Selects application-owned independent PowerLoss-atomic key slots.
         explicit PowerLossEdlsJournal(
-            TStorage& storage,
-            const std::array<ESPressio::Persistence::KeyView,TSlots>& keys
-        ) noexcept : snapshots_(storage,keys) {}
+            TStorage &storage,
+            const std::array<ESPressio::Persistence::KeyView, TSlots> &keys) noexcept : snapshots_(storage, keys) {}
 
         /// Inspects the bounded retention window without mutating storage.
         /// Discontinuous generations or malformed physical ordering fail
         /// closed, rather than silently retiring a supposedly protected key.
         [[nodiscard]] DurableEdlsHistoryObservation Inspect() const noexcept {
-            const auto physical=snapshots_.Inspect();
+            const auto physical = snapshots_.Inspect();
             DurableEdlsHistoryObservation result{};
-            result.Status=physical.Status;
+            result.Status = physical.Status;
 
-            if (physical.Status==DurableEdlsStatus::Empty) {
+            if (physical.Status == DurableEdlsStatus::Empty) {
                 return result;
             }
             // A damaged sacrificial key may be ignored for *read-only*
             // recovery of the independently verified retained window.
             // The degraded state still prevents any subsequent append.
-            if (physical.Status!=DurableEdlsStatus::Clean &&
-                physical.Status!=DurableEdlsStatus::Degraded) {
+            if (physical.Status != DurableEdlsStatus::Clean &&
+                physical.Status != DurableEdlsStatus::Degraded) {
                 return result;
             }
-            if (physical.Generation==0U || physical.NewestSlot>=TSlots) {
-                result.Status=DurableEdlsStatus::Ambiguous;
+            if (physical.Generation == 0U || physical.NewestSlot >= TSlots) {
+                result.Status = DurableEdlsStatus::Ambiguous;
                 return result;
             }
 
-            const auto capacity=TSlots-1U;
-            result.RetainedCount=
-                physical.Generation<static_cast<std::uint64_t>(capacity)
+            const auto capacity = TSlots - 1U;
+            result.RetainedCount =
+                physical.Generation < static_cast<std::uint64_t>(capacity)
                     ? static_cast<std::size_t>(physical.Generation)
                     : capacity;
-            result.Newest=physical.Generation;
-            result.OldestRetained=
-                physical.Generation-static_cast<std::uint64_t>(result.RetainedCount)+1U;
+            result.Newest = physical.Generation;
+            result.OldestRetained =
+                physical.Generation - static_cast<std::uint64_t>(result.RetainedCount) + 1U;
 
             // Every still-retained generation must have exactly one complete
             // EDLG/EDLS key and a matching canonical physical slot position.
-            for (std::size_t age=0U;age<result.RetainedCount;++age) {
-                const auto generation=
-                    physical.Generation-static_cast<std::uint64_t>(age);
-                const auto expectedSlot=
-                    (physical.NewestSlot+TSlots-age)%TSlots;
-                if (physical.SlotStatus[expectedSlot]!=DurableEdlsStatus::Clean ||
-                    physical.SlotGenerations[expectedSlot]!=generation) {
-                    result.Status=DurableEdlsStatus::Ambiguous;
-                    result.RetainedCount=0U;
-                    result.OldestRetained=0U;
+            for (std::size_t age = 0U; age < result.RetainedCount; ++age) {
+                const auto generation =
+                    physical.Generation - static_cast<std::uint64_t>(age);
+                const auto expectedSlot =
+                    (physical.NewestSlot + TSlots - age) % TSlots;
+                if (physical.SlotStatus[expectedSlot] != DurableEdlsStatus::Clean ||
+                    physical.SlotGenerations[expectedSlot] != generation) {
+                    result.Status = DurableEdlsStatus::Ambiguous;
+                    result.RetainedCount = 0U;
+                    result.OldestRetained = 0U;
                     return result;
                 }
             }
@@ -129,20 +124,20 @@ namespace ESPressio::Logging {
             // following newest MUST be the single unretained sacrificial key.
             // In particular the snapshot engine may not overwrite a retained
             // key even if a pathological valid-CRC slot order is presented.
-            bool allFull=true;
-            for (std::size_t index=0U;index<TSlots;++index) {
-                if (physical.SlotStatus[index]!=DurableEdlsStatus::Clean) {
-                    allFull=false;
+            bool allFull = true;
+            for (std::size_t index = 0U; index < TSlots; ++index) {
+                if (physical.SlotStatus[index] != DurableEdlsStatus::Clean) {
+                    allFull = false;
                     break;
                 }
             }
             if (allFull) {
-                const auto sacrificial=(physical.NewestSlot+1U)%TSlots;
-                if (physical.SlotGenerations[sacrificial]>=
+                const auto sacrificial = (physical.NewestSlot + 1U) % TSlots;
+                if (physical.SlotGenerations[sacrificial] >=
                     result.OldestRetained) {
-                    result.Status=DurableEdlsStatus::Ambiguous;
-                    result.RetainedCount=0U;
-                    result.OldestRetained=0U;
+                    result.Status = DurableEdlsStatus::Ambiguous;
+                    result.RetainedCount = 0U;
+                    result.OldestRetained = 0U;
                 }
             }
             return result;
@@ -154,30 +149,28 @@ namespace ESPressio::Logging {
         /// can return Committed; interruption may introduce a complete new
         /// generation before its caller observes acknowledgement.
         [[nodiscard]] DurableEdlsCommitOutcome<TSlots> Append(
-            const std::array<std::byte,16U>& identity,
+            const std::array<std::byte, 16U> &identity,
             std::uint32_t incarnation,
-            std::span<const std::byte> frame
-        ) noexcept {
-            const auto before=Inspect();
-            if (before.Status!=DurableEdlsStatus::Clean &&
-                before.Status!=DurableEdlsStatus::Empty) {
+            std::span<const std::byte> frame) noexcept {
+            const auto before = Inspect();
+            if (before.Status != DurableEdlsStatus::Clean &&
+                before.Status != DurableEdlsStatus::Empty) {
                 return {before.Status};
             }
-            const auto outcome=snapshots_.Commit(
+            const auto outcome = snapshots_.Commit(
                 identity,
                 incarnation,
-                frame
-            );
-            if (outcome.Status!=DurableEdlsStatus::Committed) {
+                frame);
+            if (outcome.Status != DurableEdlsStatus::Committed) {
                 return outcome;
             }
-            const auto after=Inspect();
-            if (after.Status!=DurableEdlsStatus::Clean ||
-                after.Newest!=outcome.Generation ||
-                (before.Status==DurableEdlsStatus::Clean &&
-                 after.Newest!=before.Newest+1U)) {
-                auto uncertain=outcome;
-                uncertain.Status=DurableEdlsStatus::ReadbackUnconfirmed;
+            const auto after = Inspect();
+            if (after.Status != DurableEdlsStatus::Clean ||
+                after.Newest != outcome.Generation ||
+                (before.Status == DurableEdlsStatus::Clean &&
+                 after.Newest != before.Newest + 1U)) {
+                auto uncertain = outcome;
+                uncertain.Status = DurableEdlsStatus::ReadbackUnconfirmed;
                 return uncertain;
             }
             return outcome;
@@ -188,23 +181,20 @@ namespace ESPressio::Logging {
         /// the underlying snapshot owner rechecks EDLS and EDLG checksums.
         [[nodiscard]] DurableEdlsFrameReadOutcome RecoverRetained(
             std::uint64_t generation,
-            std::span<std::byte> destination
-        ) const noexcept {
-            const auto history=Inspect();
-            if (history.Status!=DurableEdlsStatus::Clean &&
-                history.Status!=DurableEdlsStatus::Degraded) {
-                return {history.Status,0U};
+            std::span<std::byte> destination) const noexcept {
+            const auto history = Inspect();
+            if (history.Status != DurableEdlsStatus::Clean &&
+                history.Status != DurableEdlsStatus::Degraded) {
+                return {history.Status, 0U};
             }
-            if (generation<history.OldestRetained ||
-                generation>history.Newest) {
-                return {DurableEdlsStatus::InvalidRecord,0U};
+            if (generation < history.OldestRetained ||
+                generation > history.Newest) {
+                return {DurableEdlsStatus::InvalidRecord, 0U};
             }
             return snapshots_.RecoverGeneration(
                 generation,
-                destination
-            );
+                destination);
         }
-
     };
 
 } // namespace ESPressio::Logging

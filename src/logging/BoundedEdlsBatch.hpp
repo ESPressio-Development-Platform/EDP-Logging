@@ -17,7 +17,6 @@
 
 namespace ESPressio::Logging {
 
-
     /// Result of changing the empty batch's Bootstrap-selected dwell.
     enum class EdlsBatchConfigurationStatus : std::uint8_t {
         Configured = 0U,
@@ -104,18 +103,18 @@ namespace ESPressio::Logging {
                 ESPressio::Clock::MonotonicClock>);
         static_assert(
             std::is_same_v<
-                decltype(std::declval<const TMonotonicClockProvider&>().Now()),
+                decltype(std::declval<const TMonotonicClockProvider &>().Now()),
                 ESPressio::Clock::MonotonicTimestamp>);
         static_assert(
-            noexcept(std::declval<const TMonotonicClockProvider&>().Now()));
+            noexcept(std::declval<const TMonotonicClockProvider &>().Now()));
 
         // Application-owned stable providers and buffers.
 
         /// Sole archive transaction owner; it outlives this accumulator.
-        TArchive* archive_;
+        TArchive *archive_;
 
         /// Canonical application Clock; no private timebase is introduced.
-        const TMonotonicClockProvider* clock_;
+        const TMonotonicClockProvider *clock_;
 
         /// Stable caller scratch, disjoint from accumulator and source frames.
         std::span<std::byte> scratch_;
@@ -177,24 +176,24 @@ namespace ESPressio::Logging {
 
         /// Borrows stable providers and whole-segment scratch; call ConfigureDwell.
         BoundedEdlsBatch(
-            TArchive& archive,
-            const TMonotonicClockProvider& clock,
+            TArchive &archive,
+            const TMonotonicClockProvider &clock,
             std::span<std::byte> scratch) noexcept
             : archive_(&archive),
               clock_(&clock),
               scratch_(scratch) {}
 
         /// This semantic batch owner must not be copied or relocated.
-        BoundedEdlsBatch(const BoundedEdlsBatch&) = delete;
+        BoundedEdlsBatch(const BoundedEdlsBatch &) = delete;
 
         /// Copy assignment cannot transfer pending acknowledgement ownership.
-        BoundedEdlsBatch& operator=(const BoundedEdlsBatch&) = delete;
+        BoundedEdlsBatch &operator=(const BoundedEdlsBatch &) = delete;
 
         /// Existing worker references require a lifetime-stable address.
-        BoundedEdlsBatch(BoundedEdlsBatch&&) = delete;
+        BoundedEdlsBatch(BoundedEdlsBatch &&) = delete;
 
         /// Move assignment cannot relocate pending frame ownership.
-        BoundedEdlsBatch& operator=(BoundedEdlsBatch&&) = delete;
+        BoundedEdlsBatch &operator=(BoundedEdlsBatch &&) = delete;
 
         /// Select zero/immediate or finite dwell within the compile-time maximum.
         /// A pending batch's deadline cannot be extended by reconfiguration.
@@ -239,10 +238,9 @@ namespace ESPressio::Logging {
             }
             EdlgFrameView frame{};
             if (ReadEdlgFrame(
-                completeFrame,
-                frame,
-                TArchive::MaximumFramePayloadBytes()
-            ) != EdlgFrameReadResult::Succeeded ||
+                    completeFrame,
+                    frame,
+                    TArchive::MaximumFramePayloadBytes()) != EdlgFrameReadResult::Succeeded ||
                 frame.Consumed != completeFrame.size() ||
                 frame.Codec != EdlgCodec::Cbor) {
                 return Observe(EdlsBatchStatus::InvalidFrame);
@@ -266,9 +264,8 @@ namespace ESPressio::Logging {
                 return Observe(EdlsBatchStatus::ClockRangeExhausted);
             }
             if (bytes_.Append(
-                reinterpret_cast<const std::uint8_t*>(completeFrame.data()),
-                completeFrame.size()
-            ) != ESPressio::Bounded::BytesAppendResult::Succeeded) {
+                    reinterpret_cast<const std::uint8_t *>(completeFrame.data()),
+                    completeFrame.size()) != ESPressio::Bounded::BytesAppendResult::Succeeded) {
                 return Observe(EdlsBatchStatus::FrameTooLarge);
             }
             if (records_ == 0U) {
@@ -325,11 +322,9 @@ namespace ESPressio::Logging {
             }
             const auto committed = archive_->template PublishBatch<TMaximumRecords>(
                 std::span<const std::byte>(
-                    reinterpret_cast<const std::byte*>(bytes_.Data()),
-                    bytes_.Size()
-                ),
-                scratch_
-            );
+                    reinterpret_cast<const std::byte *>(bytes_.Data()),
+                    bytes_.Size()),
+                scratch_);
             const bool acknowledged =
                 committed.Status == EdlsAcknowledgedStatus::AcknowledgedWithinCapacity ||
                 committed.Status == EdlsAcknowledgedStatus::AcknowledgedAndRetired ||

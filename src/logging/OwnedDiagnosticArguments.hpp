@@ -17,8 +17,10 @@
 #include <types/FieldIdentifier.hpp>
 
 namespace ESPressio::Clock {
+
     class ClockEra;
-}
+
+} // ESPressio::Clock
 
 namespace ESPressio::Logging {
 

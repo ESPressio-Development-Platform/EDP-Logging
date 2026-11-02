@@ -19,7 +19,6 @@
 
 namespace ESPressio::Logging {
 
-
     /// Results distinguish a transactional transition from the health of the
     /// required native lease release and producer wake publication.
     enum class RecordQueueResult : std::uint8_t {
@@ -71,8 +70,8 @@ namespace ESPressio::Logging {
         static_assert(std::is_integral_v<TGeneration> && std::is_unsigned_v<TGeneration>);
         static_assert(std::is_default_constructible_v<TLease>);
         static_assert(std::is_nothrow_move_assignable_v<TLease>);
-        static_assert(noexcept(std::declval<const TLease&>().IsEmpty()));
-        static_assert(noexcept(std::declval<TLease&>().Release()));
+        static_assert(noexcept(std::declval<const TLease &>().IsEmpty()));
+        static_assert(noexcept(std::declval<TLease &>().Release()));
 
         struct RecordIndexSpace final {};
         using Topology =
@@ -97,17 +96,17 @@ namespace ESPressio::Logging {
             friend class TransactionalRecordQueue;
 
             /// Queue owner retained until the matching transition and release are confirmed.
-            TransactionalRecordQueue* _owner{nullptr};
+            TransactionalRecordQueue *_owner{nullptr};
             /// Exclusive slot/generation proof for this handle's lifetime.
             Ticket _ticket{};
             /// Stable lease view established under the queue owner, never a concurrent
             /// occupancy-bitmap read.
-            TLease* _borrowedLease{nullptr};
+            TLease *_borrowedLease{nullptr};
 
             void AbandonOnScopeExit() noexcept {
                 if (!_owner)
                     return;
-                auto* owner = _owner;
+                auto *owner = _owner;
                 const auto status = Abort();
                 if (status != RecordQueueResult::Succeeded &&
                     status != RecordQueueResult::ReleasedNotificationFailed) {
@@ -115,29 +114,25 @@ namespace ESPressio::Logging {
                     // whose required native lease release was not verified.
                     owner->_integrityFailed.store(
                         true,
-                        std::memory_order_release
-                    );
+                        std::memory_order_release);
                 }
             }
 
           public:
             Reservation() noexcept = default;
-            Reservation(const Reservation&) = delete;
-            Reservation& operator=(const Reservation&) = delete;
-            Reservation(Reservation&& other) noexcept
+            Reservation(const Reservation &) = delete;
+            Reservation &operator=(const Reservation &) = delete;
+            Reservation(Reservation &&other) noexcept
                 : _owner(std::exchange(
-                    other._owner,
-                    nullptr
-                )),
+                      other._owner,
+                      nullptr)),
                   _ticket(std::exchange(
                       other._ticket,
-                      Ticket{}
-                  )),
+                      Ticket{})),
                   _borrowedLease(std::exchange(
                       other._borrowedLease,
-                      nullptr
-                  )) {}
-            Reservation& operator=(Reservation&&) = delete;
+                      nullptr)) {}
+            Reservation &operator=(Reservation &&) = delete;
             ~Reservation() noexcept {
                 AbandonOnScopeExit();
             }
@@ -146,7 +141,7 @@ namespace ESPressio::Logging {
                 return _owner != nullptr;
             }
 
-            [[nodiscard]] TLease* Borrow() noexcept {
+            [[nodiscard]] TLease *Borrow() noexcept {
                 return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
 
@@ -170,8 +165,7 @@ namespace ESPressio::Logging {
                 }
                 const auto outcome = _owner->CommitUntil(
                     _ticket,
-                    deadline
-                );
+                    deadline);
                 if (outcome == RecordQueueResult::Succeeded) {
                     _owner = nullptr;
                     _borrowedLease = nullptr;
@@ -188,8 +182,7 @@ namespace ESPressio::Logging {
                 _borrowedLease = nullptr;
                 const auto outcome = _owner->AbortUntil(
                     _ticket,
-                    deadline
-                );
+                    deadline);
                 if (outcome == RecordQueueResult::Succeeded ||
                     outcome == RecordQueueResult::ReleasedNotificationFailed) {
                     _owner = nullptr;
@@ -217,45 +210,41 @@ namespace ESPressio::Logging {
             friend class TransactionalRecordQueue;
 
             /// Queue owner retained until the matching transition and release are confirmed.
-            TransactionalRecordQueue* _owner{nullptr};
+            TransactionalRecordQueue *_owner{nullptr};
             /// Exclusive slot/generation proof for this handle's lifetime.
             Ticket _ticket{};
             /// Stable lease view established under the queue owner, never a concurrent
             /// occupancy-bitmap read.
-            TLease* _borrowedLease{nullptr};
+            TLease *_borrowedLease{nullptr};
 
             void CompleteOnScopeExit() noexcept {
                 if (!_owner)
                     return;
-                auto* owner = _owner;
+                auto *owner = _owner;
                 const auto status = Complete();
                 if (status != RecordQueueResult::Succeeded &&
                     status != RecordQueueResult::ReleasedNotificationFailed) {
                     owner->_integrityFailed.store(
                         true,
-                        std::memory_order_release
-                    );
+                        std::memory_order_release);
                 }
             }
 
           public:
             ConsumerClaim() noexcept = default;
-            ConsumerClaim(const ConsumerClaim&) = delete;
-            ConsumerClaim& operator=(const ConsumerClaim&) = delete;
-            ConsumerClaim(ConsumerClaim&& other) noexcept
+            ConsumerClaim(const ConsumerClaim &) = delete;
+            ConsumerClaim &operator=(const ConsumerClaim &) = delete;
+            ConsumerClaim(ConsumerClaim &&other) noexcept
                 : _owner(std::exchange(
-                    other._owner,
-                    nullptr
-                )),
+                      other._owner,
+                      nullptr)),
                   _ticket(std::exchange(
                       other._ticket,
-                      Ticket{}
-                  )),
+                      Ticket{})),
                   _borrowedLease(std::exchange(
                       other._borrowedLease,
-                      nullptr
-                  )) {}
-            ConsumerClaim& operator=(ConsumerClaim&&) = delete;
+                      nullptr)) {}
+            ConsumerClaim &operator=(ConsumerClaim &&) = delete;
             ~ConsumerClaim() noexcept {
                 CompleteOnScopeExit();
             }
@@ -264,7 +253,7 @@ namespace ESPressio::Logging {
                 return _owner != nullptr;
             }
 
-            [[nodiscard]] TLease* Borrow() noexcept {
+            [[nodiscard]] TLease *Borrow() noexcept {
                 return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
 
@@ -277,8 +266,7 @@ namespace ESPressio::Logging {
                 _borrowedLease = nullptr;
                 const auto outcome = _owner->CompleteUntil(
                     _ticket,
-                    deadline
-                );
+                    deadline);
                 if (outcome == RecordQueueResult::Succeeded ||
                     outcome == RecordQueueResult::ReleasedNotificationFailed) {
                     _owner = nullptr;
@@ -340,8 +328,8 @@ namespace ESPressio::Logging {
             }
         };
 
-        TMutexProvider* _mutex;
-        TReleaseCoordinator* _releases;
+        TMutexProvider *_mutex;
+        TReleaseCoordinator *_releases;
         Topology _slots{};
         Queue _fifo{};
         std::array<Record, TCapacity> _records{};
@@ -358,8 +346,7 @@ namespace ESPressio::Logging {
             if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 return RecordQueueResult::IntegrityFailure;
             }
             if (_integrityFailed.load(std::memory_order_acquire)) {
@@ -374,8 +361,7 @@ namespace ESPressio::Logging {
             if (_mutex->Release() != ESPressio::Threading::OrdinaryMutexReleaseResult::Released) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 return UnlockStatus::Unconfirmed;
             }
             return UnlockStatus::Released;
@@ -397,8 +383,7 @@ namespace ESPressio::Logging {
             if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 return RecordQueueResult::IntegrityFailure;
             }
             if (_integrityFailed.load(std::memory_order_acquire)) {
@@ -438,7 +423,7 @@ namespace ESPressio::Logging {
 
         /// The single compact slot-allocation algorithm shared by native
         /// Begin and ahead-of-Memory slot reservation. Called under mutex.
-        [[nodiscard]] RecordQueueResult ClaimSlot(Phase initial, Ticket& ticket) noexcept {
+        [[nodiscard]] RecordQueueResult ClaimSlot(Phase initial, Ticket &ticket) noexcept {
             bool exhausted = false;
             for (std::size_t i = 0U; i < TCapacity; ++i) {
                 const auto claim = _slots.Acquire();
@@ -447,7 +432,7 @@ namespace ESPressio::Logging {
                                      : RecordQueueResult::CapacityUnavailable;
                 }
                 const auto index = claim.AcquiredIndex();
-                auto& record = _records[static_cast<std::size_t>(index.Value())];
+                auto &record = _records[static_cast<std::size_t>(index.Value())];
                 if (record.Generation == std::numeric_limits<TGeneration>::max()) {
                     record.State = Phase::Exhausted;
                     exhausted = true;
@@ -486,15 +471,14 @@ namespace ESPressio::Logging {
             if (!IsMatchingTicket(ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
-            auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
             if (record.State != expected && record.State != Phase::Retiring &&
                 !(expected == Phase::Reserved && record.State == Phase::AwaitingMemory)) {
                 return UnlockWith(RecordQueueResult::WrongPhase);
             }
             if (record.RetirementClaimed.exchange(
-                true,
-                std::memory_order_acq_rel
-            )) {
+                    true,
+                    std::memory_order_acq_rel)) {
                 return UnlockWith(RecordQueueResult::Busy);
             }
             record.State = Phase::Retiring;
@@ -514,14 +498,12 @@ namespace ESPressio::Logging {
                         // lease no longer proves ownership. Quarantine.
                         _integrityFailed.store(
                             true,
-                            std::memory_order_release
-                        );
+                            std::memory_order_release);
                         return RecordQueueResult::IntegrityFailure;
                     }
                     record.RetirementClaimed.store(
                         false,
-                        std::memory_order_release
-                    );
+                        std::memory_order_release);
                     return RecordQueueResult::ReleaseUnconfirmed;
                 }
                 notified = notified && released == CoordinatedReleaseResult::ReleasedAndNotified;
@@ -529,8 +511,7 @@ namespace ESPressio::Logging {
                 if (!record.Lease.IsEmpty()) {
                     _integrityFailed.store(
                         true,
-                        std::memory_order_release
-                    );
+                        std::memory_order_release);
                     return RecordQueueResult::IntegrityFailure;
                 }
             }
@@ -542,8 +523,7 @@ namespace ESPressio::Logging {
                 // and must never release the native Memory object twice.
                 record.RetirementClaimed.store(
                     false,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 return outcome;
             }
             if (outcome != RecordQueueResult::Succeeded)
@@ -553,16 +533,14 @@ namespace ESPressio::Logging {
                     ESPressio::BoundedTopology::BoundedSlotReleaseResult::Succeeded) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 static_cast<void>(Unlock());
                 return RecordQueueResult::IntegrityFailure;
             }
             record.State = Phase::Vacant;
             record.RetirementClaimed.store(
                 false,
-                std::memory_order_release
-            );
+                std::memory_order_release);
             if (Unlock() != UnlockStatus::Released)
                 return RecordQueueResult::IntegrityFailure;
 
@@ -586,19 +564,17 @@ namespace ESPressio::Logging {
             if (!IsMatchingTicket(ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
-            auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
             if (record.State != Phase::Reserved) {
                 return UnlockWith(RecordQueueResult::WrongPhase);
             }
             if (_fifo.Push(
-                _records,
-                ticket.Slot
-            ) !=
+                    _records,
+                    ticket.Slot) !=
                 ESPressio::BoundedTopology::IntrusiveQueuePushResult::Succeeded) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 static_cast<void>(Unlock());
                 return RecordQueueResult::IntegrityFailure;
             }
@@ -609,24 +585,22 @@ namespace ESPressio::Logging {
 
         /// Claims the oldest committed record for exclusive consumer handling.
         [[nodiscard]] RecordQueueResult PopUnderPolicy(
-            Ticket& ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
+            Ticket &ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
             auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
             if (outcome != RecordQueueResult::Succeeded)
                 return outcome;
             Index index = Index::Invalid();
             if (_fifo.Pop(
-                _records,
-                index
-            ) ==
+                    _records,
+                    index) ==
                 ESPressio::BoundedTopology::IntrusiveQueuePopResult::Empty) {
                 return UnlockWith(RecordQueueResult::Empty);
             }
-            auto& record = _records[static_cast<std::size_t>(index.Value())];
+            auto &record = _records[static_cast<std::size_t>(index.Value())];
             if (record.State != Phase::Queued) {
                 _integrityFailed.store(
                     true,
-                    std::memory_order_release
-                );
+                    std::memory_order_release);
                 static_cast<void>(Unlock());
                 return RecordQueueResult::IntegrityFailure;
             }
@@ -640,17 +614,17 @@ namespace ESPressio::Logging {
         static constexpr std::size_t Capacity = TCapacity;
         static constexpr std::size_t StorageBytes = sizeof(TransactionalRecordQueue);
 
-        TransactionalRecordQueue(TMutexProvider& mutex, TReleaseCoordinator& releases) noexcept
+        TransactionalRecordQueue(TMutexProvider &mutex, TReleaseCoordinator &releases) noexcept
             : _mutex(&mutex), _releases(&releases) {}
 
-        TransactionalRecordQueue(const TransactionalRecordQueue&) = delete;
-        TransactionalRecordQueue& operator=(const TransactionalRecordQueue&) = delete;
+        TransactionalRecordQueue(const TransactionalRecordQueue &) = delete;
+        TransactionalRecordQueue &operator=(const TransactionalRecordQueue &) = delete;
 
         ~TransactionalRecordQueue() noexcept {
             // An active Memory lease must never fall through native RAII without
             // the coordinator observing its actual release. It is a Bootstrap
             // lifecycle violation to destroy a queue before explicit drain.
-            for (const auto& record : _records) {
+            for (const auto &record : _records) {
                 if (IsPhaseLive(record.State))
                     std::terminate();
             }
@@ -658,7 +632,7 @@ namespace ESPressio::Logging {
 
         /// Takes one already-owned lease; output ticket is established before
         /// unlocking. Failed admission without a ticket leaves lease with caller.
-        [[nodiscard]] RecordQueueResult Begin(TLease& lease, Ticket& ticket) noexcept {
+        [[nodiscard]] RecordQueueResult Begin(TLease &lease, Ticket &ticket) noexcept {
             if (lease.IsEmpty())
                 return RecordQueueResult::OutputLeaseEmpty;
             auto outcome = Lock();
@@ -668,8 +642,7 @@ namespace ESPressio::Logging {
             Ticket candidate{};
             const auto claimed = ClaimSlot(
                 Phase::Reserved,
-                candidate
-            );
+                candidate);
             if (claimed == RecordQueueResult::Succeeded) {
                 _records[static_cast<std::size_t>(candidate.Slot.Value())].Lease = std::move(lease);
                 ticket = candidate;
@@ -682,14 +655,13 @@ namespace ESPressio::Logging {
         /// inactive. If a native mutex release failed after lease transfer,
         /// out still retains the ticket so the error cannot be misread as
         /// failure-before-ownership-transfer.
-        [[nodiscard]] RecordQueueResult Begin(TLease& lease, Reservation& out) noexcept {
+        [[nodiscard]] RecordQueueResult Begin(TLease &lease, Reservation &out) noexcept {
             if (out.IsActive())
                 return RecordQueueResult::OutputHandleOccupied;
             Ticket ticket{};
             const auto result = Begin(
                 lease,
-                ticket
-            );
+                ticket);
             if (ticket.IsValid() && lease.IsEmpty()) {
                 out._owner = this;
                 out._ticket = ticket;
@@ -703,7 +675,7 @@ namespace ESPressio::Logging {
         /// waiting for FIFO admission. Mutex remaining is derived by the
         /// higher-domain canonical EDP-Clock deadline owner.
         [[nodiscard]] RecordQueueResult ReserveSlot(
-            Reservation& out,
+            Reservation &out,
             ESPressio::Platform::Synchronization::WaitTimeout mutexRemaining) noexcept {
             if (out.IsActive())
                 return RecordQueueResult::OutputHandleOccupied;
@@ -713,8 +685,7 @@ namespace ESPressio::Logging {
             Ticket candidate{};
             const auto claimed = ClaimSlot(
                 Phase::AwaitingMemory,
-                candidate
-            );
+                candidate);
             const auto released = UnlockWith(claimed);
             if (candidate.IsValid()) {
                 out._owner = this;
@@ -727,8 +698,8 @@ namespace ESPressio::Logging {
         /// Attach one real owned Memory lease to a previously reserved queue
         /// slot. A failed lock attempt leaves the lease with the caller.
         [[nodiscard]] RecordQueueResult AttachLease(
-            Reservation& out,
-            TLease& lease,
+            Reservation &out,
+            TLease &lease,
             ESPressio::Platform::Synchronization::WaitTimeout mutexRemaining) noexcept {
             if (!out.IsActive() || out._owner != this) {
                 return RecordQueueResult::InvalidTicket;
@@ -741,7 +712,7 @@ namespace ESPressio::Logging {
             if (!IsMatchingTicket(out._ticket)) {
                 return UnlockWith(RecordQueueResult::InvalidTicket);
             }
-            auto& record = _records[static_cast<std::size_t>(out._ticket.Slot.Value())];
+            auto &record = _records[static_cast<std::size_t>(out._ticket.Slot.Value())];
             if (record.State != Phase::AwaitingMemory) {
                 return UnlockWith(RecordQueueResult::WrongPhase);
             }
@@ -755,8 +726,7 @@ namespace ESPressio::Logging {
         [[nodiscard]] RecordQueueResult Commit(Ticket ticket) noexcept {
             return CommitUnderPolicy(
                 ticket,
-                std::nullopt
-            );
+                std::nullopt);
         }
 
         /// Bounded commit never publishes after its original canonical deadline.
@@ -764,16 +734,14 @@ namespace ESPressio::Logging {
             Ticket ticket, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             return CommitUnderPolicy(
                 ticket,
-                deadline
-            );
+                deadline);
         }
 
         /// Aborts an unpublished reservation and returns its Memory capacity.
         [[nodiscard]] RecordQueueResult Abort(Ticket ticket) noexcept {
             return Retire(
                 ticket,
-                Phase::Reserved
-            );
+                Phase::Reserved);
         }
 
         /// Bounded abort retains the reservation through timeout or unknown release.
@@ -782,30 +750,27 @@ namespace ESPressio::Logging {
             return Retire(
                 ticket,
                 Phase::Reserved,
-                deadline
-            );
+                deadline);
         }
 
         /// Original no-wait consumer claim behavior.
-        [[nodiscard]] RecordQueueResult Pop(Ticket& ticket) noexcept {
+        [[nodiscard]] RecordQueueResult Pop(Ticket &ticket) noexcept {
             return PopUnderPolicy(
                 ticket,
-                std::nullopt
-            );
+                std::nullopt);
         }
 
         /// Claims one source with an explicit canonical mutex deadline.
         [[nodiscard]] RecordQueueResult PopUntil(
-            Ticket& ticket, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
+            Ticket &ticket, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             return PopUnderPolicy(
                 ticket,
-                deadline
-            );
+                deadline);
         }
 
         /// Strong RAII form: a successful Pop creates a move-only consuming
         /// handle. On normal scope exit it confirms Memory lease release.
-        [[nodiscard]] RecordQueueResult Pop(ConsumerClaim& out) noexcept {
+        [[nodiscard]] RecordQueueResult Pop(ConsumerClaim &out) noexcept {
             if (out.IsActive())
                 return RecordQueueResult::OutputHandleOccupied;
             Ticket ticket{};
@@ -820,15 +785,14 @@ namespace ESPressio::Logging {
 
         /// RAII bounded claim binds its stable lease view while the generation is exclusive.
         [[nodiscard]] RecordQueueResult PopUntil(
-            ConsumerClaim& out, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
+            ConsumerClaim &out, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             if (out.IsActive()) {
                 return RecordQueueResult::OutputHandleOccupied;
             }
             Ticket ticket{};
             const auto result = PopUntil(
                 ticket,
-                deadline
-            );
+                deadline);
             if (ticket.IsValid()) {
                 out._owner = this;
                 out._ticket = ticket;
@@ -840,13 +804,13 @@ namespace ESPressio::Logging {
         /// Borrow the source's Memory lease while holding the exclusive
         /// Reserved or InFlight ticket. Never transfer this reference to a
         /// concurrent actor without an explicit ownership transfer protocol.
-        [[nodiscard]] TLease* Borrow(Ticket ticket) noexcept {
+        [[nodiscard]] TLease *Borrow(Ticket ticket) noexcept {
             if (Lock() != RecordQueueResult::Succeeded) {
                 return nullptr;
             }
-            TLease* borrowed = nullptr;
+            TLease *borrowed = nullptr;
             if (IsMatchingTicket(ticket)) {
-                auto& record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+                auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
                 if (record.State == Phase::Reserved || record.State == Phase::InFlight) {
                     borrowed = &record.Lease;
                 }
@@ -858,8 +822,7 @@ namespace ESPressio::Logging {
         [[nodiscard]] RecordQueueResult Complete(Ticket ticket) noexcept {
             return Retire(
                 ticket,
-                Phase::InFlight
-            );
+                Phase::InFlight);
         }
 
         /// Bounded completion preserves release-once retirement if its final lock times out.
@@ -868,8 +831,7 @@ namespace ESPressio::Logging {
             return Retire(
                 ticket,
                 Phase::InFlight,
-                deadline
-            );
+                deadline);
         }
 
         [[nodiscard]] bool IsIntegrityFailed() const noexcept {
