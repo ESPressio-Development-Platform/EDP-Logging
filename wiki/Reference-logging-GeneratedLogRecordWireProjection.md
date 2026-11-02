@@ -2,6 +2,8 @@
 
 **Owner:** EDP-Logging `feature/logging-v1`, C++20.
 
+**Source:** [`src/logging/GeneratedLogRecordWireProjection.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/GeneratedLogRecordWireProjection.hpp); optional projection, not a replacement root semantic type.
+
 The optional `GeneratedLogRecordWireProjection<TWidth,TArgs...>`
 has the same permanent LogRecord TypeIdentifier and fifteen issued
 EDP-System FieldIds. Field13 is a statically heterogeneous

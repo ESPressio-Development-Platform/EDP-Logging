@@ -16,21 +16,29 @@ compile-time `System::FieldBinding` members, one per approved
 FieldId 0..14; `System::SchemaType<Logging::LogRecord>` is true.
 `BasicLogRecord<AttemptSequenceWidth,MaxArguments,ArgumentBytes>`
 selects a 16/32/64-bit attempt width and bounded owned in-memory
-arguments without changing semantic Type identity. Field 11 temporal
-provenance and Field 14 facts are still **opaque placeholders** and have
-no issued wire bit layout. The record is NOT YET an owner-certified
-`Serialisation::SerialisableType`, typed CBOR/JSON envelope,
-complete historical schema, or production worker/sink lifecycle.
+arguments without changing semantic Type identity. Field 11 has the
+issued typed Clock provenance pair (projection and quality); Field 14
+is an issued uint8 field whose only permitted v1 value is zero.
+`BasicLogRecord` is the **owned structural source representation**,
+not itself a `Serialisation::SerialisableType`: the separate
+[`GeneratedLogRecordWireProjection`](Reference-logging-GeneratedLogRecordWireProjection)
+uses its permanent TypeIdentifier and all fifteen FieldIds with
+Localisation-generated, typed Field 13 parameters to satisfy the
+existing Serialisation CBOR/JSON TypedEnvelope contracts. The actual
+optional worker and strict NVS-acknowledged EDLS application fixtures
+are documented separately; their finite qualified profiles must not
+be mistaken for every source/SDK combination.
 
 Identity persistence is independent of library version (all remain
 0.1.0), message StringIdentifier, transport or Mesh participation.
 
-## Fail-closed pre-wire validation (2026-10-17)
+## Fail-closed source validation (current contract; original 2026-10-17 gate)
 
-`ValidateLogRecord` now rejects nonzero source-only Field 11 or Field 14
-opaque placeholders with `UnapprovedTemporalProvenance` or
-`UnapprovedRecordFacts`, rather than silently assigning them persistent
-wire meanings. In the absence of a synchronized coordinate, the
+`ValidateLogRecord` rejects unissued/invalid typed Field 11 provenance
+with `InvalidTemporalProvenance`, and nonzero (reserved) Field 14
+with `ReservedRecordFacts`, before accepting wire projection. Earlier
+2026-10-17 placeholder names and limitations were superseded by the
+approved child-field wire contracts of 19 October. In the absence of a synchronized coordinate, the
 `EDP-Clock::SynchronizationUncertainty` must remain saturated/unknown;
 zero uncertainty falsely implies precision and is rejected as
 `InvalidSyncEvidence`. Legal monotonic-only records remain supported.
@@ -39,7 +47,7 @@ upstream Clock capture, or make the root `SerialisableType`.
 The host `LogRecordIdentityTests` covers the new failure outcomes.
 
 
-## Generated schema source assembly (G3/G4 partial)
+## Generated schema source assembly (G3/G4 source capture)
 
 The optional `LogRecordSourceAssembly.hpp` captures owner-generated
 message identity, fingerprint, strong source identity and qualified
@@ -47,8 +55,9 @@ Clock values with bounded exact-width scalar positional values.
 Destination mutation happens only after successful validation and all
 argument copies. Invalid input, occupied output and insufficient
 finite argument bytes preserve the prior destination. A successful
-source record remains structural only; unissued Field 11/14 facts
-preclude any claim of a complete Typed Envelope wire profile.
+source record remains structural: to produce a complete TypedEnvelope,
+the caller selects the generated 15-field wire projection and the
+EDP-Serialisation codec; source assembly alone is not a codec.
 
 
 The source-assembly constructor now derives the fingerprint from
@@ -98,8 +107,9 @@ exact typed scalar width, and bounded Float32/Float64 conversions.
 Floating JSON lexemes are preserved as Decimal through overflow/
 underflow qualification; reserved/malformed values cannot be quietly
 reinterpreted. Full 34-test host Python suite PASS on RPI400.
-This does not complete the fifteen-field LogRecord encoder or prove
-historical issuer provenance or physical durability.
+Those 2026-10-19 **G5-only decoder tests** did not themselves certify
+a fifteen-field encoder or physical durability; the complete generated
+record codec was subsequently qualified on 22 October (below).
 
 
 ## G4 scalar core fields — approved adapters (2026-10-20)
@@ -111,10 +121,9 @@ message identity, Severity, per-incarnation attempt tickets
 (16/32/64), monotonic/synchronized timestamps, ClockEra,
 synchronization state and uncertainty. Host GCC and Clang
 CBOR/JSON positive/negative checks PASS. No new parent FieldIds,
-TypeIdentifier or source byte tag assignments. Native
-heterogeneous Field13 must still be transformed under the
-generated Localisation schema before a complete record serializer
-may be certified.
+TypeIdentifier or source byte tag assignments. In the later qualified complete-record profile, native heterogeneous
+Field13 is transformed under the generated Localisation schema before
+EDP-Serialisation encodes the fifteen-field record.
 
 
 ## 2026-10-22 — G4 complete record after EDP-Serialisation owner JSON bound
