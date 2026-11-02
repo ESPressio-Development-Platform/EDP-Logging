@@ -4,7 +4,7 @@ Portable EDLS v1 archive-segment header writer and reader. One exact 40-byte hea
 
 `WriteEdlsHeader(EdlsHeader, span<byte>)` validates argument identities/capacity before touching caller storage, uses explicit LE stores and shared Logging CRC32C; `ReadEdlsHeader(span<const byte>, EdlsHeader&)` checks exact length/version/flags/CRC/identity, and leaves destination unchanged on failure.
 
-**Not a persistence system:** does not choose slot/generation, enforce generation advancement, bind physical file paths, append encoded records, establish power-loss atomicity, or claim durability. Bootstrap and downstream EDP-Persistence providers own those operations. The new `EdlsSegmentTests.cpp` fixture has byte-for-byte parity with `tools/edp_logging/archive.py`, but both suites remain unexecuted pending appliance availability.
+**Not a persistence system:** does not choose slot/generation, enforce generation advancement, bind physical file paths, append encoded records, establish power-loss atomicity, or claim durability. Bootstrap and downstream EDP-Persistence providers own those operations. The `EdlsSegmentTests.cpp` fixture has byte-for-byte parity with `tools/edp_logging/archive.py`, and both C++ owner and Python decoder suites have been executed; tested profiles and physical PowerLoss evidence are recorded separately in the qualification ledger.
 
 
 ## Sealed content profile

@@ -4,7 +4,7 @@
 
 The target's **entire original 4 MB flash was restored** and independently verified byte-identical before final normal reboot, after account was taken of runtime NVS updates caused by the integrated reset helper. Durable restoration: `20261016T192020-381dcdea`, PASS. No original firmware images or data are committed.
 
-See [physical HIL test source](../tests/hil/g1-espidf/src/main.cpp), [PlatformIO project](../tests/hil/g1-espidf/platformio.ini), [test documentation](../tests/hil/g1-espidf/README.MD), and [run-by-run evidence](../tests/hil/g1-espidf/VALIDATION.MD). The Policy/main Logging living handoff records the complete G1-G15 remaining work and distinguishes physical proof from unimplemented sink, durable archive and Clock/Mesh integration.
+See [physical HIL test source](../tests/hil/g1-espidf/src/main.cpp), [PlatformIO project](../tests/hil/g1-espidf/platformio.ini), [test documentation](../tests/hil/g1-espidf/README.MD), and [run-by-run evidence](../tests/hil/g1-espidf/VALIDATION.MD). The Policy/main Logging living handoff records the complete G1-G15 remaining work and distinguishes the original G1-only fixture from the later implemented sink, durable archive and explicitly qualified native PowerLoss/100rps profiles. Network Clock/Mesh integration remains optional and separately qualified.
 
 
 ## G11 whole-firmware test-site evidence (partial)

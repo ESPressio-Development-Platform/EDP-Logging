@@ -19,7 +19,7 @@ delivery and service in the same serialized owner. Batch-target delivery
 cannot be copied or moved. Dwell configuration includes zero.
 
 See [contract and appliance evidence](../docs/COORDINATOR-SINK-SERVICE.MD).
-Host GCC/Clang/UBSan passed; native worker qualification remains pending.
+Host GCC/Clang/UBSan and a native WROOM managed-worker/strict-NVS-ACK integration were qualified for the recorded finite source, batching and resource profiles. The qualification ledger distinguishes physical evidence from generic provider guarantees.
 
 [Full typed managed example](../demos/TypedManagedBatchWorker/README.MD) now
 builds and passes actual two-boot tests for all three required targets in

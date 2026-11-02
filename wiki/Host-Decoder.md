@@ -1,6 +1,6 @@
 # Python host decoder: bounded framing and archive headers
 
-This page covers `tools/edp_logging/framing.py`, `archive.py`, `cli.py`, `__main__.py` and `tools/tests/test_framing.py`. This is a **PARTIAL** host tool, without semantic CBOR/JSON LogRecord decoding.
+This page covers `tools/edp_logging/framing.py`, `archive.py`, `cli.py`, `__main__.py` and `tools/tests/test_framing.py`. This is a bounded, read-only host tool with framing, structural Typed Envelope inspection and a separately governed LogRecord semantic-field validation path. JSON argument interpretation may require an exact historical diagnostic schema; do not infer it from framing alone.
 
 `FrameCodec`: Cbor=1, Json=2. `FrameStatus`: distinct invalid marker, partial header/frame, unsupported version/codec/flags, oversized payload, invalid `GLDE` marker, CRC mismatch and over-budget resynchronization.
 
@@ -34,9 +34,9 @@ The CLI `--schema` selects historical schema validation and records exact messag
 
 `record_facts.py` now provides a bounded semantic-range check over a structurally decoded Typed Envelope. It validates all required D13 fields, optional field7 synchronized coordinate (zero is valid), emitted severity 0..5, 16-byte nonzero DeviceIdentifier, uint32 incarnation, attempt ticket within explicitly selected 16/32/64-bit width (nonzero, no wrap), unsigned nanosecond timestamps, EDP-Clock state 0..4, opaque Era, saturated uint32 uncertainty, exact 16-byte schema fingerprint and positional array. Missing or unregistered FieldIds fail. Incoherent `NeverSynchronized` plus coordinate and present coordinate without valid Era also fail.
 
-The root TypeIdentifier allocation is **not issued yet**. The function therefore returns a `RecordFacts` **candidate**, with optional `expected_root_type_identifier` for future registered equality checking; never treat unknown nonzero TypeIds as conclusively LogRecord. Field11 temporal provenance and field14 flags have no governed exact sub-vocabulary yet; they are preserved uninterpreted rather than manufactured. The CLI `--validate-record` exports qualified `logRecordCandidate=true`, `rootTypeGoverned=false`, without claiming chronology or authentication.
+The permanent LogRecord TypeIdentifier is issued by EDP-System (00 00 01 00 00 00 00 01). This offline tool does **not authenticate the issuer merely from bytes**: it returns a `RecordFacts` **candidate**, with optional `expected_root_type_identifier` for future registered equality checking; never treat unknown nonzero TypeIds as conclusively LogRecord. Field 11 has approved Clock correlation/quality numeric child domains and Field 14 permits only zero in v1; the current semantic fact parser rejects invalid members instead of silently treating them as historical truth. The CLI `--validate-record` exports qualified `logRecordCandidate=true`, `rootTypeGoverned=false`, without claiming chronology or authentication.
 
-This is structural/semantic-range groundwork only and the new unit tests have **not been executed**.
+This is bounded structural and semantic validation, not authentication of the evidence source. The current native Python regression suite exercises these validations and negative cases; see the qualification ledger for exact scope.
 
 ## Sticky post-corruption forensic provenance
 
@@ -44,7 +44,7 @@ After first damage, the scanner classifies every later record in the same stream
 
 ## Read-only archive slot inspection
 
-`inspect_slot` and `inspect_archive_slots` in `archive_recovery.py` stream bounded fixed-slot sources, track contiguous verified frame prefixes, surface torn/corrupt tail, compare nonwrapping generations and refuse a conclusive next generation when any header is untrustworthy, duplicate or inconsistent. No automatic truncation/append, no rename/listing assumption, and no claim of atomic Flash durability. Mock archive tests passed under RPI400 Python; physical storage interruption is still untested.
+`inspect_slot` and `inspect_archive_slots` in `archive_recovery.py` stream bounded fixed-slot sources, track contiguous verified frame prefixes, surface torn/corrupt tail, compare nonwrapping generations and refuse a conclusive next generation when any header is untrustworthy, duplicate or inconsistent. No automatic truncation/append, no rename/listing assumption, and no claim of atomic Flash durability. Mock archive tests passed under RPI400 Python; independent physical WROOM PowerLoss and LittleFS/NVS integrity are separately qualified by the current application fixture, not by this host parser alone.
 
 ## Sequence and time provenance
 

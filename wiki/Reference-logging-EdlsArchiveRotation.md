@@ -28,8 +28,7 @@ A successful checked replacement is **not** power-cut durability:
 VFS failure may alter old data, and a CRC does not prove physical
 retention. This module refuses automatic replay over torn tails; a
 separate owner-approved recovery/PowerLoss policy is required.
-See [normative EDLS rotation contract](
-../docs/EDLS-ARCHIVE-ROTATION.MD), host tests
+See [normative EDLS rotation contract](../docs/EDLS-ARCHIVE-ROTATION.MD), host tests
 `EdlsArchiveInspectionTests.cpp`, `RealVfsArchiveSuccessorTests.cpp`,
 and the native HIL `tests/hil/g1-espidf/VALIDATION.MD`.
 
