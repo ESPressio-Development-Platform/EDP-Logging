@@ -19,6 +19,10 @@
 #define EDP_WORKER_RECORDS_PER_PRODUCER 1000U
 #endif
 
+#ifndef EDP_WORKER_SCHEDULE_RPS
+#define EDP_WORKER_SCHEDULE_RPS 100U
+#endif
+
 namespace {
 
 
@@ -70,8 +74,43 @@ namespace {
         /// One exclusive upper bound covers every ticket including refused attempts.
         constexpr unsigned RecordsPerProducer = EDP_WORKER_RECORDS_PER_PRODUCER;
         static_assert(RecordsPerProducer == 1000U || RecordsPerProducer == 3000U || RecordsPerProducer == 15000U);
-        /// Both managed producers retain their existing50Hz absolute schedules.
+        /// Each of two managed producers uses a native-clock absolute 40/50 Hz schedule.
         constexpr unsigned ScheduledRecords = 2U * RecordsPerProducer;
+        constexpr unsigned ScheduleRps = EDP_WORKER_SCHEDULE_RPS;
+        static_assert(ScheduleRps == 100U || ScheduleRps == 80U);
+        constexpr std::uint64_t SourcePeriodNs = 2000000000ULL / ScheduleRps;
+#if defined(EDP_WORKER_DUAL_POOL_PROFILE)
+        // Two independent identical MemoryRuntime owners; the resulting lease
+        // type is identical and each lease retains its originating pool pointer.
+        constexpr std::size_t WorkerSourceQueueSlots = 496U;
+        constexpr std::size_t WorkerSourceDedicatedPerPool = 252U;
+        constexpr unsigned PrimeAttemptsPerProducer = 64U;
+        constexpr unsigned ExpectedPrimeRefusals = 0U;
+#elif defined(EDP_WORKER_WIDE_QUEUE_PROFILE)
+        constexpr std::size_t WorkerSourceQueueSlots = 252U;
+        constexpr std::size_t WorkerSourceDedicatedPerPool = WorkerSourceQueueSlots + 2U;
+        constexpr unsigned PrimeAttemptsPerProducer = 64U;
+        constexpr unsigned ExpectedPrimeRefusals = 0U;
+#else
+        constexpr std::size_t WorkerSourceQueueSlots = 128U;
+        constexpr std::size_t WorkerSourceDedicatedPerPool = WorkerSourceQueueSlots + 2U;
+        constexpr unsigned PrimeAttemptsPerProducer = 80U;
+        constexpr unsigned ExpectedPrimeRefusals = 32U;
+#endif
+        // Application-level finite absolute queue+Memory admission budgets.
+        // The pressure test retains its original 100ms failure criterion.
+        constexpr std::uint64_t PressureAdmissionBudgetNs = 100000000ULL;
+        // Measured native sequence: callback max 706237us + service max 582835us
+        // against ~1.28s buffering at 100 records/s in the 128-slot queue.
+        // The finite 300ms scheduled admission objective is profile-specific.
+        // It did NOT solve repeated native Flash service bursts at 100 rps;
+        // the record format, sink and durability contract remain unchanged.
+        // Keep the original 128-slot pressure-and-schedule profile's 100ms
+        // deadline; only the independent 252/496 finite capacity experiments
+        // select a separately qualified 300ms schedule admission budget.
+        constexpr std::uint64_t ScheduledAdmissionBudgetNs =
+            WorkerSourceQueueSlots == 128U ? 100000000ULL : 300000000ULL;
+
         /// Pressure128 accepted and one isolated idle partial precede the schedule.
         constexpr unsigned TotalAccepted = 129U + ScheduledRecords;
         /// Attempt tickets also include the32 deliberate pressure refusals.
@@ -93,10 +132,10 @@ namespace {
         /// Full-run scheduled maximum, independent of the bounded percentile window.
         static std::uint32_t ScheduledLatencyMaximumUs = 0U;
         /// Original producer coordinates retained only as test evidence for independent replay.
-        constexpr std::size_t EvidenceSlots = 512U;
+        constexpr std::size_t EvidenceSlots = WorkerSourceQueueSlots > 128U ? 1024U : 512U;
         // Covers queued128, two retained batches, pending batch, deferred service
         // completions and two producer reservations. This is test evidence, not work transport.
-        static_assert(EvidenceSlots > 128U + 4U * SealedRecords + 2U);
+        static_assert(EvidenceSlots > WorkerSourceQueueSlots + 4U * SealedRecords + 2U);
         /// Original ticket tags make stale coordinate reuse an explicit test failure.
         static std::array<std::uint32_t, EvidenceSlots> CoordinateTickets{};
         /// Only live and retained source coordinates need history; exact latency samples stay separate.
@@ -129,6 +168,8 @@ namespace {
         static std::atomic<unsigned> IdleAckLatencyUs{0U};
         /// Maximum observed schedule lateness; never interpreted as CPU time.
         static std::atomic<unsigned> MaximumScheduleLatenessUs{0U};
+        /// Largest bounded admission transaction elapsed wall time, across both producers.
+        static std::atomic<unsigned> MaximumAdmissionWaitUs{0U};
 
         /// Assembles the original generated fifteen-field record without shared projection scratch.
         static void BuildSource(TypedRecord& record,
@@ -189,7 +230,7 @@ namespace {
         using MemoryTopology =
             M::MemoryTopology<Resource,
                               M::SharedReserve<0U, Resource>,
-                              M::ObjectPoolSpec<Source, M::DedicatedInstances<130U>>>;
+                              M::ObjectPoolSpec<Source, M::DedicatedInstances<WorkerSourceDedicatedPerPool>>>;
         /// Existing worker-exclusive representation topology avoids unrelated NoWait entrance
         /// contention.
         using EncodingTopology =
@@ -213,7 +254,7 @@ namespace {
         using QueueMutex = T::OrdinaryMutexProvider<QueueIdentity, Mutex>;
         using SequencerMutex = T::OrdinaryMutexProvider<SequencerIdentity, Mutex>;
         using Queue =
-            L::TransactionalRecordQueue<128U, SourcePool::LeaseType, QueueMutex, Lifecycle>;
+            L::TransactionalRecordQueue<WorkerSourceQueueSlots, SourcePool::LeaseType, QueueMutex, Lifecycle>;
         using Delivery = L::TypedCborProtectedEdlsTaskDelivery<TypedSchema,
                                                                L::AttemptSequenceWidth::Bits16,
                                                                3U,
@@ -265,6 +306,14 @@ namespace {
             std::uint64_t ServiceCalls{0U};
             /// Ordinary service elapsed wall time, including strict archive commits.
             std::uint64_t ServiceWallNs{0U};
+            /// Maximum uninterrupted native service-call wall duration (no additional timer).
+            std::uint64_t ServiceMaxNs{0U};
+            /// Number of service calls exceeding one producer's 100ms budget.
+            std::uint64_t ServiceOver100Ms{0U};
+            /// Number of service calls exceeding half of that budget.
+            std::uint64_t ServiceOver50Ms{0U};
+            /// Maximum source callback wall duration on the same coordinator.
+            std::uint64_t CallbackMaxNs{0U};
             /// Total source callback elapsed wall time, including Memory acquire/reclaim.
             std::uint64_t CallbackWallNs{0U};
 
@@ -285,6 +334,10 @@ namespace {
                 DeliveryFlushWallNs = 0U;
                 ServiceCalls = 0U;
                 ServiceWallNs = 0U;
+                ServiceMaxNs = 0U;
+                ServiceOver100Ms = 0U;
+                ServiceOver50Ms = 0U;
+                CallbackMaxNs = 0U;
                 CallbackWallNs = 0U;
             }
 
@@ -294,7 +347,9 @@ namespace {
                     "EDP_WORKER|WALL_PROFILE|phase=%u|application_optimisation=%s|cpu_mhz=%u|encoder_calls=%llu|encoder_us=%llu"
                     "|delivery_no_flush_calls=%llu|delivery_no_flush_us=%llu"
                     "|delivery_flush_calls=%llu|delivery_flush_us=%llu"
-                    "|service_calls=%llu|service_us=%llu|callback_us=%llu\n",
+                    "|service_calls=%llu|service_us=%llu|callback_us=%llu"
+                    "|service_max_us=%llu|service_over_50ms=%llu|service_over_100ms=%llu"
+                    "|callback_max_us=%llu\n",
                     ProfilePhase,
                     WorkerOptimisation,
                     static_cast<unsigned>(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ),
@@ -306,8 +361,15 @@ namespace {
                     static_cast<unsigned long long>(DeliveryFlushWallNs / 1000U),
                     static_cast<unsigned long long>(ServiceCalls),
                     static_cast<unsigned long long>(ServiceWallNs / 1000U),
-                    static_cast<unsigned long long>(CallbackWallNs / 1000U)
+                    static_cast<unsigned long long>(CallbackWallNs / 1000U),
+                    static_cast<unsigned long long>(ServiceMaxNs / 1000U),
+                    static_cast<unsigned long long>(ServiceOver50Ms),
+                    static_cast<unsigned long long>(ServiceOver100Ms),
+                    static_cast<unsigned long long>(CallbackMaxNs / 1000U)
                 );
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+                PrintNativeStorageIoProfile();
+#endif
                 std::fflush(stdout);
             }
 
@@ -350,7 +412,9 @@ namespace {
                         measuredEncoder,
                         measuredDelivery
                     );
-                CallbackWallNs += C::MonotonicNow().Nanoseconds() - callbackStarted;
+                const auto callbackElapsed = C::MonotonicNow().Nanoseconds() - callbackStarted;
+                CallbackWallNs += callbackElapsed;
+                CallbackMaxNs = std::max(CallbackMaxNs, callbackElapsed);
                 if (result.Status != L::OwnedRepresentationStatus::SubmittedAndReleased) {
                     std::printf(
                         "EDP_WORKER|SINK_FAILURE|ticket=%u|representation=%u|acquisition=%u|"
@@ -386,7 +450,23 @@ namespace {
                     std::fflush(stdout);
                 }
                 const auto now = C::MonotonicNow().Nanoseconds();
-                ServiceWallNs += now - serviceStarted;
+                const auto serviceElapsed = now - serviceStarted;
+                ServiceWallNs += serviceElapsed;
+                ServiceMaxNs = std::max(ServiceMaxNs, serviceElapsed);
+                ServiceOver50Ms += serviceElapsed >= 50000000ULL ? 1U : 0U;
+                ServiceOver100Ms += serviceElapsed >= 100000000ULL ? 1U : 0U;
+                if (serviceElapsed >= 100000000ULL && ServiceOver100Ms <= 20U) {
+                    std::printf(
+                        "EDP_WORKER|SLOW_SERVICE|index=%llu|elapsed_us=%llu"
+                        "|offered=%u|confirmed=%u|pending=%u|ack_gen=%llu\n",
+                        static_cast<unsigned long long>(ServiceCalls),
+                        static_cast<unsigned long long>(serviceElapsed / 1000U),
+                        Offered, Confirmed, Offered - Confirmed,
+                        static_cast<unsigned long long>(
+                            Deliver->LastAcknowledgement.AcknowledgedGeneration)
+                    );
+                    std::fflush(stdout);
+                }
                 ++ServiceCalls;
                 for (std::uint64_t n = 0U; n < serviced.DurableSinkCompletions; ++n) {
                     Require(
@@ -398,6 +478,11 @@ namespace {
                         CoordinateTickets[ticket % EvidenceSlots] == ticket,
                         "WORKER_ACK_COORDINATE_NOT_OVERWRITTEN"
                     );
+                    // Only the final protected-media readback below emits
+                    // ORIGINAL coordinates for normal completion. Reporting
+                    // additional ACKed-but-already-retired coordinates here
+                    // duplicates retained records and violates the strict
+                    // independent raw-media receipt's one-witness-per-record rule.
 #if defined(EDP_WORKER_POWER_CUT)
                     if (Confirmed < 128U) {
                         // Original source evidence leaves the MCU before any power cut.
@@ -507,13 +592,14 @@ namespace {
                         continue;
                     }
                     const unsigned count =
-                        phase == 1U ? 80U : (phase == 2U ? (Slot == 0U ? 1U : 0U) : RecordsPerProducer);
+                        phase == 1U ? PrimeAttemptsPerProducer
+                                : (phase == 2U ? (Slot == 0U ? 1U : 0U) : RecordsPerProducer);
                     for (unsigned index = 0U; index < count; ++index) {
                         if (context.IsStopRequested()) {
                             break;
                         }
                         if (phase == 3U) {
-                            const auto due = ScheduleStart.load() + index * 20000000ULL;
+                            const auto due = ScheduleStart.load() + index * SourcePeriodNs;
                             while (!context.IsStopRequested() &&
                                    C::MonotonicNow().Nanoseconds() < due) {
                                 Require(
@@ -538,6 +624,7 @@ namespace {
                         const auto stopping = [&context]() noexcept {
                             return context.IsStopRequested();
                         };
+                        const auto admissionStarted = C::MonotonicNow().Nanoseconds();
                         const auto produced =
                             L::ProduceRecordUntil<L::AttemptSequenceWidth::Bits16, 16U, 16U>(
                                 *Sequence,
@@ -550,10 +637,19 @@ namespace {
                                 *Pool,
                                 scratch,
                                 reservation,
-                                After(100000000U),
+                                After(
+                                    phase == 3U ? ScheduledAdmissionBudgetNs
+                                                : PressureAdmissionBudgetNs
+                                ),
                                 stopping,
                                 0U
                             );
+                        const auto admissionElapsed =
+                            C::MonotonicNow().Nanoseconds() - admissionStarted;
+                        auto oldWait = MaximumAdmissionWaitUs.load();
+                        const auto waitUs = static_cast<unsigned>(admissionElapsed / 1000U);
+                        while (waitUs > oldWait &&
+                               !MaximumAdmissionWaitUs.compare_exchange_weak(oldWait, waitUs)) {}
                         if (produced.Status == L::RecordProductionStatus::Published) {
                             ++Published;
                             if (phase != 1U)
@@ -572,7 +668,8 @@ namespace {
                             std::printf(
                                 "EDP_WORKER|PRODUCER_FAILURE|phase=%u|status=%u|admission=%"
                                 "u|commit=%u|reservation_active=%u|queue=%u|memory=%u|"
-                                "memory_attempted=%u\n",
+                                "memory_attempted=%u|admission_elapsed_us=%u"
+                                "|max_admission_us=%u|schedule_lateness_us=%u\n",
                                 phase,
                                 static_cast<unsigned>(produced.Status),
                                 static_cast<unsigned>(produced.Admission.Status),
@@ -580,7 +677,9 @@ namespace {
                                 reservation.IsActive() ? 1U : 0U,
                                 static_cast<unsigned>(produced.Admission.Queue),
                                 static_cast<unsigned>(produced.Admission.Memory),
-                                produced.Admission.MemoryAttempted ? 1U : 0U
+                                produced.Admission.MemoryAttempted ? 1U : 0U,
+                                waitUs, MaximumAdmissionWaitUs.load(),
+                                MaximumScheduleLatenessUs.load()
                             );
                         }
                         Require(
@@ -921,6 +1020,9 @@ namespace {
                 C::BindMonotonicClock(clock),
                 "WORKER_ONE_CANONICAL_ORIGIN"
             );
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+            NativeStorageIoActive=true;
+#endif
             static Resource resource{};
             static Mutex native{};
             static Allocator allocator{};
@@ -930,6 +1032,17 @@ namespace {
                 memory.Initialize(failure) == M::MemoryTopologyInitializationResult::Succeeded,
                 "WORKER_MEMORY_INITIALIZE"
             );
+#if defined(EDP_WORKER_DUAL_POOL_PROFILE)
+            static Resource resourceB{};
+            static Mutex nativeB{};
+            static Allocator allocatorB{};
+            static MemoryRuntime memoryB(nativeB, allocatorB, resourceB);
+            Require(
+                memoryB.Initialize(failure) ==
+                    M::MemoryTopologyInitializationResult::Succeeded,
+                "WORKER_SECOND_SOURCE_MEMORY_INITIALIZE"
+            );
+#endif
             // Reuse the existing G10 native Bootstrap pattern, not a new allocator or Memory API.
             static Resource encodingResource{};
             static Mutex encodingNative{};
@@ -1018,7 +1131,11 @@ namespace {
                                                                    &queue,
                                                                    &lifecycle,
                                                                    &wakes,
+#if defined(EDP_WORKER_DUAL_POOL_PROFILE)
+                                                                   &memoryB.ObjectPoolFor<Source>(),
+#else
                                                                    &memory.ObjectPoolFor<Source>(),
+#endif
                                                                    &sequencer,
                                                                    &sequence,
                                                                    &worker})
@@ -1045,13 +1162,19 @@ namespace {
                 "WORKER_PRESSURE_PRODUCERS_FINITE"
             );
             Require(
-                Published.load() == 128U && Refused.load() == 32U && Failures.load() == 0U &&
+                Published.load() == 128U && Refused.load() == ExpectedPrimeRefusals &&
+                    Failures.load() == 0U &&
                     report.DurableSinkCompletions.load() == 0U &&
                     archive.Read().AcknowledgedGeneration == 0U,
                 "WORKER_PRESSURE_RAM_NOT_DURABLE"
             );
+#if defined(EDP_WORKER_WIDE_QUEUE_PROFILE) || defined(EDP_WORKER_DUAL_POOL_PROFILE)
+            std::printf("EDP_WORKER|PRIME|attempts=128|published=128|deadline_refused=0"
+                        "|ack_records=0|queue_slots=%zu\n", WorkerSourceQueueSlots);
+#else
             std::printf("EDP_WORKER|PRESSURE|attempts=160|published=128|deadline_refused=32|ack_"
                         "records=0\n");
+#endif
             Require(
                 worker->Start() == T::ThreadStartResult::Started,
                 "WORKER_COORDINATOR_START"
@@ -1170,11 +1293,20 @@ namespace {
             );
             const auto started = C::MonotonicNow().Nanoseconds() + 100000000ULL;
             ScheduleStart.store(started);
+            std::printf(
+                "EDP_WORKER|ADMISSION_PROFILE|pressure_budget_us=%llu"
+                "|scheduled_budget_us=%llu|queue_slots=%zu|schedule_hz=%u\n",
+                static_cast<unsigned long long>(PressureAdmissionBudgetNs / 1000U),
+                static_cast<unsigned long long>(ScheduledAdmissionBudgetNs / 1000U),
+                WorkerSourceQueueSlots,
+                ScheduleRps
+            );
+            std::fflush(stdout);
             Phase.store(3U);
             (void)first.Wake();
             (void)second.Wake();
             unsigned minimumHeap = esp_get_free_heap_size();
-            const auto end = started + RecordsPerProducer * 20000000ULL + 70000000000ULL;
+            const auto end = started + RecordsPerProducer * SourcePeriodNs + 70000000000ULL;
             auto nextProgress = started + 10000000000ULL;
             while ((CompletedPhase[0U].load() != 3U || CompletedPhase[1U].load() != 3U ||
                     report.DurableSinkCompletions.load() != TotalAccepted) &&
@@ -1292,6 +1424,12 @@ namespace {
                 memory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
                 "WORKER_MEMORY_TEARDOWN"
             );
+#if defined(EDP_WORKER_DUAL_POOL_PROFILE)
+            Require(
+                memoryB.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
+                "WORKER_SECOND_SOURCE_MEMORY_TEARDOWN"
+            );
+#endif
             Require(
                 encodingMemory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
                 "WORKER_ENCODING_MEMORY_TEARDOWN"
@@ -1325,13 +1463,14 @@ namespace {
             );
 #endif
             std::printf(
-                "EDP_WORKER|PASS|scheduled_records=%u|producers=2|target_rps=100|elapsed_us=%llu"
+                "EDP_WORKER|PASS|scheduled_records=%u|producers=2|target_rps=%u|elapsed_us=%llu"
                 "|latency_scope=%s|latency_samples=%u|p50_us=%u|p95_us=%u|p99_us=%u|max_schedule_late_us=%u|min_heap=%u|producer0_"
                 "stack=%u"
                 "|producer1_stack=%u|worker_stack=%u|producer_core_mask=%u|worker_core_mask=%u"
                 "|queue_contentions=%llu|main_stack=%u|sizeof_source=%u|sizeof_queue=%u"
                 "|scheduled_dwell_ns=%llu|application_optimisation=%s|cpu_mhz=%u|ack_segment=%llu\n",
                 ScheduledRecords,
+                ScheduleRps,
                 static_cast<unsigned long long>(elapsedUs),
                 ScheduledRecords > 6000U ? "last_6000" : "all_scheduled",
                 static_cast<unsigned>(AckSampleCount),

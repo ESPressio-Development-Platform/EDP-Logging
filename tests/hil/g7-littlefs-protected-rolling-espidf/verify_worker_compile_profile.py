@@ -8,6 +8,7 @@ import shlex
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--records-per-producer", type=int, choices=(1000, 3000, 15000), default=1000)
+parser.add_argument("--schedule-rps", type=int, choices=(80, 100), default=100)
 parser.add_argument("--database", required=True, type=Path)
 parser.add_argument("--sdkconfig", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
@@ -32,6 +33,11 @@ try:
         f"-DEDP_WORKER_RECORDS_PER_PRODUCER={args.records_per_producer}U"]
     if schedule_flags != expected_schedule_flags:
         raise ValueError("actual application schedule does not match selected workload")
+    rate_flags = [value for value in command if value.startswith("-DEDP_WORKER_SCHEDULE_RPS")]
+    expected_rate_flags = [] if args.schedule_rps == 100 else [
+        f"-DEDP_WORKER_SCHEDULE_RPS={args.schedule_rps}U"]
+    if rate_flags != expected_rate_flags:
+        raise ValueError("actual producer rate does not match selected workload")
     config = set(args.sdkconfig.read_text("utf-8").splitlines())
     if "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y" not in config or \
             "CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2" not in config:
@@ -42,6 +48,7 @@ try:
               "optimisation_flags": optimisations, "assertions": "enabled-level2",
               "cpu_mhz": 160, "dwell_ns": 500000000,
               "records_per_producer": args.records_per_producer,
+              "schedule_rps": args.schedule_rps,
               "sdkconfig_sha256": hashlib.sha256(args.sdkconfig.read_bytes()).hexdigest()}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", "utf-8")

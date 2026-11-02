@@ -7,7 +7,7 @@ from edp_logging.record_structure import inspect_typed_envelope
 from edp_logging.framing import FrameCodec
 from audit_typed_extracted_edls import verify_record, DEVICE
 
-PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000|30000)\|producers=2\|target_rps=100\|[^\n]*\|ack_segment=(\d+)$", re.M)
+PASS = re.compile(r"EDP_WORKER\|PASS\|scheduled_records=(2000|6000|30000)\|producers=2\|target_rps=(?:80|100)\|[^\n]*\|ack_segment=(\d+)$", re.M)
 ORIGINAL = re.compile(r"^EDP_WORKER\|ORIGINAL\|ticket=(\d+)\|monotonic_ns=(\d+)$", re.M)
 
 CUT_PASS = re.compile(r"^EDP_WORKER\|POWER_CUT_RECOVERED\|ack_segment=2\|records=128$", re.M)

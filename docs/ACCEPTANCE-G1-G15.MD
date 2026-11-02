@@ -66,3 +66,10 @@ The complete post-V2 GCC/Clang matrix (68/68), 178 Python offline tests, Xtensa 
 - **Acceptance status:** Issues #1, #12 and #15 remain open. No universal production certification, indefinite throughput, generic FileStorage PowerLoss or two-year flash-endurance assurance is claimed.
 
 All validated compiler/test/source commits and the latest branch/ref inventory are checkpointed in the [Policy Logging living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-29/2026-10-29-10-36-EDP-Logging-PostRetirement-Scan-Qualification.MD). This matrix must evolve whenever actual code, qualification or public contract changes.
+
+
+## 2 November 2026 — physical G10/G11 evidence supersession and remaining release work
+
+The historical 1 November negative five-minute checkpoint was accurate for the earlier source. However, two later current-source full 100 records/sec WROOM physical 30,000-record runs 20261101T193528-695b02cf and 20261101T194232-bc98b8ae PASS with all 30,129 source/idle records retired and durable, zero unexpected errors, explicit 252-slot/254-object bounded topology, minimum free heap 134060/134084 bytes and genuine, unmodified-UART independent LittleFS/NVS 125 retained original records checked across all 15 fields, ACK472 and verified NVS page/entry/blob CRCs. They directly support scoped G10/G11 and the ordinary durability part of G7/G15 on this selected WROOM/Flash configuration; they do NOT establish indefinite no-drop, lifespan assurance, generic FileStorage power atomicity or arbitrary application capacities. Do not erase prior failed run receipts.
+
+Final release gates still require publishing the exact tested source and HIL fixtures, fresh post-change controlled GPIO17 cut qualification, final current-source compiler/host regression, V2 ownership/docs reconciliation, and independent restoration of the original test appliance Flash image. G12 optional Arduino Serial provider remains a separate owner/stub scope, not a reason for Logging to duplicate its component; G13 portable raw-object dump remains explicitly excluded. Version 0.1.0 remains unchanged.

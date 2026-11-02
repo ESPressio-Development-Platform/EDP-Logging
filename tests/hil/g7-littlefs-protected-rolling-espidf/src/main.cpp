@@ -18,6 +18,7 @@
 #include <nvs.h>
 #include <nvs_flash.h>
 
+#include <ESPressio_Clock.hpp>
 #include <LittleFsVfsBinding.hpp>
 #include <LittleFsVfsMount.hpp>
 #include <logging/EdlsArchiveRotation.hpp>
@@ -30,12 +31,54 @@ namespace L = ESPressio::Logging;
 using Bytes = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
 struct TestOnlyLittleFsBinding final {};
 using NativeStore = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding, Bytes>;
+
+// A finite test-only per-provider-operation timing probe. The canonical
+// monotonic origin must be bound by worker Bootstrap before arming; never
+// introduce a second operational Clock, scheduler, queue, or storage owner.
+#if defined(EDP_WORKER_WIDE_QUEUE_PROFILE) && defined(EDP_TEST_BATCH_WORKER)
+#define EDP_TEST_STORAGE_IO_PROFILE 1
+struct NativeStorageIoObservation final {
+    std::uint64_t Calls{0U};
+    std::uint64_t WallNs{0U};
+    std::uint64_t MaximumNs{0U};
+    void Observe(std::uint64_t begun) noexcept {
+        const auto elapsed=ESPressio::Clock::MonotonicNow().Nanoseconds()-begun;
+        ++Calls;
+        WallNs+=elapsed;
+        MaximumNs=elapsed>MaximumNs?elapsed:MaximumNs;
+    }
+};
+static bool NativeStorageIoActive=false;
+static NativeStorageIoObservation NativeIoSizes{}, NativeIoReads{}, NativeIoWrites{}, NativeIoRemoves{};
+static void PrintNativeStorageIoProfile() {
+    std::printf(
+        "EDP_WORKER|NATIVE_STORAGE_IO|size_calls=%llu|size_us=%llu|size_max_us=%llu"
+        "|read_calls=%llu|read_us=%llu|read_max_us=%llu"
+        "|write_calls=%llu|write_us=%llu|write_max_us=%llu"
+        "|remove_calls=%llu|remove_us=%llu|remove_max_us=%llu\n",
+        static_cast<unsigned long long>(NativeIoSizes.Calls),
+        static_cast<unsigned long long>(NativeIoSizes.WallNs/1000U),
+        static_cast<unsigned long long>(NativeIoSizes.MaximumNs/1000U),
+        static_cast<unsigned long long>(NativeIoReads.Calls),
+        static_cast<unsigned long long>(NativeIoReads.WallNs/1000U),
+        static_cast<unsigned long long>(NativeIoReads.MaximumNs/1000U),
+        static_cast<unsigned long long>(NativeIoWrites.Calls),
+        static_cast<unsigned long long>(NativeIoWrites.WallNs/1000U),
+        static_cast<unsigned long long>(NativeIoWrites.MaximumNs/1000U),
+        static_cast<unsigned long long>(NativeIoRemoves.Calls),
+        static_cast<unsigned long long>(NativeIoRemoves.WallNs/1000U),
+        static_cast<unsigned long long>(NativeIoRemoves.MaximumNs/1000U)
+    );
+    std::fflush(stdout);
+}
+#endif
+
 #if defined(EDP_TEST_BYTE_CAPACITY)
 /// Test-only native observation at every successor-write boundary.
 static std::uint64_t ObservedSinkPeakBytes = 0U;
 static void CheckSinkByteBoundary(const NativeStore& storage, P::FilePathView target, std::size_t bytes);
 #endif
-#if defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT) || defined(EDP_TEST_SEALED_RETIREMENT_CUT) || defined(EDP_TEST_BYTE_CAPACITY)
+#if defined(EDP_TEST_STORAGE_IO_PROFILE) || defined(EDP_TEST_SEALED_WRITE_ACTIVITY_CUT) || defined(EDP_TEST_SEALED_RETIREMENT_CUT) || defined(EDP_TEST_BYTE_CAPACITY)
 // Test-only instrumentation of the existing provider. Only the unacknowledged
 // spare is rewritten; protected predecessors are never passed to this loop.
 /// Bootstrap arms only after both protected batches and the session flag commit.
@@ -69,11 +112,27 @@ struct Store final {
     }
     /// Delegates physical size observation without changing capability semantics.
     [[nodiscard]] P::FileSizeResult GetFileSize(P::FilePathView path) const noexcept {
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+        if (NativeStorageIoActive) {
+            const auto started=ESPressio::Clock::MonotonicNow().Nanoseconds();
+            const auto status=Actual.GetFileSize(path);
+            NativeIoSizes.Observe(started);
+            return status;
+        }
+#endif
         return Actual.GetFileSize(path);
     }
     /// Delegates bounded physical readback.
     [[nodiscard]] P::FileReadResult ReadFileAt(
         P::FilePathView path, P::StorageOffset offset, P::DestinationBufferView target) const noexcept {
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+        if (NativeStorageIoActive) {
+            const auto started=ESPressio::Clock::MonotonicNow().Nanoseconds();
+            const auto status=Actual.ReadFileAt(path,offset,target);
+            NativeIoReads.Observe(started);
+            return status;
+        }
+#endif
         return Actual.ReadFileAt(
             path,
             offset,
@@ -96,6 +155,14 @@ struct Store final {
             }
         }
 #endif
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+        if (NativeStorageIoActive) {
+            const auto started=ESPressio::Clock::MonotonicNow().Nanoseconds();
+            const auto status=Actual.RemoveFile(path);
+            NativeIoRemoves.Observe(started);
+            return status;
+        }
+#endif
         return Actual.RemoveFile(path);
     }
     /// Intercepts only the armed spare publication for finite write-activity injection.
@@ -109,6 +176,14 @@ struct Store final {
         );
 #endif
         if (!SealedWriteActivityArmed) {
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+            if (NativeStorageIoActive) {
+                const auto started=ESPressio::Clock::MonotonicNow().Nanoseconds();
+                const auto status=Actual.ReplaceFile(path,source);
+                NativeIoWrites.Observe(started);
+                return status;
+            }
+#endif
 #if defined(EDP_WORKER_CAPACITY_CUT)
             ++SealedReplaceCalls;
             SealedLastReplace = Actual.ReplaceFile(

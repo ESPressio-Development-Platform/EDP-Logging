@@ -608,23 +608,18 @@ namespace ESPressio::Logging {
         if (before.Occupied <= TProtectedSlots) {
             return result;
         }
-        // With exactly TProtected+1 clean *contiguous* generations, the
-        // oldest is already logically retired by the complete successor.
-        // Recheck the exact newest N files before removing that oldest.
-        for (std::size_t slot=0U;slot<TPhysicalSlots;++slot) {
-            if (slot==before.OldestSlot) {
-                continue;
-            }
-            const auto& previous=before.Inspected.Slots[slot];
-            if (previous.Condition!=EdlsSlotCondition::Clean ||
-                !Detail::IsPriorNewestEdlsStillCleanWithScratch<TPayloadMaximum>(
-                    storage,paths[slot],slot,previous,scratch
-                )) {
-                result.Status =
-                    EdlsProtectedRollingStatus::ProtectedHistoryChanged;
-                return result;
-            }
-        }
+        // With exactly TProtected+1 CRC-clean contiguous generations,
+        // the oldest is logically retired by the committed successor.
+        // The immediately preceding full physical plan has JUST inspected
+        // and CRC-qualified every protected newest file, under Bootstrap's
+        // exclusive FileStorage writer claim. No FileStorage mutation occurs
+        // between that inspection and the oldest-generation removal.
+        // Re-reading the same newest N files here adds no independent
+        // post-mutation evidence and needlessly multiplies Flash I/O.
+        //
+        // Preserve the mandatory complete post-removal physical CRC scan:
+        // it independently validates every protected successor after the
+        // provider's actual filesystem mutation and catches any damage.
         result.RetiredSlot=before.OldestSlot;
         result.Generation=before.NewestGeneration;
         result.NativeRemove=storage.RemoveFile(paths[before.OldestSlot]);

@@ -16,6 +16,7 @@ namespace {
         std::array<std::size_t,3U> length{};
         unsigned writes{0U}, removes{0U};
         bool failWrite{false}, torn{false}, failRemove{false}, crossDamage{false};
+        bool damageProtectedAfterRemove{false};
 
         static std::size_t idx(P::FilePathView p) noexcept {
             return static_cast<std::size_t>(p.Data()[4U]-'0');
@@ -50,7 +51,19 @@ namespace {
         P::FileRemoveStatus RemoveFile(P::FilePathView p) noexcept {
             ++removes;
             if(failRemove)return P::FileRemoveStatus::IoFailure;
-            length[idx(p)]=0U;
+            const auto removed = idx(p);
+            length[removed]=0U;
+            // Inject corruption caused by a provider's real removal side
+            // effect. The mandatory POST-delete CRC scan must catch it even
+            // though pre-retirement inspection was unambiguously clean.
+            if (damageProtectedAfterRemove) {
+                for(std::size_t slot=0U;slot<3U;++slot) {
+                    if(slot!=removed && length[slot]>38U) {
+                        bytes[slot][38U]^=std::byte{0x80U};
+                        break;
+                    }
+                }
+            }
             return P::FileRemoveStatus::Succeeded;
         }
         void put(std::size_t slot,std::uint64_t gen) {
@@ -153,6 +166,15 @@ namespace {
         noncontiguous.bytes[1U][36U]^=std::byte{0x80U};
         noncontiguous.put(1U,UINT64_MAX);
         assert(publish(noncontiguous).Status==Status::GenerationExhausted);
+
+        Store damagedAfterRemoval{};
+        assert(publish(damagedAfterRemoval).Status==Status::PublishedWithinCapacity);
+        assert(publish(damagedAfterRemoval).Status==Status::PublishedWithinCapacity);
+        damagedAfterRemoval.damageProtectedAfterRemove=true;
+        auto afterDamage=publish(damagedAfterRemoval);
+        assert(afterDamage.Status==Status::RetirementUnconfirmed);
+        assert(damagedAfterRemoval.removes==1U);
+        assert(finish(damagedAfterRemoval).Status==Status::ArchiveAmbiguous);
 
         Store damaged{};
         assert(publish(damaged).Status==Status::PublishedWithinCapacity);
