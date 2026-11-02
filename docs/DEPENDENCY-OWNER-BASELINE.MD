@@ -116,3 +116,32 @@ The following audited baseline supersedes the earlier 20-owner snapshot **for br
 A syntax inspection confirmed existing implicit/combined-line result enum declarations on read-only Mesh work branches: tracked in [EDP-Mesh #34](https://github.com/ESPressio-Development-Platform/EDP-Mesh/issues/34) and [EDP-Platform-ESP-IDF #13](https://github.com/ESPressio-Development-Platform/EDP-Platform-ESP-IDF/issues/13). No Mesh or linked Platform source was mutated. Unlinked-doc candidates in Clock (2), Mesh (13), Platform-ESP-IDF (3), Radio-NRF24 (1) and Radio-Raw80211 (1) must be distinguished between **current normative public contracts** and historical evidence/snapshots before raising more defects; README link-list count alone is not proof of policy non-compliance.
 
 **Qualification boundary:** this is a comprehensive branch/source **inventory** across all 37 official EDP repositories, and a targeted direct-include graph audit. It is **not** an exhaustive read of every implementation line, an independent target build of every possible Composition/provider combination, a complete check of all README/Wiki source symbols, or universal V2 certification. Cross-repository manifest pin/version compatibility and representative selected provider/build profiles remain further G14 work. Logging #15 remains OPEN until those can be appropriately bounded and verified. See the [new dated Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-02/2026-11-02-11-46-EDP-Logging-G14-Cross-Repository-Audit.MD).
+
+
+## 2 November 2026 — manifest-pinned versus latest-owner GCC contract comparisons
+
+A source/manifest comparison of all 37 latest published repository refs found **12 repositories** with at least one declared dependency ref pinned to a branch other than the newest-published working branch. These are potential profile-consistency checks, **not automatically defects**; stable main may intentionally be the contracted dependency for parts of the public surface. The bare Logging umbrella has zero mandatory dependencies; its optional headers and applications explicitly choose their own Composition/dependency closure.
+
+| Repository | Differing manifest branch pins (declared → latest published) |
+|---|---|
+| `EDP-BoundedTypes` | EDP-Memory: `main` → `feature/logging-v1` |
+| `EDP-Command` | EDP-Primitives: `main` → `serialisation_prerequisites`, EDP-Memory: `main` → `feature/logging-v1`, EDP-Threading: `main` → `feature/logging-v1`, EDP-Clock: `main` → `mesh_v1`, EDP-Serialisation: `main` → `feature/logging-v1` |
+| `EDP-Event` | EDP-Primitives: `main` → `serialisation_prerequisites`, EDP-Memory: `main` → `feature/logging-v1`, EDP-Threading: `main` → `feature/logging-v1`, EDP-Clock: `main` → `mesh_v1` |
+| `EDP-Localisation` | EDP-Memory: `main` → `feature/logging-v1` |
+| `EDP-Mesh` | EDP-Primitives: `main` → `serialisation_prerequisites`, EDP-Threading: `main` → `feature/logging-v1`, EDP-Memory: `main` → `feature/logging-v1`, EDP-Serialisation: `main` → `feature/logging-v1` |
+| `EDP-Platform-ESP-IDF` | EDP-Memory: `main` → `feature/logging-v1` |
+| `EDP-Platform-Portable` | EDP-Memory: `main` → `feature/logging-v1` |
+| `EDP-RemoteSystem` | EDP-Memory: `main` → `feature/logging-v1`, EDP-Threading: `main` → `feature/logging-v1` |
+| `EDP-Security` | EDP-Memory: `main` → `feature/logging-v1` |
+| `EDP-Serialisation` | EDP-Memory: `main` → `feature/logging-v1`, EDP-Localisation: `main` → `feature/logging-v1` |
+| `EDP-State` | EDP-Primitives: `main` → `serialisation_prerequisites`, EDP-Clock: `main` → `mesh_v1`, EDP-Memory: `main` → `feature/logging-v1`, EDP-Threading: `main` → `feature/logging-v1` |
+| `EDP-Threading` | EDP-Clock: `main` → `mesh_v1`, EDP-Memory: `main` → `feature/logging-v1` |
+
+**Executable representative compatibility, not inferred:** RPI400 isolated pinned-source GCC C++20 tests executed both profiles independently.
+
+- **Declared main-pinned profile:** detached `20261102T172609-bb90efdd` **PASS exit 0**. `EDP-Serialisation/feature/logging-v1` `4a2f1dea` with `EDP-Memory/main` `5ee3b20`, `EDP-Localisation/main` `2829791`, `EDP-Clock/main` `dbc8e8c`, plus main System, Platform, BoundedTypes, BoundedTopology and Portable: strict UTF-8, heterogeneous CBOR/JSON, strong identity adapters and expected compile-fail regressions PASS. `EDP-Threading/feature/logging-v1` `269d3dbc` with those same main dependencies: foundation, ordinary mutex and fail-closed mutex GCC suites PASS.
+- **Latest-owner feature profile:** detached `20261102T172741-d84bb408` **PASS exit 0**. Same owner source, except `EDP-Memory/feature/logging-v1` `8563161`, `EDP-Localisation/feature/logging-v1` `8b826f4`, `EDP-Clock/mesh_v1` `ad45b912`; exactly the same Serialisation and Threading GCC suites PASS.
+
+**Limit:** These are selected owner-level GCC host test entrypoints, not an Arduino/ESP-IDF application build of every optional header, a multi-library integration run under the automatic PlatformIO dependency resolver, any physical HIL evidence, a Clang/sanitizer full matrix for this tranche, or a guarantee that branch pins can safely be rewritten. In particular, `EDP-Serial` frame-pump imports Logging/Threading and `EDP-Localisation` file-pack imports Persistence are conditional owners, intentionally not mandatory imports of their minimal umbrella. Explicitly preserve their application-level direct dependency obligations.
+
+Future G14 scope: validate specific representative native/Arduino build compositions against both declared manifests and feature-pinned working branches, audit source/Wiki semantic contracts and direct dependency declarations, then determine whether a manifest migration is justified by *actual* consumer compatibility evidence. No production C++ or manifest changed in this tranche, all versions `0.1.0`.
