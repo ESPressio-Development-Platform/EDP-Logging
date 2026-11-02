@@ -2,6 +2,8 @@
 
 **Branch:** feature/logging-v1. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. A complete independent current-branch transitive audit of all optional profiles remains separate work; older notes are not a substitute.
 
+A pinned [current G14 owner and manifest-branch baseline](docs/DEPENDENCY-OWNER-BASELINE.MD) documents directly relevant repository heads, source-import owners, branch mismatches and the exact limits of cross-repository coverage. [Optional G12 Serial output](docs/SERIAL-OUTPUT-INTEGRATION.MD) is a downstream Serial-to-Logging feature, not a default Logging dependency.
+
 ## Current conditional dependency activation
 
 The root [README Dependencies tree](README.MD#dependencies) is the consuming-developer overview. The manifest has no mandatory EDP library dependencies; the default C++20 umbrella contains severity, attempt sequences, EDLG frame/reader, EDLS segment and instrumentation.

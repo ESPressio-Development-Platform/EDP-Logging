@@ -123,6 +123,7 @@ The documents under `./docs` define the detailed implementation contracts. Use t
 
 ### Architecture, record schema and producer contracts
 
+- [Conditional Cross-Repository Dependency Baseline](./docs/DEPENDENCY-OWNER-BASELINE.MD)
 - [Architecture](./docs/ARCHITECTURE.MD) · [Log Record Identity](./docs/LOG-RECORD-IDENTITY.MD) · [Log Record Source Assembly](./docs/LOG-RECORD-SOURCE-ASSEMBLY.MD)
 - [Record Production Ownership](./docs/RECORD-PRODUCTION-OWNERSHIP.MD) · [G4 Generated Whole Record](./docs/G4-GENERATED-WHOLE-RECORD.MD) · [G4 Core Field Adapters](./docs/G4-CORE-FIELD-ADAPTERS.MD)
 - [G4 Approved Field Wire](./docs/G4-APPROVED-FIELD-WIRE.MD) · [G4–G10 Owned Root Fan-out](./docs/G4-G10-OWNED-ROOT-FANOUT.MD)
@@ -147,6 +148,7 @@ The documents under `./docs` define the detailed implementation contracts. Use t
 
 ### Host tools, diagnostics and archival analysis
 
+- [Optional Serial Output and G12 Provider Integration](./docs/SERIAL-OUTPUT-INTEGRATION.MD)
 - [Host Decoder](./docs/HOST-DECODER.MD) · [Forensic CSV Export](./docs/FORENSIC-CSV-EXPORT.MD) · [Historical Diagnostic Schema Bridge](./docs/HISTORICAL-DIAGNOSTIC-SCHEMA-BRIDGE.MD)
 
 ### Qualification and evidence
