@@ -9,3 +9,6 @@ The complete and conditional dependency matrix is maintained in the [dependency 
 The newest-source optional import and branch-pin review is maintained in the [G14 owner baseline](../docs/DEPENDENCY-OWNER-BASELINE.MD). The optional Serial output family is an EDP-Serial-to-Logging edge (never a mandatory Logging dependency); its Arduino concrete is not yet implemented. See the [G12 Serial integration contract](../docs/SERIAL-OUTPUT-INTEGRATION.MD) and [EDP-Serial-Arduino issue #1](https://github.com/ESPressio-Development-Platform/EDP-Serial-Arduino/issues/1).
 
 See [Reference Index](Reference-Index) for source-by-source declarations and [Tooling Reference](Tooling-Reference) for maintained decoder and evidence tools.
+
+
+The [37-repository G14 source inventory](../docs/DEPENDENCY-OWNER-BASELINE.MD#2-november-2026--refreshed-37-repository-g14-source-audit) on 2 November 2026 covers the latest published branch tips and conditional direct source imports. It does not certify all application-selected provider combinations or generated transitive build graphs; tracked unrelated Mesh/Platform V2 enum findings are not Logging implementation dependencies. The owner README fixes and remaining audits are recorded in the dated Policy handoff.

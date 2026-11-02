@@ -65,3 +65,54 @@ The optional Serial EDLG consumer and ESP-IDF concrete provider compiled and pas
 **G14 disposition:** current core Logging source ownership and the **20 listed directly relevant owner heads** have a documented conditional import/manifest baseline, with identified version-pin differences rather than unreviewed implicit deps. This is a substantive partial review, but not a comprehensive audit of every declaration, all 37 current GitHub worktrees, all transitive build graphs and the complete Wiki/source semantic content of other repositories. Such an organisation-wide declaration remains open and must not be inferred from this document.
 
 For source and resource contracts use [Architecture](ARCHITECTURE.MD), [Owned Argument Byte Operations](OWNED-ARGUMENT-BYTE-OPERATIONS.MD), [Strict EDLS Acknowledgement](EDLS-ACKNOWLEDGED-RECOVERY.MD), [Serial integration](SERIAL-OUTPUT-INTEGRATION.MD) and the [root dependency graph](../DEPENDENCY_GRAPH.MD).
+
+
+## 2 November 2026 — refreshed 37-repository G14 source audit
+
+The following audited baseline supersedes the earlier 20-owner snapshot **for branch-tip/source discovery**, not its prior dated evidence. RPI400 git mirror refresh 20261102T120539-c2b7046c PASS/exit0; C++ source/include analysis on the most recent committed branch of all 37 official EDP repositories PASS/exit0. Two appliance-only temporary validation clones were excluded. Source-root scanning found 29 repositories with C/C++ files directly under src, plus the substantive application-level EDP-Labs (30 substantive repositories total); seven are stubs. Direct header import graph had **zero cycles detected**, not a proof for generated, transitive conditional SDK, Python tooling or application Bootstrap edges.
+
+| Repository | Branch | SHA | Source | Docs | Wiki | Direct owner imports | Flags |
+|---|---|---|---:|---:|---:|---|---|
+| EDP-BoundedTopology | main | 362042c3916d | 5 | 4 | 18 | none | none |
+| EDP-BoundedTypes | main | 1992b515b9a2 | 20 | 5 | 32 | EDP-Memory | none |
+| EDP-Clock | mesh_v1 | ad45b912d693 | 37 | 9 | 48 | EDP-Platform, EDP-System | none |
+| EDP-Command | mesh_v1 | 6002c66d71fd | 9 | 2 | 13 | EDP-Clock, EDP-Memory, EDP-Primitives, EDP-Serialisation, EDP-System, EDP-Threading | none |
+| EDP-Configuration | main | fe7e45e9d62a | 0 | 0 | 0 | none | none |
+| EDP-Demos | main | cad92d70c2f3 | 0 | 0 | 0 | none | none |
+| EDP-Event | mesh_v1 | 764de48d16ee | 14 | 9 | 27 | EDP-BoundedTopology, EDP-BoundedTypes, EDP-Clock, EDP-Memory, EDP-Primitives, EDP-System, EDP-Threading | none |
+| EDP-Labs | mesh_concurrency_v1 | 11d1e2c54ac1 | 0 | 8 | 89 | none | none |
+| EDP-Localisation | feature/logging-v1 | 8b826f4c9bec | 12 | 12 | 47 | EDP-Memory, EDP-Persistence, EDP-System | none |
+| EDP-Logging | feature/logging-v1 | aaa5729e5960 | 42 | 57 | 62 | EDP-BoundedTopology, EDP-BoundedTypes, EDP-Clock, EDP-Localisation, EDP-Memory, EDP-Persistence, EDP-Platform, EDP-Platform-Portable, EDP-Serialisation, EDP-System, EDP-Threading | none |
+| EDP-Memory | feature/logging-v1 | 85631612175f | 20 | 8 | 34 | EDP-BoundedTopology, EDP-Platform, EDP-System | none |
+| EDP-Mesh | mesh_v1 | 18ed68ceb294 | 79 | 72 | 88 | EDP-BoundedTopology, EDP-Clock, EDP-Command, EDP-Event, EDP-Memory, EDP-Persistence, EDP-Primitives, EDP-Radio, EDP-RemoteSystem, EDP-Security, EDP-Serialisation, EDP-State, EDP-System, EDP-Threading | none |
+| EDP-Persistence | main | 6f7134bb945f | 10 | 5 | 22 | EDP-System | none |
+| EDP-Persistence-Arduino | main | b4b49461fa08 | 3 | 2 | 15 | EDP-Memory, EDP-Persistence | none |
+| EDP-Persistence-ESP-IDF | main | d3e1febe6565 | 5 | 3 | 16 | EDP-Memory, EDP-Persistence | none |
+| EDP-Platform | main | ee3256624045 | 19 | 5 | 31 | EDP-System | none |
+| EDP-Platform-Arduino | main | c311694ea905 | 3 | 1 | 15 | EDP-BoundedTypes | none |
+| EDP-Platform-ESP-IDF | mesh_v1 | adc416403101 | 15 | 14 | 26 | EDP-Clock, EDP-Memory, EDP-Persistence, EDP-Platform, EDP-Security, EDP-System | none |
+| EDP-Platform-FreeRTOS | main | 2a52ba81e850 | 6 | 2 | 18 | EDP-Platform | none |
+| EDP-Platform-Portable | main | 4890e115305f | 6 | 3 | 18 | EDP-Memory, EDP-Platform | none |
+| EDP-Primitives | serialisation_prerequisites | 939d134afff3 | 10 | 4 | 21 | EDP-System | none |
+| EDP-Profiling | main | acc5b22900a9 | 0 | 0 | 0 | none | none |
+| EDP-Radio | mesh_v1 | d547ede45e5f | 9 | 6 | 22 | EDP-Clock, EDP-RemoteSystem, EDP-System | none |
+| EDP-Radio-NRF24 | main | 1315a0bec0a0 | 8 | 17 | 20 | EDP-Radio | none |
+| EDP-Radio-Raw80211 | mesh_v1 | f2a231cd9ae4 | 8 | 7 | 18 | EDP-Radio | none |
+| EDP-RemoteSystem | main | 0b12714c5f4e | 8 | 4 | 21 | EDP-BoundedTopology, EDP-Memory, EDP-System, EDP-Threading | none |
+| EDP-Security | mesh_v1 | a7482cbc5f45 | 18 | 9 | 30 | EDP-Memory, EDP-Platform, EDP-System | none |
+| EDP-Serial | feature/logging-v1 | cc3857fa7767 | 5 | 3 | 6 | EDP-Logging, EDP-System, EDP-Threading | none |
+| EDP-Serial-Arduino | main | 99b5f53b558f | 0 | 0 | 0 | none | none |
+| EDP-Serial-ESP-IDF | feature/logging-v1 | 2ae01782ab4e | 2 | 1 | 3 | EDP-Serial | none |
+| EDP-Serialisation | feature/logging-v1 | 4a2f1dea0a2a | 24 | 13 | 38 | EDP-BoundedTopology, EDP-BoundedTypes, EDP-Clock, EDP-Localisation, EDP-Memory, EDP-Platform-Portable, EDP-System | none |
+| EDP-State | mesh_v1 | c1a5ff555186 | 13 | 8 | 26 | EDP-BoundedTopology, EDP-BoundedTypes, EDP-Clock, EDP-Memory, EDP-Primitives, EDP-RemoteSystem, EDP-System, EDP-Threading | none |
+| EDP-System | main | c69d4b082db5 | 27 | 10 | 41 | none | none |
+| EDP-Threading | feature/logging-v1 | 269d3dbc9b21 | 42 | 5 | 56 | EDP-BoundedTopology, EDP-Clock, EDP-Memory, EDP-Platform, EDP-System | none |
+| EDP-WiFi | main | 8658af9e8079 | 0 | 0 | 0 | none | none |
+| EDP-WiFi-Arduino | main | 73b5e33de240 | 0 | 0 | 0 | none | none |
+| EDP-WiFi-ESP-IDF | main | f4497c3ce667 | 0 | 0 | 0 | none | none |
+
+**G14 V2 findings and status.** All detected source imports were mentioned in the owning repository's README or DEPENDENCY_GRAPH; the scan does not independently certify per-header transitive closure or actual build-manifest version pins. Root README discovery for two current owner docs was corrected and published: EDP-Memory/feature/logging-v1 85631612175f0c4af62ee2250748ba4ac1f5c6e2 ([Memory #17](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/17)) and EDP-Threading/feature/logging-v1 269d3dbc9b2143f5bd3046182d20db57d97e32a3 ([Threading #12](https://github.com/ESPressio-Development-Platform/EDP-Threading/issues/12)). The isolated RPI400 detached documentation QA 20261102T120149-377c9b53 PASS/exit0 confirmed all current focused docs in those owners were linked and all README-local links resolved. No C++ code changes, no physical retest in this tranche.
+
+A syntax inspection confirmed existing implicit/combined-line result enum declarations on read-only Mesh work branches: tracked in [EDP-Mesh #34](https://github.com/ESPressio-Development-Platform/EDP-Mesh/issues/34) and [EDP-Platform-ESP-IDF #13](https://github.com/ESPressio-Development-Platform/EDP-Platform-ESP-IDF/issues/13). No Mesh or linked Platform source was mutated. Unlinked-doc candidates in Clock (2), Mesh (13), Platform-ESP-IDF (3), Radio-NRF24 (1) and Radio-Raw80211 (1) must be distinguished between **current normative public contracts** and historical evidence/snapshots before raising more defects; README link-list count alone is not proof of policy non-compliance.
+
+**Qualification boundary:** this is a comprehensive branch/source **inventory** across all 37 official EDP repositories, and a targeted direct-include graph audit. It is **not** an exhaustive read of every implementation line, an independent target build of every possible Composition/provider combination, a complete check of all README/Wiki source symbols, or universal V2 certification. Cross-repository manifest pin/version compatibility and representative selected provider/build profiles remain further G14 work. Logging #15 remains OPEN until those can be appropriately bounded and verified. See the [new dated Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-02/2026-11-02-11-46-EDP-Logging-G14-Cross-Repository-Audit.MD).
