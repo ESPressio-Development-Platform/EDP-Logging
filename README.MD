@@ -54,8 +54,9 @@ This is a minimal **compile-time threshold example**, not a complete persistent 
 
 ### 3. Start from a complete application
 
-Use one of the maintained demos rather than guessing provider wiring:
+Use the [complete demo index](./demos/README.MD) and choose a maintained, target-specific example rather than guessing provider wiring:
 
+- [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) — provider-free core: compile-time severity gate, attempt identity, bounded EDLG frame, strict validation and corruption rejection (not a complete generated LogRecord).
 - [Typed Managed Batch Worker](./demos/TypedManagedBatchWorker/README.MD) — original 15-field records, bounded source queue, generated CBOR, sealed EDLS batching, strict LittleFS/NVS acknowledgement and replay.
 - [Configurable Bounded EDLS Batch](./demos/ConfigurableBoundedEdlsBatch/README.MD) — finite batch sizing and dwell configuration.
 
