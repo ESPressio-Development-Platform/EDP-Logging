@@ -79,7 +79,7 @@ namespace ESPressio::Logging {
         /// Constructs an invalid/unassigned output slot.
         constexpr AttemptSequence() noexcept = default;
 
-        /// Creates an externally restored already-validated ticket, rejecting zero.
+        /// Restores a caller-validated ticket; zero remains the invalid/unassigned value.
         static constexpr AttemptSequence FromValidatedValue(Storage value) noexcept {
             return AttemptSequence(value);
         }
