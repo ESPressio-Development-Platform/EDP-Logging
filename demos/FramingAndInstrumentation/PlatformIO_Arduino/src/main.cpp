@@ -85,12 +85,11 @@ namespace Demo {
 
 } // Demo
 
-namespace {
-    volatile int DemoResult{0};
-}
+/// Debug-visible result of the minimal provider-free framing demonstration.
+volatile int EdpLoggingFramingDemoResult{0};
 
 void setup() {
-    DemoResult = Demo::Run();
+    EdpLoggingFramingDemoResult = Demo::Run();
 }
 
 void loop() {}

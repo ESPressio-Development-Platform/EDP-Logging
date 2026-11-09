@@ -83,7 +83,9 @@ namespace Demo {
 
 } // Demo
 
+/// Debug-visible result of the minimal provider-free framing demonstration.
+volatile int EdpLoggingFramingDemoResult{0};
+
 extern "C" void app_main() {
-    static volatile int result{0};
-    result = Demo::Run();
+    EdpLoggingFramingDemoResult = Demo::Run();
 }

@@ -8,8 +8,8 @@ All storage is stack/static, with a 64-byte frame array and no runtime heap, tas
 
 ## Targets
 
-- `Arduino_IDE/Arduino_IDE.ino` — install EDP-Logging with the configured C++20-capable Arduino-ESP32 core; inspect `DemoResult` with a debugger, where zero indicates the checks passed.
-- `PlatformIO_Arduino` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_Arduino`. `DemoResult` is a volatile result sink, zero on success.
-- `PlatformIO_ESP-IDF` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_ESP-IDF`. `app_main` stores the check outcome into a volatile local result for debugging.
+- `Arduino_IDE/Arduino_IDE.ino` — install EDP-Logging with the configured C++20-capable Arduino-ESP32 core; inspect `EdpLoggingFramingDemoResult` with a debugger, where zero indicates the checks passed.
+- `PlatformIO_Arduino` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_Arduino`. `EdpLoggingFramingDemoResult` is a volatile result sink, zero on success.
+- `PlatformIO_ESP-IDF` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_ESP-IDF`. `app_main` stores the check outcome in the externally debugger-visible `EdpLoggingFramingDemoResult` for debugging.
 
 **Build success does not prove the application executed on hardware.** The examples have deliberately no serial transport or persistent output; the higher-level full Logger demos own those facilities. The selected `EDP-Logging` package is the relative sibling source of each PlatformIO application. C++20 and zero mandatory EDP library dependencies apply to this minimal umbrella. All package versions remain 0.1.0.
