@@ -1,23 +1,31 @@
-# EdlgFrameReader — implementation reference
+# Reference — `src/logging/EdlgFrameReader.hpp`
 
-**Classification:** Public framing reader. **Owning header:** [src/logging/EdlgFrameReader.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/EdlgFrameReader.hpp). **Version:** 0.1.0, source branch feature/logging-v1. This page describes implementation and owner requirements; it does not replace normative ./docs contracts.
+**Classification:** public allocation-free, strict in-memory EDLG verifier; no EDP library dependency beyond the sibling `EdlgFrame.hpp`. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/0ac9b2b4c10f31823c7834c39f2a372ca1ac98ad/src/logging/EdlgFrameReader.hpp).
 
-## Responsibility and boundaries
+## Public result enum
 
-Examines an EDLG-framed byte span and yields a validated borrowed frame view. It rejects malformed size, incomplete suffix, incorrect CRC and invalid framing rather than exposing unqualified payload bytes.
+`EdlgFrameReadResult : uint8_t` enumerates the exact reason the candidate was rejected:
 
-## Resource, failure and lifecycle invariants
+- **Succeeded:** complete header, supported codec/version/flags, length bound, GLDE marker and CRC all verified.
+- **IncompleteFrame:** insufficient header or the declared complete frame has not yet arrived.
+- **InvalidMagic:** first four bytes are not `EDLG`.
+- **UnsupportedVersion:** framing version is not 1.
+- **InvalidCodec:** codec is neither Cbor=1 nor Json=2.
+- **InvalidFlags:** reserved flags are nonzero.
+- **PayloadTooLarge:** advertised length exceeds caller's configured bound or cannot fit size_t plus envelope.
+- **InvalidCompletion:** expected trailing `GLDE` marker is absent or damaged.
+- **ChecksumMismatch:** CRC32C over header prefix + encoded payload + completion does not match the stored checksum.
 
-Returned views borrow the caller buffer. Framing/integrity success is not proof of native durable storage, nor of the semantics of the payload CBOR.
+These values distinguish incomplete transports from corrupt records; none triggers implicit resync or destructive repair.
 
-## Source declarations and responsibilities
+## Public borrowed output `EdlgFrameView`
 
-The following source-indexed inventory distinguishes defined types/contracts from operations. Descriptions reflect implementation documentation at the cited line; callers must also respect the preconditions, result meanings, provider choices and lifetimes described above.
+The struct's **Codec** identifies the accepted wire representation; **Payload** is a `span<const byte>` *borrowed* from the caller's input; **Consumed** identifies the exact prefix frame length, so a caller can advance over multiple complete frames without trusting arbitrary tails; and **Checksum** is the persisted validated CRC32C. The default instance is an empty view, not a valid decoded LogRecord. The view becomes usable **only** after `Succeeded`, and the backing source must outlive every view consumer. No output buffer or heap allocation is owned.
 
-- **EdlgFrameReadResult** (Type or Concept, [line 13](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/EdlgFrameReader.hpp#L13)): Strict, non-resynchronising read-only inspection of one EDLG v1 frame.
-- **EdlgFrameView** (Type or Concept, [line 26](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/EdlgFrameReader.hpp#L26)): Borrowed verified frame; source must outlive all consumers of the view.
-- **ReadEdlgFrame** (Method or Function, [line 42](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/EdlgFrameReader.hpp#L42)): Inspect one complete frame at offset zero in caller-owned bytes.  A valid frame consumes exactly header+payload+completion, permitting a caller to iterate a contiguous prefix. Extra source bytes are untouched. No attempt is made to salvage records after corruption; archive rotation and forensic resync are sep
+## Public operation `ReadEdlgFrame`
 
-## Dependency and test qualification
+`ReadEdlgFrame(source: span<const byte>, output: EdlgFrameView&, maximumPayloadBytes: size_t)` inspects one complete frame at offset zero and leaves **output entirely unchanged on failure**. It first checks minimum header, exact magic/version/codec/flags and the bounded unsigned little-endian payload length. It then requires the 20-byte overhead plus payload, checks the completion marker and recomputes incremental CRC32C; only afterwards does it assign the verified view. It does not consume trailing bytes beyond the first verified frame and cannot salvage corrupted/torn data by scanning for another magic word.
 
-The implementation owns no replacement EDP-Platform/Memory/Threading/Persistence abstraction. The actual include closure is determined by its opt-in header and the consuming application; the default Logging umbrella remains deliberately narrow. See the current [Dependency Graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD), [Architecture](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD), and [G1–G15 acceptance matrix](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ACCEPTANCE-G1-G15.MD) for exact validation and limitation claims. Never translate an unrelated historical fixture into current production proof.
+This API performs **transport framing integrity only**: it does not attest CBOR/JSON semantics, governed 15-field diagnostic record identity, historical schema text, cryptographic authenticity, current Flash persistence or power-loss durability. A caller selecting an EDLS archive must use the appropriate separate segment inspector and strict acknowledged journal policy. See [frame writer](Reference-logging-EdlgFrame) and [normative archive rules](../docs/EDLS-ACKNOWLEDGED-RECOVERY.MD).
+
+**Validation:** real GCC and Clang host framing/corruption tests and bounded named native integration suites are recorded in [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD) and Policy/main. No generic low-level storage interruption guarantees follow.

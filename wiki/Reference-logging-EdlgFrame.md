@@ -1,15 +1,21 @@
-# logging/EdlgFrame.hpp
+# Reference — `src/logging/EdlgFrame.hpp`
 
-**Status:** public C++20 transport-framing primitive; source-only, not yet runtime validated.
+**Classification:** public allocation-free binary framing API, internal frame wire helpers. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/0ac9b2b4c10f31823c7834c39f2a372ca1ac98ad/src/logging/EdlgFrame.hpp). This header has **no EDP library dependency**. It writes an envelope around *already encoded* bytes; the caller, not this frame layer, owns the EDP-Serialisation writer and governed diagnostic schema.
 
-`EdlgCodec` has CBOR=1 and JSON=2; `EdlgFrameWriteResult` distinguishes Succeeded, InvalidCodec, InvalidPayload and InsufficientCapacity.
+## Public enums and semantics
 
-`WriteEdlgFrame(codec, payload, output, written, maxPayloadBytes)` emits a D13-defined `EDLG` binary frame with 16-byte header and 4-byte completion marker, using only caller-owned `std::span` storage. It preflights codec, configured payload limit, 32-bit wire size and destination capacity before writing, and does not change `written` on failure. Borrowed source and writable output must not overlap.
+`EdlgCodec : uint8_t` offers **Cbor** (=1, payload bytes are externally encoded CBOR) and **Json** (=2, payload bytes are externally encoded JSON); it does not validate either representation. The `EdlgFrameWriteResult` values are **Succeeded** (complete frame and `written` published), **InvalidCodec** (unsupported enum value), **InvalidPayload** (invalid length/bounds, invalid nonempty pointer or forbidden overlap), and **InsufficientCapacity** (destination cannot hold the 20-byte envelope plus encoded payload). A failure never partially claims a successful frame.
 
-`Detail::EdlgFrameCrc32C` implements reflected Castagnoli CRC32C with incremental finalized accumulator, with no separate heap or state. `Detail::WriteEdlgLe32` explicitly writes LE32. The transport checksum detects accidental corruption only; it gives neither cryptographic authentication nor power-loss durability.
+## Public operation `WriteEdlgFrame`
 
-Test `tests/EdlgFrameTests.cpp` compares one 23-byte reference vector (`EDLG`, version1, CBOR, LE32 length3, CRC `F57F6380`, payload `abc`, `GLDE`), and confirms capacity failure does not mutate output. Tests have **NOT RUN** in an authorised execution environment.
+Parameters: `codec` is the chosen canonical representation; `payload: span<const byte>` borrows already encoded bytes; `output: span<byte>` is the application-owned writable frame storage; `written: size_t&` is the result/output length and is **unchanged on all preflight failures**; `maximumPayloadBytes` is the application's finite configured profile bound. The caller must keep source and destination **nonoverlapping**. The operation rejects invalid codec, null nonempty payload, a payload greater than either the configured bound or the 32-bit wire length, an undersized output span, and overlapping spans before writing.
 
-## Strict native read-only frame inspection
+On success it writes the fixed **16-byte EDLG header** (magic, version 1, codec, zero flags, little-endian 32-bit payload size, CRC32C), exactly the supplied encoded payload, and **4-byte GLDE** completion marker. `written = payload.size() + 20`. There is no heap allocation, task, OS time, FileStorage or implicit mutex. A successful frame write is a complete in-memory representation; it is **not** a sink ACK, FileStorage transaction, power-cut-proof commit, authenticated record or semantic LogRecord validation.
 
-`EdlgFrameReader.hpp` adds `ReadEdlgFrame`, a zero-allocation bounded, non-resynchronizing validator. It exposes a `EdlgFrameView` only after magic/version/codec/flags/length/completion/CRC all agree, and returns precise consumed byte count. Source backing must outlive the returned payload view. Invalid or torn frame content never yields partial/updated output. The helper is not a semantic CBOR decoder or archive durability provider; both tests and target compilation remain pending.
+## Private wire helpers
+
+`Detail::EdlgFrameCrc32C(bytes, previous=0)` performs incremental reflected Castagnoli CRC32C using the finalized previous-block accumulator, without a lookup table or extra allocation. `previous` defaults to zero for the first block. The checksum detects accidental corruption, not active tampering, and its representation must remain stable across hosts/architectures. `Detail::WriteEdlgLe32(output, offset, value)` writes four explicit little-endian bytes; the caller supplies sufficient destination space after preflight. Both helpers are internal implementation details, not supported independent providers.
+
+## Validation and reading
+
+`ReadEdlgFrame` in [EdlgFrameReader](Reference-logging-EdlgFrameReader) is the separate strict borrowed verifier; it does not decode CBOR/JSON. The current source is covered by real GCC and Clang native host tests (including reference vector, capacity, corruption) and has participated in bounded ESP32 integration as documented in [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD). Earlier historical statements that the tests were “NOT RUN” are superseded by the November 9, 2026 evidence (including the 68/68 host suite). Do **not** generalize this into an arbitrary VFS interruption-atomicity guarantee.
