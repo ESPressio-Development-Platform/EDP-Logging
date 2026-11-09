@@ -17,11 +17,16 @@ ProviderFailure never imply flushed, physically received or durable.
 Failed native release retains exclusive source ownership for Bootstrap.
 
 GCC and Clang host tests, 3x physical ESP32-D0WD test app runs with
-real FreeRTOS/Memory, EDP-Serialisation CBOR and CRC verified EDLG UART
-output PASS. Source sample payload is a TEST-ONLY positional tuple;
-the permanent System governed TypeIdentifier and full canonical LogRecord
-are still outstanding. Consult docs/RECORD-PRODUCTION-OWNERSHIP.MD
-and tests/hil/g1-espidf/VALIDATION.MD.
+real FreeRTOS/Memory, EDP-Serialisation CBOR and CRC-verified EDLG UART
+output passed in the original G1 application fixture. Its source
+payload was a **test-only positional tuple**, not a permanent wire
+record. Since those early tests, the separately governed 15-field
+LogRecord identity and generated wire projection have been implemented
+in the Logging source; `ProduceRecordUntil` here remains a **generic
+scalar/enum producer envelope** and never claims to construct that
+canonical root representation. See [Record production ownership](../docs/RECORD-PRODUCTION-OWNERSHIP.MD),
+[generated wire projection](Reference-logging-GeneratedLogRecordWireProjection)
+and [G1 fixture validation](../tests/hil/g1-espidf/VALIDATION.MD).
 
 ## Bounded fanout — DrainOneRecordToSinks
 
@@ -102,3 +107,31 @@ Accepted/Rejected/Partial/ProviderFailure evidence and source-lease
 reclamation contract. Host coverage uses one sole sink across direct
 drain, finite quantum and DedicatedCoordinator stop/wake. No durability
 or physical-transport claim follows from sink acceptance.
+
+## Declaration-by-declaration source contract (9 November 2026)
+
+This section follows the *current* `src/logging/RecordProduction.hpp`, including the two internal `Detail` helpers. The earlier dated sections above record how the facility evolved; the declarations below describe the currently selected source. All functions use caller-supplied existing owners and introduce no scheduler, allocator, additional queue or runtime sink.
+
+### Producer entry, result and non-wrapping attempt
+
+- `RecordProductionStatus` is a fixed `uint8_t` enum: `Published=0` means only the queue commit succeeded; `OutputOccupied=1` refuses a nonempty scratch lease or active caller reservation; `InvalidProducerSlot=2` rejects an unassigned producer; `StopRequested=3` prevents new admission; `SequencerTimedOut=4` and `SequencerProviderFailure=5` distinguish existing mutex acquisition outcomes; `SequencerReleaseUnconfirmed=6` preserves a failed/unknown mutex release; `AttemptExhausted=7` refuses counter wrap; `AdmissionFailed=8` reports a bounded queue/Memory failure; and `CommitFailed=9` reports an unsuccessful publication commit. None asserts sink or flash durability.
+- `RecordProductionOutcome<TWidth>` exposes `Status`, the issued/non-issued `Attempt`, the separate typed `Admission` outcome, the native queue `Commit` result, and `TimeCaptured`. The latter records that time was captured even when the attempt later fails; it is not a published-record indicator.
+- `ProduceRecordUntil<TWidth,TMaximumQueueWakes,TMaximumMemoryWakes,...>` captures exactly one `CaptureLogTime(temporal)` sample and a finite owned tuple of caller scalar/enum arguments **before** acquiring the sequencer or waiting for capacity. It refuses active output handles, invalid slots and shutdown. It invokes the existing EDP-Threading ordinary mutex with the canonical remaining deadline; under that lock it issues the non-wrapping attempt and releases the lock with explicit release-failure status. It delegates bounded Memory/queue admission to `AcquireRecordUntil`, then invokes `Reservation::CommitUntil(deadline)` when present or the already-owned `Commit()` contract otherwise. On commit failure, caller-held scratch/Reservation ownership is **not** silently discarded. Pointer/spanned/borrowed complex arguments are compile-time excluded; the generated LogRecord assembly owns those representations.
+
+### Native consumer claim and one synchronous sink
+
+- `RecordSinkSubmission` is an independent fixed `uint8_t` enum: `Accepted=0`, `Rejected=1`, `Partial=2`, `ProviderFailure=3`. Accepted means that one synchronous copying sink accepted submission, **not** that its bytes were written durably or physically received.
+- `RecordDrainStatus` distinguishes `Empty=0`, `AcceptedAndReclaimed=1`, `FailedAndReclaimed=2`, `ClaimFailure=3`, and `ReclaimUnconfirmed=4`. Failed sink submission is not mislabelled as a failed native Memory release.
+- `RecordDrainOutcome` has `Status`, original queue `Pop`, actual queue `Reclaim`, sink `Submission`, and `SubmissionAttempted`; a caller can separately inspect whether the callback ran and whether the source's ownership returned to Memory.
+- `DrainOneRecord<TQueue,TSink>` is the public original no-wait entry point. It forwards to the same internal state machine with the no-wait policy; only the caller-supplied native claim and lease are consumed, never duplicated or implicitly retained.
+- `Detail::DrainOneRecordUnderQueuePolicy<TBoundedQueueWait,TQueue,TSink>` is the internal shared implementation. It rejects a previously active caller claim, selects canonical `queue.PopUntil` vs original `queue.Pop`, checks both result and active ownership, borrows the source through the claim's EDP-Memory lease and calls the synchronous `noexcept` sink at most once. A sink must return `RecordSinkSubmission`; the lease remains borrowed only for that call. It then executes `CompleteUntil` or `Complete`, with a **separate new retirement deadline** for bounded mode. `ReleasedNotificationFailed` still represents a completed native release with failed notification, whereas any genuinely unconfirmed reclaim returns `ReclaimUnconfirmed` and leaves ownership visible to Bootstrap. No callback result upgrades storage durability.
+
+### Bounded fanout and internal queue-locking policy
+
+- `RecordFanoutOutcome<TResultCount>` is bounded at compile time to **1–8** sinks. `Source` is the one native `RecordDrainOutcome`; `Submissions` is a fixed array of per-sink outcomes; `Attempted`, `Accepted`, `Unaccepted` are the exact invocation/acceptance counts. `IsFullySubmittedAndReclaimed()` returns true only for an accepted native source reclamation with every configured sink attempted and accepted; it does not claim durable delivery.
+- `DrainOneRecordToSinks<TQueue,TSinks...>` is the public original no-wait fanout wrapper; it dispatches the same shared source-claim state machine with the no-wait policy and a fixed sink pack.
+- `Detail::DrainOneRecordToSinksUnderQueuePolicy<TBoundedQueueWait,TQueue,TSinks...>` is the internal bounded/no-wait fanout implementation. It initializes each per-sink result to `ProviderFailure` before dispatch, calls each supplied `noexcept` callback exactly once in argument order under one source claim, counts each returned result, and aggregates full acceptance, partial acceptance and provider failure without hiding any individual result. It delegates claim/reclaim to `DrainOneRecordUnderQueuePolicy`; a failed sink does not retract prior acceptances or trigger automatic retry. The bounded policy passes its canonical queue-lock wait to source claim and retirement. Source borrows expire at return; asynchronous consumers must copy/own payloads themselves.
+
+### Ownership boundaries and verification
+
+`CaptureLogTime`, the sequencer's `Issue/Release`, queue claim `Borrow` and Memory lease `Get` are calls to separately owned Clock/AttemptSequence/Threading/queue/Memory contracts, **not additional methods declared by RecordProduction.hpp**. This separation prevents duplicate-owner APIs in Logging. Source validation includes [record production ownership](../docs/RECORD-PRODUCTION-OWNERSHIP.MD) and maintained [RecordProduction host tests](../tests/RecordProductionTests.cpp). The 9 November 2026 exact-source/current-main 68-case GCC+Clang integration suite `20261109T090446-792155c2` **passed 68/68**; the selected production source has not changed as part of this Wiki-only clarification. All package versions remain 0.1.0.
