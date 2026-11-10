@@ -195,3 +195,19 @@ The **exact published Logging feature source tree** `6060b3cf9705edc199f396aa415
 
 **Current interpretation:** the previous specific default-main generator/header blockers are **resolved for the actually tested dependency closure**. Do **not** claim every PlatformIO auto-resolved package graph, optional Bootstrap mix, or ESP-IDF firmware target has been requalified solely by these host tests. See [EDP-Serialisation #11](https://github.com/ESPressio-Development-Platform/EDP-Serialisation/issues/11) and [9 Nov Policy recovery](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-09/2026-11-09-08-46-EDP-Logging-Recovery-And-Reintegration.MD). Do not alter consumer manifests or delete retained source branches as a consequence of this finding.
 
+
+## Current published owner reconciliation — 10 November 2026
+
+This section **supersedes old “feature must still merge” assertions only for the repos listed here**; the dated 2 November audit above remains historical provenance. The following GitHub branch heads were independently checked during the dependency-first reintegration campaign:
+
+| Actual library owner | Published active branch | Exact reviewed commit | Qualification / limitation |
+| --- | --- | --- | --- |
+| EDP-Localisation | `main` | `8b826f4c9becfa34eb3a885361f70033f8ff3f22` | Current generated diagnostic `parameters` contract, host/GCC/Clang source-owner integration |
+| EDP-Clock | `main` | `9a27b12d5938dbd1cb26af541a489531a848ba25` | Canonical ClockEra, native input contract for optional record fields; not a general Mesh time sync guarantee |
+| EDP-Serialisation | `main` | `f36e615720ce093a03482ae710afe129d031a551` | Generated CBOR/JSON adapters and strict typed wire, source-breaking predicate migrations applied |
+| EDP-Platform-Portable | `main` | `267411bf319a269883d2273928ad19fc05e2f324` | Narrow raw resource/byte-copy roots, GCC/Clang Debug/Release 16/16; 12 relevant native demo targets, **not** blanket Portable atomic/exception provider qualification |
+| EDP-Memory | `main` | `9c5a994eb1e101b80a6fb0e1357c0add0e3a38c4` | NoWait pool coordination + 5 three-target demo families. Direct finite/Forever waiter under provider failure **not safe-qualified**, [Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16) remains open |
+| EDP-Threading | `feature/logging-v1` (at time of this entry) | `1c5ff530c7051d0ccb9480c9a46fbb3cd9424750` | Kept separate until post-Memory main hosted and native regression; `main` not yet promoted |
+| EDP-Logging | `feature/logging-v1` (at time of this entry) | `8d2b307a8a1db1aa5596abc904cd0da1f3c032cd` | Pending final G1–G15, public demo/docs/Wiki and downstream post-main closure |
+
+**Evidence:** The original 9 November [Policy living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-09/2026-11-09-09-29-EDP-Logging-Dependency-First-Reintegration.MD) contains raw detached RPI400 suite IDs including independent **16/16 native Memory/Logging demo** PASS `20261109T114835-9efcac49`, per-repo SHA guards and previous real physical WROOM cut/wear limitations. The 10 November follow-up is independently rebuilding post-Memory-main consumer host/native code; its result must be checked before this entry is interpreted as release acceptance. `EDP-Serial` and `EDP-Serial-ESP-IDF` full source remain on their feature branches and are downstream optional consumers, **not** dependencies of Logging.
