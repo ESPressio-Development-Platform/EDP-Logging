@@ -163,7 +163,7 @@ See also [Dependency Graph](./DEPENDENCY_GRAPH.MD) and the [internal developer W
 
 ## Examples and testing
 
-Buildable applications are under [`demos/`](./demos/TypedManagedBatchWorker/README.MD), with all three supported target layouts documented in their own READMEs. The repository's `tests/` tree contains GCC/Clang host validations, generated-schema and CBOR tests, bounded queue and recovery negatives, and separate physical ESP32 HIL fixtures.
+Buildable applications are indexed in [demos/README.MD](./demos/README.MD), with all three target source layouts documented in their own READMEs. The provider-free [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) core example has independently passed GCC/Clang execution and both PlatformIO Arduino-ESP32 and ESP-IDF compile/link builds on the approved RPI400; it does not constitute generated-record or persistence qualification. The repository's `tests/` tree contains GCC/Clang host validations, generated-schema and CBOR tests, bounded queue and recovery negatives, and separate physical ESP32 HIL fixtures.
 
 A typical host prerequisite is to provide a **pinned sibling source dependency root** for the opt-in tests:
 
