@@ -1,6 +1,6 @@
 # EDP-Logging Dependency Graph
 
-**Branch:** feature/logging-v1. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. A complete independent current-branch transitive audit of all optional profiles remains separate work; older notes are not a substitute.
+**Implementation baseline:** current source on this branch; publication will promote this exact source to `main` only after qualification. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. The conditional package graph below must be verified against the actual header profile and published owner revisions. The complete cross-repository manifest pin scan remains a separate, explicitly scoped acceptance check; historical notes alone do not certify all optional profiles.
 
 A pinned [current G14 owner and manifest-branch baseline](docs/DEPENDENCY-OWNER-BASELINE.MD) documents directly relevant repository heads, source-import owners, branch mismatches and the exact limits of cross-repository coverage. [Optional G12 Serial output](docs/SERIAL-OUTPUT-INTEGRATION.MD) is a downstream Serial-to-Logging feature, not a default Logging dependency.
 
@@ -514,3 +514,11 @@ load/store/CAS operations. No concrete SDK/provider or new dependency edge is
 introduced into neutral Logging. Concrete ESP-IDF selection belongs only to
 the typed demo application; Portable selection belongs only to host tests.
 See docs/ADMISSION-LIFECYCLE-ATOMIC-BINDING.MD.
+
+## 10 November 2026 dependency-first main integration update
+
+The previously promoted, independently host- and ESP32-demo-tested owner revisions are now **`EDP-Localisation/main=8b826f4c9becfa34eb3a885361f70033f8ff3f22`**, **`EDP-Clock/main=9a27b12d5938dbd1cb26af541a489531a848ba25`**, **`EDP-Serialisation/main=f36e615720ce093a03482ae710afe129d031a551`**, **`EDP-Platform-Portable/main=267411bf319a269883d2273928ad19fc05e2f324`**, and **`EDP-Memory/main=9c5a994eb1e101b80a6fb0e1357c0add0e3a38c4`**. This is the **conditional generated-record, byte-copy, source-pool and worker ownership baseline** at the time of this documentation update, not a permanent SHA pin of every application. Application manifests should resolve those owners by their current `#main` only after each guarded main promotion and pass downstream tests.
+
+`EDP-Threading` continues to supply the opt-in Logging producer/wake/worker contracts; it remains under `feature/logging-v1` **until its own post-Memory main qualification succeeds**. Its current feature implementation and tests use `EDP-Memory/main` and `EDP-Clock/main`. Do **not** invent `Threading/main` approval before its actual GitHub ref moves. The new minimal `FramingAndInstrumentation` demo uses the dependency-free C++20 Logging umbrella and does not activate any of these optional edges.
+
+**Unqualified Memory API boundary:** [EDP-Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16) tracks unsafe direct native finite/Forever blocked-waiter provider-failure lifetime and lack of one end-to-end deadline. The qualified Logging bounded-admission profile exclusively uses Memory `NoWait` plus Threading/Clock-owned coordination, **not** the unqualified direct native Memory waiter. A `main` merge of Memory does not upgrade or guarantee this separate public path.
