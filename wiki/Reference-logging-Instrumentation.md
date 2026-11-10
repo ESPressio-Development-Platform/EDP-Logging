@@ -1,14 +1,23 @@
-# src/logging/Instrumentation.hpp
+# Reference — `src/logging/Instrumentation.hpp`
 
-Platform-neutral compile-time Logging site gate.
+**Classification:** PUBLIC API, compile-time-only expression gate and statement macro. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/Instrumentation.hpp). This header includes `Severity.hpp` and C++20 standard-library utilities only. It owns **neither** a record allocator nor a timestamp provider.
 
-- `SiteInvocationResult` distinguishes `NotInstrumented` and `Invoked`, explicitly NOT admission success/failure.
-- `InvokeLogSite<MinimumThreshold,EmittedSeverity>(thunk)` selects an instantiation through `if constexpr`, calls thunk once only when the compile-time threshold permits and never in disabled instantiations.
-- `EDP_LOG_WHEN_ENABLED(MinimumThreshold, EmittedSeverity, statements...)` is a statement-only lazy wrapper. Put **all** potentially evaluated expressions (argument collection, Clock capture, provider selection, deadline construction) inside it.
+## Public result Type
 
-The site gate alone does not claim any complete emitter, schema validation or queue work. Future Bootstrap Composition authoritatively selects minimum severity per library/facility, and future LogSite adapter performs type/sink admission. Disabled sites need no Logging runtime allocation. The source test `tests/InstrumentationTests.cpp` covers Off, below-threshold and exactly-once enabled semantics. It was **executed successfully on RPI400 with GCC and Clang** on 2026-10-18 (detached run `20261018T093004-0631a378`). The additional `tests/G11CompileOutProof.cpp` / `tests/run-g11-compile-out-proof.sh` compile both `EDP_LOGGING_G11_ENABLE_SITE=0` and `=1` settings from identical source, prove Clock/identity/argument side effects never execute in Off mode and execute once in enabled mode, and verify the disabled linked ELF omits the Clock-capture routine. RPI400 detached `20261018T094609-a2061881` passed with GCC, Clang and optional Xtensa object builds. `EDP_LOGGING_G11_ENABLE_SITE` is **test-only**, default undefined (the fixture intentionally demands an explicit 0 or 1), supplied by the proof runner via `-D`, and not a production Logging/Bootstrap feature flag. The host and Xtensa section deltas documented in `docs/WROOM-RESOURCE-QUALIFICATION.MD` do not represent a full application or board budget.
+`SiteInvocationResult : std::uint8_t` has **NotInstrumented (0)**, meaning the selected site was disabled and its thunk was not called, and **Invoked (1)**, meaning the enabled thunk was invoked once. Neither value says whether an actual record was admitted, represented, delivered or durably acknowledged. The separate typed admission result belongs to the producer/worker composition, not the compile-out gate.
 
+## `InvokeLogSite<TMinimum,TSeverity,TThunk>(thunk)`
 
-## G11 full-application callsite proof
+**`TMinimum`** is the compile-time severity threshold, **`TSeverity`** the actual emitted site level and **`TThunk`** an application-supplied callable Type. `TThunk` only needs to be callable with zero arguments for *enabled* sites. The argument is a forwarding reference; an enabled instantiation invokes it exactly once using `std::forward` and discards its return value, then returns `Invoked`. A disabled instantiation uses `if constexpr` to omit the invocation, casts the thunk expression to void, and returns `NotInstrumented`. It neither evaluates deferred message arguments nor obtains a time/identity, discovers a provider or enqueues a record.
 
-The public EDP_LOG_WHEN_ENABLED compile-time lazy gate is used by one additional test-only site in [ESP32 HIL main](../tests/hil/g1-espidf/src/main.cpp). EDP_LOGGING_G11_APP_SITE_ENABLED (0 default, 1 Info, other values compile-error) is a **test build switch**, not a production API. Each source Clock/identity/argument operand is not evaluated when Off, and evaluated once per enabled site invocation. Native UART evidence contains one assertion for each of the two NVS-restart boots. This cannot be extrapolated to complete unused codec or sink elimination.
+The thunk's **captured expressions** must remain lazy; precomputing arguments before the call invalidates the zero-evaluation guarantee. Exceptions, lifetime and reentrancy follow the supplied callable; this wrapper makes no allocation-free claim about arbitrary user code.
+
+## `EDP_LOG_WHEN_ENABLED(MINIMUM_THRESHOLD,EMITTED_SEVERITY,...)`
+
+This statement macro wraps all `__VA_ARGS__` inside a zero-argument lambda and invokes the site template inside a `do { ... } while(false)` statement. `MINIMUM_THRESHOLD` and `EMITTED_SEVERITY` must be compile-time template-compatible constants; the variadic body holds **all** potential argument assembly, Clock capture, identity discovery, admission policy and producer work. It is not an expression macro, returns no typed admission outcome and must not be treated as the complete generated-schema-checked logger API. No shorter `EDP_LOG` macro is claimed by this header.
+
+## Provider and compiler-definition boundaries
+
+Only the consumer's selected site code determines actual provider dependencies; the default Logging umbrella remains C++20-only. The test fixture defines `EDP_LOGGING_G11_ENABLE_SITE=0|1` to compare linked code and zero-vs-on side effects; this is **not** an EDP-owned production configuration. The physical G11 test fixture separately uses `EDP_LOGGING_G11_APP_SITE_ENABLED`; see [Compiler Definitions](Compiler-Definitions) for defaults and scope.
+
+GCC/Clang host tests, independent linked-symbol/elimination tests and the minimal three-target [demo](../demos/FramingAndInstrumentation/README.MD) have real finite receipts in the [G1–G15 acceptance matrix](../docs/ACCEPTANCE-G1-G15.MD). These do not establish universal full-firmware code-size costs, ISR safety or Flash durability.
