@@ -16,6 +16,7 @@ EDP-Logging provides deterministic, application-composed diagnostic record captu
 - [Documentation](#documentation)
 - [Examples and testing](#examples-and-testing)
 - [Compatibility and limitations](#compatibility-and-limitations)
+- [Changelog](./CHANGELOG.md)
 
 ## Capabilities
 
