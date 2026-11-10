@@ -1,34 +1,33 @@
-# EdlsArchiveSuccessor — guarded empty-slot EDLS publication
+# Reference — `src/logging/EdlsArchiveSuccessor.hpp`
 
-Source src/logging/EdlsArchiveSuccessor.hpp is an opt-in generic
-EDP-Persistence::FileStorage consumer. It never allocates a new
-backend, erases occupied slots, or depends on Mesh or Serial.
+**Classification:** PUBLIC OPTIONAL EDLS immutable empty-slot publication API. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/EdlsArchiveSuccessor.hpp). This header is a direct consumer of existing abstract **EDP-Persistence FileStorage** and sibling Logging EDLG strict reader, EDLS header writer and read-only archive inspector. It does **not** own a Flash partition, filesystem, coordinator task, allocator or automatic retention policy.
 
-PublishEdlsSuccessorIntoEmptySlot<TSlots,TPayloadMaximum,TSlotMaximum>
-(storage,paths,deviceIdentifier,incarnation,completeEdlg)
-requires 2..64 static paths, 1..4096 payload bytes, valid EDLG frame
-and stable exclusive app-side writer lifetime. It reads all existing
-slots, enforces one device and unique no-wrap generation, chooses a
-physically EMPTY slot, emits one canonical EDLS header and frame via
-native ReplaceFile, then verifies readback through the existing
-read-only scanner.
+## Public status enum
 
-EdlsSuccessorStatus: PublishedAndVerified, InvalidIdentityOrFrame,
-ArchiveAmbiguous, NoEmptySlot, SlotCapacityExceeded,
-ChangedDuringPreflight, ProviderRejected, ReadbackUnconfirmed.
-EdlsSuccessorOutcome<TSlots> carries Status, Native
-EDP-Persistence::FileReplaceStatus, Slot/TSlots invalid marker, and
-Generation. A success asserts checked media readback at that instant,
-not future power-loss durability. The ordinary ESP-IDF VFS provider
-publishes no FileReplace power-loss atomicity guarantee, so a
-failed/interrupted replace may leave a damaged newer slot; the
-next inspection must fail closed until authenticated repair.
+`EdlsSuccessorStatus : uint8_t` has **PublishedAndVerified (0)** — the new immutable slot was published and independently re-read as an exact CRC-clean successor *at that instant*; **InvalidIdentityOrFrame (1)** — bad canonical device/incarnation or incomplete/invalid EDLG sequence, including a frame count exceeding the static maximum; **ArchiveAmbiguous (2)** — the read-only scan cannot prove an unambiguous next generation; **NoEmptySlot (3)** — bounded physical paths contain no truly available target; **SlotCapacityExceeded (4)** — payload, seal or caller scratch exceeds capacity; **ChangedDuringPreflight (5)** — the selected apparently empty path changed before mutation; **ProviderRejected (6)** — native ReplaceFile refused the new bytes; **ReadbackUnconfirmed (7)** — native acceptance could not be independently established as a complete intended successor. An invalid/torn/unknown state fails closed instead of selecting an apparently reusable occupied slot.
 
-NoEmptySlot is expected once all bounded slots hold earlier retained
-history. Automatic destructive circular rotation remains deliberately
-absent pending certified provider atomicity and retention policy.
+## Public result `EdlsSuccessorOutcome<TSlots>`
 
+**Template parameter `TSlots`** is the exact number of physical slots known at application Bootstrap; it also defines the invalid slot sentinel. `Status` is the typed result, defaulting to ArchiveAmbiguous; `Native : EDP-Persistence::FileReplaceStatus` retains the actual provider mutation status, default NotReady before an attempted write; `Slot : size_t` records the selected physical ordinal or **TSlots** for none; `Generation : uint64_t` records the proposed nonzero generation, or zero before it was safely determined. These fields describe a checked operation, not a durable KeyValueStorage acknowledgement or power-loss-atomic FileStorage transaction.
 
-## Sealed bounded frame sequences
+## Public `PublishEdlsSuccessorIntoEmptySlotWithScratch<TSlots,TPayloadMaximum,TSlotMaximum,TStorage,TMaximumFrames=1>`
 
-The same successor owner adds trailing template TMaximumFrames (default1, maximum64). Multi-frame opt-in validates all frames, writes profile1 plus EDLC count/length/whole CRC and independently compares complete attempted frame bytes. Caller scratch fits header+body+seal. One-frame defaults preserve profile0. See [wire/ownership contract](../docs/BOUNDED-EDLS-BATCHING.MD).
+**Template roles and constraints:** `TSlots` is the application's immutable physical path count (2–64). `TPayloadMaximum` is the maximum single EDLG payload (1–4096 bytes). `TSlotMaximum` is the total physical EDLS file ceiling (at least a 40-byte header and one 20-byte empty EDLG frame). `TStorage` is an explicitly supplied, compiler-qualified EDP-Persistence abstract FileStorage provider with all mandatory operations. `TMaximumFrames` is the immutable bounded number of complete framed records (1–64; default one). For multi-frame sealed records the caller provides sufficient nonaliased scratch for **all** framed bytes plus EDLS header and 16-byte EDLC seal. These parameters control the maximum storage/scratch footprint; they do not allocate resources dynamically or infer provider durability.
+
+Arguments: `storage` is borrowed from the Bootstrap-owned exclusive FileStorage writer; `paths` is the immutable canonical ordered physical-slot path array; `deviceIdentifier` is a nonzero 16-byte identity; `runtimeIncarnation` is a nonzero incarnation; `completeEdlg` is a borrowed concatenation of **one to TMaximumFrames** complete, independently CRC-valid EDLG frames; `callerScratch` is the caller's writable nonaliasing scratch; optional `alreadyVerifiedInThisTransaction` is a pointer to a **fully CRC-verified immutable snapshot taken under the same exclusive writer transaction**, not an archive scan from an earlier publication.
+
+The implementation first validates identity, frame count, every individual frame using the canonical `ReadEdlgFrame`, maximum output+seal lengths and scratch. It reuses the existing archive inspector (or the strictly same-transaction already verified inspection) to require a unique next nonwrapping generation and consistent device provenance. It searches from the next physical slot but selects **only a physically empty** candidate, returning `NoEmptySlot` if all are occupied. It performs a separate `GetFileSize` vacancy check, but **the application must still hold exclusive writer coordination**; the size read does not create a transaction or prevent concurrent writers.
+
+After preflight it constructs an EDLS header and complete framed content into caller scratch. With `TMaximumFrames > 1`, it sets the `SealedFrames` profile, writes the EDLC completion marker, exact frame count, length and whole-segment CRC. It calls **one** native `ReplaceFile` into the previously empty path and then fully re-inspects/readbacks the new slot, checking generation, identity, profile, frame count, exact bytes and verified file size. Only after these checks does it publish `PublishedAndVerified`. Scratch may be reused for assembly only after the complete scan no longer borrows it; caller scratch must never alias the borrowed EDLG input.
+
+## Public backwards-compatible `PublishEdlsSuccessorIntoEmptySlot<TSlots,TPayloadMaximum,TSlotMaximum,TStorage>`
+
+This wrapper creates a local fixed `EdlsHeaderBytes + TPayloadMaximum + 20` scratch array, then calls the same WithScratch algorithm for the default single-frame profile. The local scratch is stack-backed and grows with selected capacity; **large WROOM task payloads must use the caller-owned WithScratch entry point** after actual stack budgeting. It does not silently support the larger multi-frame sealed shape or add a different write algorithm.
+
+## Retention and failure boundary
+
+This helper intentionally **never reclaims an occupied physical path**. Once full, it reports NoEmptySlot. The later [EDLS oldest-eligible and protected N+1 rotation](Reference-logging-EdlsArchiveRotation) builds upon this owner with its own retention, strict predecessor verification and separate NVS acknowledgement rules. Those later capabilities do not retroactively make this specific empty-slot primitive a circular recycler or turn ordinary VFS FileStorage into a power-cut-atomic provider.
+
+`PublishedAndVerified` is **contemporary readback**, not proof that an interrupted raw ReplaceFile could not damage the target or that any future erase/GC will preserve bytes. The underlying concrete provider must publish its true retention/interruption profile. An interrupted write into an empty target can leave damaged bytes that force later archive inspection to reject mutation until an independently approved recovery. The application chooses storage placement and finite archive capacity; no Flash service-life promise follows.
+
+Owner GCC/Clang host corruption, no-overwrite, multi-frame sealed, scan reuse and real native VFS tests are recorded in [bounded batching](../docs/BOUNDED-EDLS-BATCHING.MD), [safe successor contract](../docs/EDLS-SAFE-SUCCESSOR.MD), [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD) and the Policy/main run receipts. Actual physical GPIO17 relay PowerLoss evidence qualifies only the separately specified protected and acknowledged implementation, not generic FileStorage append/replace.
