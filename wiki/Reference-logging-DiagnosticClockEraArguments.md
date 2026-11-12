@@ -1,21 +1,7 @@
-# DiagnosticClockEraArguments — implementation reference
+# Reference — `src/logging/DiagnosticClockEraArguments.hpp`
 
-**Classification:** Internal adapter boundary. **Owning header:** [src/logging/DiagnosticClockEraArguments.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/DiagnosticClockEraArguments.hpp). **Version:** 0.1.0, source branch feature/logging-v1. This page describes implementation and owner requirements; it does not replace normative ./docs contracts.
+**Classification:** internal opt-in compile-time adapter for generated diagnostic arguments. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/DiagnosticClockEraArguments.hpp).
 
-## Responsibility and boundaries
+The explicit specialization of `Detail::IsCertifiedDiagnosticClockEra<ESPressio::Clock::ClockEra>` inherits `std::true_type`. It enables the [diagnostic argument dispatcher](Reference-logging-DiagnosticArgumentEncoding) to recognise exactly the EDP-Clock-owned `ClockEra` as a supported generated argument type when the consumer selects this header. The primary trait remains in `DiagnosticArgumentEncoding.hpp`. This header adds neither another trait parameter nor runtime state.
 
-Connects generated Localisation diagnostic argument qualification to the existing ClockEra owner-certified Serialisation adapter. No alternative ClockEra type, custom time serializer or clock correlation is created.
-
-## Resource, failure and lifecycle invariants
-
-Only owner-issued ClockEra is accepted and its zero/unavailable state is represented as source evidence, not fabricated synchronized time.
-
-## Source declarations and responsibilities
-
-The following source-indexed inventory distinguishes defined types/contracts from operations. Descriptions reflect implementation documentation at the cited line; callers must also respect the preconditions, result meanings, provider choices and lifetimes described above.
-
-- **IsCertifiedDiagnosticClockEra** (Type or Concept, [line 15](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/DiagnosticClockEraArguments.hpp#L15)): Optional exact G3 diagnostic ClockEra type certification. Requires the existing EDP-Serialisation ↔ ClockEra canonical adapter and an explicit consumer dependency on EDP-Clock.  This specialization NEVER qualifies ClockEra origin or time coherence.
-
-## Dependency and test qualification
-
-The implementation owns no replacement EDP-Platform/Memory/Threading/Persistence abstraction. The actual include closure is determined by its opt-in header and the consuming application; the default Logging umbrella remains deliberately narrow. See the current [Dependency Graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD), [Architecture](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD), and [G1–G15 acceptance matrix](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ACCEPTANCE-G1-G15.MD) for exact validation and limitation claims. Never translate an unrelated historical fixture into current production proof.
+The specialization imports EDP-Serialisation's existing `ClockEraAdapters.hpp` for the canonical codec contract. Applications selecting this path must declare the opt-in Serialisation and Clock dependencies, and the generated EDP-Localisation parameter kind must agree with the exact type. Certification applies to type selection only. It supplies no observation of era origin, clock synchronization or coherence, and does not assign an era value. Those facts come from the selected clock and producer path. The trait itself has no runtime, memory, synchronization or provider lifetime cost.

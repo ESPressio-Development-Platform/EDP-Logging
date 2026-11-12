@@ -1,21 +1,16 @@
-# ESPressio_Logging — implementation reference
+# Reference — `src/ESPressio_Logging.hpp`
 
-**Classification:** Public entry point. **Owning header:** [src/ESPressio_Logging.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/ESPressio_Logging.hpp). **Version:** 0.1.0, source branch feature/logging-v1. This page describes implementation and owner requirements; it does not replace normative ./docs contracts.
+**Classification:** public C++20 entry point. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/ESPressio_Logging.hpp).
 
-## Responsibility and boundaries
+This aggregation header makes the six dependency-free foundation headers available in one include. It introduces no declarations of its own.
 
-The deliberately lightweight C++20 foundation umbrella exposes severity selection, attempt sequence issuance, EDLG framing/reading, EDLS segment framing, and instrumentation without importing an allocator, runtime, radio, filesystem, or native SDK. Opt-in coordinator, generated codecs, and persistence are composed by explicit downstream includes.
+| Header | Facility |
+| --- | --- |
+| [Severity](Reference-logging-Severity) | Ordered diagnostic severity values and compile-time filtering. |
+| [AttemptSequence](Reference-logging-AttemptSequence) | Width-specific tickets and non-wrapping issuance within an application incarnation. |
+| [EdlgFrame](Reference-logging-EdlgFrame) | Bounded framing of already encoded CBOR or JSON. |
+| [EdlgFrameReader](Reference-logging-EdlgFrameReader) | Verification and borrowed view of one complete frame. |
+| [EdlsSegment](Reference-logging-EdlsSegment) | Portable EDLS segment header vocabulary and read/write operations. |
+| [Instrumentation](Reference-logging-Instrumentation) | Lazy diagnostic site invocation selected at compile time. |
 
-## Resource, failure and lifecycle invariants
-
-The default include must not pull EDP-Memory, Threading, Serialisation, or a target SDK; compilation should succeed on a bare C++20 toolchain.
-
-## Source declarations and responsibilities
-
-The following source-indexed inventory distinguishes defined types/contracts from operations. Descriptions reflect implementation documentation at the cited line; callers must also respect the preconditions, result meanings, provider choices and lifetimes described above.
-
-This header is an aggregate of explicit includes, not an independently instantiated type or runtime.
-
-## Dependency and test qualification
-
-The implementation owns no replacement EDP-Platform/Memory/Threading/Persistence abstraction. The actual include closure is determined by its opt-in header and the consuming application; the default Logging umbrella remains deliberately narrow. See the current [Dependency Graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD), [Architecture](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD), and [G1–G15 acceptance matrix](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ACCEPTANCE-G1-G15.MD) for exact validation and limitation claims. Never translate an unrelated historical fixture into current production proof.
+The include closure uses the C++20 standard library. Applications explicitly select the separate producer, queue, codec, storage and worker headers and their [conditional dependencies](../DEPENDENCY_GRAPH.MD). The [framing and instrumentation demo](../demos/FramingAndInstrumentation/README.MD) uses this entry point without other EDP libraries.
