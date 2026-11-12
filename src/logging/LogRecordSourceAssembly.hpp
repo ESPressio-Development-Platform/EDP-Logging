@@ -12,6 +12,30 @@
 
 namespace ESPressio::Logging {
 
+    /// Result of preparing an owned structural record before capacity admission.
+    enum class LogRecordAssemblyStatus : std::uint8_t {
+        /// The complete validated candidate has been assigned to the output.
+        Prepared = 0U,
+
+        /// The destination contains a valid attempt, device or owned arguments.
+        OutputOccupied = 1U,
+
+        /// The temporal projection reports incoherent or contradictory evidence.
+        InvalidTemporalEvidence = 2U,
+
+        /// The staged candidate failed structural source validation.
+        InvalidSourceRecord = 3U,
+
+        /// The owned argument arena refused another positional argument.
+        ArgumentCountExceeded = 4U,
+
+        /// The owned byte arena cannot fit the argument data.
+        ArgumentBytesExceeded = 5U,
+
+        /// Argument capture rejected the supplied value for another reason.
+        InvalidOwnedArgument = 6U
+    };
+
     namespace Detail {
 
         /// Supported owner-backed capture vocabulary, independent of CBOR tags.
@@ -87,19 +111,6 @@ namespace ESPressio::Logging {
     } // ESPressio::Logging::Detail
 
 
-    /// Result of preparing an owned structural record before capacity admission.
-    /// No outcome promises serialized bytes, queue publication or durable storage.
-    enum class LogRecordAssemblyStatus : std::uint8_t {
-        Prepared = 0U,
-        OutputOccupied = 1U,
-        InvalidTemporalEvidence = 2U,
-        InvalidSourceRecord = 3U,
-        ArgumentCountExceeded = 4U,
-        ArgumentBytesExceeded = 5U,
-        InvalidOwnedArgument = 6U
-    };
-
-
     /// Prepares a structurally complete, source-owned, canonical LogRecord.
     ///
     /// Localisation-generated descriptor identity (rather than a caller-supplied
@@ -119,10 +130,10 @@ namespace ESPressio::Logging {
     /// facilities. Other strong types remain compile-time rejected until
     /// a semantically exact owned capture adapter is added.
     /// Fields 11/14 have approved child vocabularies. This operation
-    /// conservatively initializes Clock provenance as CorrelationUnavailable
-    /// and Unreliable, and V1 record facts as zero; it does not manufacture
-    /// a Clock projection or quality assessment. Full canonical record wire
-    /// emission remains gated on a complete owner-qualified serializer.
+    /// copies the projection and assessment from the supplied qualified
+    /// temporal sample and leaves the reserved v1 record facts byte at zero.
+    /// The generated wire projection and owner serializer produce the full
+    /// canonical record in subsequent stages.
     ///
     /// @tparam TMessageSchema The generated declared source-message schema,
     ///         including its same-family owning diagnostic fingerprint.
@@ -154,8 +165,10 @@ namespace ESPressio::Logging {
         const QualifiedLogTime& temporal,
         const TValues&... values
     ) noexcept {
-        static_assert(TMessageSchema::Declared,
-            "LogRecord requires one declared, generated EDP-Localisation message schema");
+        static_assert(
+            TMessageSchema::Declared,
+            "LogRecord requires one declared, generated EDP-Localisation message schema"
+        );
         static_assert(
             IsDiagnosticSchemaMatching<TMessageSchema, TValues...>(),
             "LogRecord arguments must exactly match the generated Localisation diagnostic schema"
@@ -226,7 +239,10 @@ namespace ESPressio::Logging {
             TMessageSchema::OwningContract::DiagnosticSchemaFingerprint;
 
         const std::array<OwnedArgumentResult, sizeof...(TValues)> captures{
-            Detail::CaptureOwnedSourceArgument(candidate.Arguments, values)...
+            Detail::CaptureOwnedSourceArgument(
+                candidate.Arguments,
+                values
+            )...
         };
         for (const auto result : captures) {
             if (result == OwnedArgumentResult::CountExceeded) {

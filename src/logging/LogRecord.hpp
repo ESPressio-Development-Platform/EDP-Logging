@@ -21,6 +21,39 @@
 
 namespace ESPressio::Logging {
 
+    /// Outcome of validating the source record's identity and temporal facts.
+    enum class LogRecordValidation : std::uint8_t {
+        /// Source fields satisfy the structural checks.
+        Valid = 0U,
+
+        /// The System DeviceIdentifier is invalid.
+        InvalidDevice = 1U,
+
+        /// The System RuntimeIncarnationId is invalid.
+        InvalidIncarnation = 2U,
+
+        /// The per-incarnation ticket is unassigned.
+        InvalidAttempt = 3U,
+
+        /// The stored width differs from the configured ticket type.
+        InvalidSequenceWidth = 4U,
+
+        /// Clock state, coordinate, era or uncertainty facts are inconsistent.
+        InvalidSyncEvidence = 5U,
+
+        /// The value is outside the emitted Severity vocabulary.
+        InvalidSeverity = 6U,
+
+        /// The Localisation String component is reserved for metadata.
+        InvalidMessage = 7U,
+
+        /// The Clock projection outcome or quality assessment is outside its owner enum.
+        InvalidTemporalProvenance = 8U,
+
+        /// The v1 record facts byte contains a nonzero reserved value.
+        ReservedRecordFacts = 9U
+    };
+
     /// Canonically widened in-memory representation of one generated
     /// EDP-Localisation GeneralStringIdentifier. No new identifier namespace.
     struct LogMessageIdentifier final {
@@ -60,18 +93,28 @@ namespace ESPressio::Logging {
     /// Approved Field 11: two strongly typed EDP-Clock owner statuses.
     /// V1 wire child pair: [Projection, Quality] as owner enum uint8 values.
     struct LogTemporalProvenance final {
+
+        // Owner-issued Field 11 pair in wire order.
+
+        /// Clock owner's outcome for the correlation projection.
         Clock::ClockCorrelationProjectionStatus Projection{
             Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
         };
+
+        /// Clock owner's assessment of the reported temporal quality.
         Clock::TemporalQualityAssessment Quality{
             Clock::TemporalQualityAssessment::Unreliable
         };
+
     };
 
     /// Approved Field 14: V1 unsigned byte, zero only. All other values
     /// are reserved and invalid for both encoding and decoding.
     struct LogRecordFacts final {
+
+        /// Reserved Field 14 byte. The v1 value is zero.
         std::uint8_t Value{0U};
+
     };
 
 
@@ -188,21 +231,6 @@ namespace ESPressio::Logging {
     static_assert(System::TypeIdentifierOf<LogRecord> ==
                   System::TypeIdentifierOf<BasicLogRecord<AttemptSequenceWidth::Bits64>>);
     static_assert(LogRecord::Fields::Count == 15U);
-
-
-    /// Outcome of validating source identity, record site and timestamp facts.
-    enum class LogRecordValidation : std::uint8_t {
-        Valid = 0U,
-        InvalidDevice = 1U,
-        InvalidIncarnation = 2U,
-        InvalidAttempt = 3U,
-        InvalidSequenceWidth = 4U,
-        InvalidSyncEvidence = 5U,
-        InvalidSeverity = 6U,
-        InvalidMessage = 7U,
-        InvalidTemporalProvenance = 8U,
-        ReservedRecordFacts = 9U
-    };
 
 
     /// Checks only source-semantic facts independent of serialisation or keys.

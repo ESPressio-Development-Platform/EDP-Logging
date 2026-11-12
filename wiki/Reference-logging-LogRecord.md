@@ -32,6 +32,34 @@ be mistaken for every source/SDK combination.
 Identity persistence is independent of library version (all remain
 0.1.0), message StringIdentifier, transport or Mesh participation.
 
+## Public structural API
+
+[Source](../src/logging/LogRecord.hpp)
+
+`LogMessageIdentifier` owns three widened Localisation identity components. `Domain` and `SubDomain` identify the owner catalogue scope. `String` identifies the message within that scope. `From<TIdentifiers>(source)` uses the generated contract identifier family to copy those three exact values from its borrowed `GeneralStringIdentifier`; the returned value owns the components.
+
+`BasicLogRecord<TWidth, TMaximumArguments, TArgumentBytes>` is a value aggregate. `TWidth` selects the stored attempt width. `TMaximumArguments` and `TArgumentBytes` bound the inline owned argument arena by item count and total bytes. `LogRecord` selects 32 bits, eight arguments and 128 bytes. The immutable `Identifier` names the same System type across capacities. The `Fields` alias maps each member to its permanent System field number.
+
+| Field | Member | Purpose |
+| --- | --- | --- |
+| 0 | `Message` | Generated Localisation identity for the diagnostic text and parameter signature. |
+| 1 | `Level` | Emitted severity using the Logging vocabulary. |
+| 2 | `Device` | Owner-issued System device identity. |
+| 3 | `Incarnation` | Owner-issued System runtime identity that scopes attempt uniqueness. |
+| 4 | `Attempt` | Nonzero sequence ticket assigned within the runtime incarnation. |
+| 5 | `SequenceWidth` | Width metadata that must match the configured attempt type. |
+| 6 | `Monotonic` | Source-local nanosecond observation on the Clock monotonic timeline. |
+| 7 | `Synchronized` | Optional synchronized coordinate, including zero when present. |
+| 8 | `SyncState` | Owner-reported state used to qualify synchronized coordinate availability. |
+| 9 | `Era` | Owner-issued era for a present synchronized coordinate. |
+| 10 | `Uncertainty` | Owner uncertainty for the synchronized coordinate. An absent coordinate requires saturated uncertainty. |
+| 11 | `Provenance` | `LogTemporalProvenance` owns the Clock `Projection` outcome and `Quality` assessment in wire order. The defaults are unavailable and unreliable. |
+| 12 | `DiagnosticSchemaFingerprint` | Sixteen-byte fingerprint of the generating diagnostic schema for historical lookup and projection. |
+| 13 | `Arguments` | Source-owned typed positional values stored in the fixed argument arena. |
+| 14 | `Facts` | `LogRecordFacts::Value` is the reserved unsigned byte and must be zero for v1. |
+
+A record retains no references to a caller's argument storage. Application composition owns concurrent publication and access. The structural aggregate allocates no dynamic storage.
+
 ## Fail-closed source validation (current contract; original 2026-10-17 gate)
 
 `ValidateLogRecord` rejects unissued/invalid typed Field 11 provenance
@@ -183,8 +211,8 @@ The physical main.cpp was compared line-for-line against the exact remote branch
 
 ## 12 November 2026 — complete canonical LogRecord validation result contract
 
-**Exact source:** [`LogRecord.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/LogRecord.hpp). `LogRecordValidation : uint8_t` has ten independent outcomes: **Valid (0)** means the complete fixed 15-field record satisfies the declared source semantic constraints; **InvalidDevice (1)** means an unissued/zero strong System DeviceIdentifier; **InvalidIncarnation (2)** means a nonvalid System RuntimeIncarnationId; **InvalidAttempt (3)** means a zero/unissued per-incarnation AttemptSequence; **InvalidSequenceWidth (4)** means stored width does not match the `BasicLogRecord<TWidth,...>` template's exact 16/32/64-bit owner choice; **InvalidSyncEvidence (5)** means the synchronized coordinate, Clock state, Era and uncertainty facts disagree; **InvalidSeverity (6)** means emitted Severity is outside the permitted six values; **InvalidMessage (7)** means generated message's String component is reserved (<3), even though Domain/SubDomain numeric zeros may have owner-defined meanings; **InvalidTemporalProvenance (8)** means the EDP-Clock-issued Projection/Quality value pair exceeds the qualified source enum bounds; and **ReservedRecordFacts (9)** means a nonzero unassigned Field14 facts byte is being emitted before its owner defines that vocabulary. These exact values are not new wire tags.
+**Exact source:** [`LogRecord.hpp`](../src/logging/LogRecord.hpp). `LogRecordValidation : uint8_t` has ten independent outcomes: **Valid (0)** means the complete fixed 15-field record satisfies the declared source semantic constraints; **InvalidDevice (1)** means an unissued/zero strong System DeviceIdentifier; **InvalidIncarnation (2)** means a nonvalid System RuntimeIncarnationId; **InvalidAttempt (3)** means a zero/unissued per-incarnation AttemptSequence; **InvalidSequenceWidth (4)** means stored width does not match the `BasicLogRecord<TWidth,...>` template's exact 16/32/64-bit owner choice; **InvalidSyncEvidence (5)** means the synchronized coordinate, Clock state, Era and uncertainty facts disagree; **InvalidSeverity (6)** means emitted Severity is outside the permitted six values; **InvalidMessage (7)** means generated message's String component is reserved (<3), even though Domain/SubDomain numeric zeros may have owner-defined meanings; **InvalidTemporalProvenance (8)** means the EDP-Clock-issued Projection/Quality value pair exceeds the qualified source enum bounds; and **ReservedRecordFacts (9)** means a nonzero unassigned Field14 facts byte is being emitted before its owner defines that vocabulary. These exact values are not new wire tags.
 
-`ValidateLogRecord<TWidth,TMaximumArguments,TArgumentBytes>(const BasicLogRecord<...>&)` is a pure constexpr validation with no provider calls, allocations or mutation. It checks permanent strong field identity, source Clock/Era coherence and reserved facts **before** downstream generated schema projection; success does **not** by itself validate Field13 generated argument types or persistence. `TWidth` selects the per-incarnation attempt width; `TMaximumArguments` and `TArgumentBytes` fix owned bounded argument storage, both contributing to the complete type's memory layout. The earlier page's description of Field11 synchronization quality is not a guarantee of actual cross-node precision.
+`ValidateLogRecord<TWidth,TMaximumArguments,TArgumentBytes>(const BasicLogRecord<...>&)` is a pure constexpr validation with no provider calls, allocations or mutation. It validates the strong source identities, legal coordinate/era/state/uncertainty combinations, owner enum bounds and reserved facts before downstream generated schema projection; success does **not** by itself validate Field13 generated argument types or persistence. `TWidth` selects the per-incarnation attempt width; `TMaximumArguments` and `TArgumentBytes` fix owned bounded argument storage, both contributing to the complete type's memory layout. The earlier page's description of Field11 synchronization quality is not a guarantee of actual cross-node precision.
 
 `LogMessageIdentifier::From<TIdentifiers>(generatedIdentifier)` copies the **owner-issued EDP-Localisation** Domain/SubDomain/String strong values without truncation into three fixed 32-bit source-side components, not a synthetic identifier registry. `LogTemporalProvenance` stores the existing Clock `Projection` and `Quality` enum pair; `LogRecordFacts` stores the reserved `Value` byte, zero until issued. `BasicLogRecord` stores `Message`, `Level`, `Device`, `Incarnation`, `Attempt`, `SequenceWidth`, `Monotonic`, optional `Synchronized`, `SyncState`, `Era`, `Uncertainty`, `Provenance`, bounded source `Arguments`, generated diagnostic fingerprint and Facts under the canonical EDP-System SchemaType/FieldSet identity. It owns its argument bytes; it never borrows temporary producer values. The fixed `LogRecord` alias selects the normal default template shape, and the declared `Fields` FieldSet fixes all **15** permanent owner field numbers. Actual materialized wire goes through EDP-Serialisation, not a native C++ structure dump.
