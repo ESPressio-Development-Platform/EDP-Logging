@@ -18,12 +18,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ESPressio-Development-Platform/EDP-Serialisation
-          ref: feature/logging-v1
+          ref: main
           path: deps/EDP-Serialisation
       - uses: actions/checkout@v4
         with:
           repository: ESPressio-Development-Platform/EDP-Clock
-          ref: mesh_v1
+          ref: main
           path: deps/EDP-Clock
       - uses: actions/checkout@v4
         with:
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ESPressio-Development-Platform/EDP-Localisation
-          ref: feature/logging-v1
+          ref: main
           path: deps/EDP-Localisation
       - name: Real generated ClockEra diagnostic CBOR/JSON contract
         env:
