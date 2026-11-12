@@ -1,40 +1,26 @@
-# LogRecordApprovedFieldsSerialisation — implementation reference
+# Reference — `src/logging/LogRecordApprovedFieldsSerialisation.hpp`
 
-**Classification:** Internal cross-library canonical field adapters. **Owning header:** [src/logging/LogRecordApprovedFieldsSerialisation.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp). **Version:** 0.1.0, source branch feature/logging-v1. This page describes implementation and owner requirements; it does not replace normative ./docs contracts.
+**Classification:** internal cross-library canonical adapters. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/LogRecordApprovedFieldsSerialisation.hpp).
 
-## Responsibility and boundaries
+The opt-in adapters supply the issued [Field 11 and Field 14 child representations](../docs/G4-APPROVED-FIELD-WIRE.MD). EDP-Serialisation owns the canonical representation contract, EDP-BoundedTypes owns the conversion interface and EDP-Clock owns the temporal status enumerators.
 
-Declares the approved canonical field value conversions, issued field identities and temporal provenance requirements for the governed LogRecord. The actual encoding remains owned by EDP-Serialisation and strong conversion by EDP-BoundedTypes.
+| `ApprovedLogFieldConversion` | Meaning |
+| --- | --- |
+| `Succeeded` (0) | Conversion assigned the complete output. |
+| `UnknownClockValue` (1) | The source projection or quality is outside its issued EDP-Clock enum range. |
+| `ReservedRecordFacts` (2) | A v1 record fact bit is asserted. This revision only permits zero. |
 
-## Resource, failure and lifecycle invariants
+`IsApprovedProvenance(p)` compares the underlying projection and quality values with `SynchronizedCoordinateOverflow` and `Reliable`, the issued upper bounds. The predicate establishes range membership. The Clock source and complete record validation establish availability and consistency.
 
-The approved semantic field set and numeric wire identifiers cannot drift when a record profile or target architecture changes; preserve exact finite typed outcomes and no accidental native-layout serialization.
+## Canonical representation and all conversion specializations
 
-## Source declarations and responsibilities
+| Adapter specialization | `Convert(src, dst)` |
+| --- | --- |
+| `LogTemporalProvenance → array<uint8_t, 2>` | Checks both enum ranges, then assigns Projection followed by Quality. |
+| `array<uint8_t, 2> → LogTemporalProvenance` | Decodes the ordered enum pair into a temporary. Assigns the output after both values pass the same range check. |
+| `LogRecordFacts → uint8_t` | Checks `src.Value == 0`, then assigns the canonical zero byte. |
+| `uint8_t → LogRecordFacts` | Checks `src == 0`, then assigns zero to the output's `Value` field. |
 
-The following source-indexed inventory distinguishes defined types/contracts from operations. Descriptions reflect implementation documentation at the cited line; callers must also respect the preconditions, result meanings, provider choices and lifetimes described above.
+The two `Serialisation::CanonicalRepresentation` specializations expose `Type` as `array<uint8_t, 2>` for `LogTemporalProvenance` and `uint8_t` for `LogRecordFacts`. The four `Bounded::TypeConversionAdapter` specializations each expose `ResultType = ApprovedLogFieldConversion`, `IsAvailable = true` and `IsNoexcept = true`. `IsSuccessful(r)` returns true exactly for `Succeeded`. Compile-time checks verify that both semantic values satisfy `SerialisableType`.
 
-- **ApprovedLogFieldConversion** (Type or Concept, [line 9](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L9)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **IsApprovedProvenance** (Method or Function, [line 14](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L14)): Defines a named operation within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **CanonicalRepresentation** (Type or Concept, [line 26](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L26)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **CanonicalRepresentation** (Type or Concept, [line 29](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L29)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **TypeConversionAdapter** (Type or Concept, [line 35](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L35)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **IsSuccessful** (Method or Function, [line 42](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L42)): Defines a named operation within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **TypeConversionAdapter** (Type or Concept, [line 58](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L58)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **IsSuccessful** (Method or Function, [line 65](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L65)): Defines a named operation within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **TypeConversionAdapter** (Type or Concept, [line 84](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L84)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **IsSuccessful** (Method or Function, [line 90](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L90)): Defines a named operation within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **TypeConversionAdapter** (Type or Concept, [line 103](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L103)): Defines a named type/contract within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-- **IsSuccessful** (Method or Function, [line 109](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/src/logging/LogRecordApprovedFieldsSerialisation.hpp#L109)): Defines a named operation within LogRecordApprovedFieldsSerialisation; read its source for exact conditional semantics and provider requirements.
-
-## Dependency and test qualification
-
-The implementation owns no replacement EDP-Platform/Memory/Threading/Persistence abstraction. The actual include closure is determined by its opt-in header and the consuming application; the default Logging umbrella remains deliberately narrow. See the current [Dependency Graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD), [Architecture](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD), and [G1–G15 acceptance matrix](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ACCEPTANCE-G1-G15.MD) for exact validation and limitation claims. Never translate an unrelated historical fixture into current production proof.
-
-## 12 November 2026 — exact issued Field11 and Field14 conversion semantics
-
-**Exact source:** [`LogRecordApprovedFieldsSerialisation.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/LogRecordApprovedFieldsSerialisation.hpp). `ApprovedLogFieldConversion : uint8_t` has **Succeeded (0)** — one complete canonical semantic↔wire conversion under the existing EDP-Clock/EDP-Serialisation contract; **UnknownClockValue (1)** — Field11 Clock correlation projection or temporal quality contains an unissued enum value and must not be serialized as valid evidence; and **ReservedRecordFacts (2)** — Field14 contains unissued bits, so the resulting fact byte must not be emitted. Distinct failures preserve source/destination rather than treating an arbitrary uint8 as a valid Clock status.
-
-`IsApprovedProvenance(const LogTemporalProvenance& p) noexcept` is a pure predicate confirming `Projection` is within EDP-Clock's issued `SynchronizedCoordinateOverflow` range and `Quality` within EDP-Clock's `Reliable` range. It does **not** certify that synchronization is truly available or sufficiently precise for an application.
-
-The two `Serialisation::CanonicalRepresentation<LogTemporalProvenance>` / `<LogRecordFacts>` specializations specify exact wire Types: one two-element ordered `array<uint8_t,2>` for Field11 Projection/Quality, and one `uint8_t` for Field14 reserved facts. The matching **EDP-BoundedTypes `TypeConversionAdapter` specializations** expose `ResultType=ApprovedLogFieldConversion`, compile-time `IsAvailable=true` and `IsNoexcept=true`, plus `IsSuccessful(result)` and typed `Convert(src,dst) noexcept`. Reverse conversions validate the pair/bit range and reconstruct only owner-approved strong semantic values; neither decoder nor Logging invents new Clock status IDs or wire tags. All these adapters run synchronously over caller-owned outputs, with no mutation on refused semantic inputs, heap allocation or native provider I/O. Application-selected synchronized Clock quality and archive durability are separate concerns.
+All four operations are constexpr, synchronous and allocation-free. The caller owns the source and output and each refusal preserves the output. Neither adapter reads a clock, selects a provider or retains a reference. The [normative contract](../docs/G4-APPROVED-FIELD-WIRE.MD) links the host and native qualification of the child values.

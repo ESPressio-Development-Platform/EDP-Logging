@@ -1,7 +1,8 @@
 # G4 optional canonical scalar-field adapters
 
-Status: implementation candidate on `feature/logging-v1` — individual
-value serialization, not a complete universal LogRecord envelope.
+This optional component maps individual strongly typed values. The
+[generated whole-record adapter](G4-GENERATED-WHOLE-RECORD.MD) assembles
+the governed envelope using these mappings.
 
 `src/logging/LogRecordCoreFieldSerialisation.hpp` is an opt-in,
 application-composed translation between approved strongly typed Logging/
@@ -35,14 +36,11 @@ SynchronizationState values. ClockEra and synchronization state are
 semantically validated in the complete source record against synchronized
 coordinate presence, era, and uncertainty.
 
-Field 13 is still the unresolved complete-envelope gate: native
-`OwnedDiagnosticArguments` has private source-memory kind/offset
-descriptors, not an issued numeric wire kind registry. Its actual canonical
-payload must be generated-schema-governed heterogeneous positional values
-issued by EDP-Localisation and encoded by EDP-Serialisation. **Do not**
-serialize the native arena layout, invent kind numbers, or assert a complete
-15-field TypeId-bearing envelope until this path is implemented and
-historical decoding is qualified.
+Field 13 uses the generated EDP-Localisation message signature and
+EDP-Serialisation positional values described in the [generated whole-record
+contract](G4-GENERATED-WHOLE-RECORD.MD). The native `OwnedDiagnosticArguments`
+arena holds private descriptors and storage. Only the schema-governed
+positional values enter the wire representation.
 
 Native test program: `tests/G4CoreFieldWireTests.cpp`, runner
 `tests/run-g4-core-field-wire-tests.sh`. It validates CBOR and JSON
@@ -91,12 +89,10 @@ tags were issued.
   `d24dc6ecdfd58ef802371b7a4ed4d62404a0080e9553dd950ebc00481b86859e`.
   Do not publish raw UART captures or proprietary firmware images.
 
-The complete source record still **fails** `SerialisableType` because
-Field13 needs an issued schema-qualified heterogeneous positional
-representation. These tests prove each supported **core child field**
-is portable and reversible through owner codecs, not a complete
-15-parent-field Typed Envelope, historian end-to-end producer identity,
-actual unexpected PowerLoss or completed G1–G15 production gate.
+These 20 October receipts qualify the core child fields and their
+integration into the named fixture. Current whole-record integration uses
+a separate generated projection of the source record. Its own evidence is
+recorded in the [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD).
 
 
 ## V2 typed scalar conversion result (1 November 2026)

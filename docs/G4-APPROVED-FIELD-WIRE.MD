@@ -1,8 +1,8 @@
 # G4 approved LogRecord Field 11/14 child wire definitions
 
-Status: approved by the user 2026-10-19, executable owner-composed
-CBOR/JSON child-field adapter; **not** a complete 15-field
-LogRecord Typed Envelope or a historical archive decoder.
+The child-field contracts were approved on 19 October 2026. These adapters
+implement the Field 11 and Field 14 values consumed by the separate
+[generated fifteen-field projection](G4-GENERATED-WHOLE-RECORD.MD).
 
 ## Authoritative identities and representations
 
@@ -51,9 +51,6 @@ exact canonical samples. An additional real ESP32 HIL path
 performs a runtime CBOR/JSON pair round-trip and zero-only
 Field14 validation without changing the existing 18 markers.
 
-Remaining: full generated diagnostic positional argument
-representation, complete typed fifteen-field root serializer,
-historical typed decoder, source-provenance connection from
-EDP-Clock, concrete sink integration and actual end-to-end
-product resource/power-loss testing. None of these may be
-inferred from the passing child-adapter tests.
+The child tests qualify the two conversions. The generated argument array,
+root envelope, historical decoding, Clock evidence and end-to-end sink
+behaviour have separate acceptance evidence in the [G1–G15 ledger](ACCEPTANCE-G1-G15.MD).
