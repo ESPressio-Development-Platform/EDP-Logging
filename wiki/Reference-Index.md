@@ -1,6 +1,6 @@
 # Reference Index — EDP-Logging 0.1.0
 
-This repository-local Wiki index covers each maintained C++20 production header, including aggregate headers and internal/private implementation seams. These references describe the feature branch code; runtime and PowerLoss claims remain limited to approved profiles and recorded finite evidence. Follow [Home](Home) and [Dependency Contracts](Dependency-Contracts) before composing providers.
+This repository-local Wiki index covers each maintained C++20 production header, including aggregate headers and internal/private implementation seams. These references describe the exact source tree in the **currently checked-out branch**, and must accompany that tree when it is fast-forwarded into `main`. Runtime and PowerLoss claims remain limited to approved profiles and recorded finite evidence. Follow [Home](Home) and [Dependency Contracts](Dependency-Contracts) before composing providers.
 
 - [ESPressio_Logging.hpp](Reference-logging-ESPressio_Logging): foundation umbrella; optional facility activation remains explicit
 - [logging/AdmissionLifecycleCoordinator.hpp](Reference-logging-AdmissionLifecycleCoordinator): owning declaration/source reference
