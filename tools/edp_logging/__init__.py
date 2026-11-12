@@ -1,4 +1,8 @@
-"""Pure-stdlib, bounded offline EDP diagnostic framing tools (partial implementation)."""
+"""Bounded, standard-library-only EDLG/EDLS and governed LogRecord forensic tools.
+
+Public imports expose checked reader/value contracts. Native storage, ACK and
+historical translation provenance remain with their respective EDP owners.
+"""
 
 from .framing import (
     Frame, FrameIssue, FrameCodec, FrameStatus, crc32c, encode_frame, scan_stream,

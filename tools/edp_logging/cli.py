@@ -1,4 +1,8 @@
-"""Offline structural frame/segment inspection; typed LogRecord decoding pending."""
+"""Bounded offline EDLG/EDLS, governed TypedEnvelope and LogRecord inspection.
+
+Optional historical schema, attempt-gap and uncertainty-aware time analysis
+are evidence readers, not source authenticity or native durability proofs.
+"""
 
 from __future__ import annotations
 

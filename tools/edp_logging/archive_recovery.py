@@ -2,8 +2,9 @@
 
 This module NEVER appends behind a torn tail, chooses a storage write
 destination, claims Flash atomicity, or supplies durability evidence. It
-recovers validated *prefixes* only. The production EDP-Persistence-backed
-archive coordinator remains a separate, not-yet-implemented component.
+recovers validated *prefixes* only. Production EDLS writing, finite retention and strict NVS acknowledgement are
+implemented separately in the C++ Logging/Persistence composition. This
+Python source remains intentionally read-only and never certifies durability.
 """
 
 from __future__ import annotations
