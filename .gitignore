@@ -427,3 +427,58 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+
+# --- ESPressio V2 cross-platform local artefacts (12 November 2026) ---
+# macOS Finder, filesystem, indexing and AppleDouble metadata.
+.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+.TemporaryItems/
+__MACOSX/
+
+# Windows Explorer, system, recycle-bin and link artefacts.
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# PlatformIO local dependency downloads, build and IDE indexes.
+.pio/
+.pioenvs/
+.piolibdeps/
+.piohome/
+.platformio/
+platformio_override.ini
+**/platformio.local.*.ini
+**/.pio/
+
+# Embedded/Arduino/ESP-IDF scratch and generated target configuration.
+sdkconfig
+sdkconfig.old
+sdkconfig.backup
+sdkconfig.*
+!sdkconfig.defaults
+!sdkconfig.defaults.*
+**/.build/
+*.elf
+*.map
+*.bin
+
+# Python host tool caches and local virtual environments.
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.py[cod]
+*.egg-info/
