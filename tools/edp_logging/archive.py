@@ -54,7 +54,7 @@ def parse_segment_header(data: bytes) -> SegmentHeader:
 def encode_segment_header(header: SegmentHeader) -> bytes:
     """Reference fixture writer, exactly matching the device-side EDLS V1 header.
 
-    Slot generation must already be chosen durably by the future archive owner;
+    Slot generation and acknowledged-retention policy belong to the existing C++ EDLS archive owner;
     this utility does not allocate generations, touch storage or assert durability.
     """
     if (

@@ -24,7 +24,7 @@ from .analysis import EvidenceError, analyse_attempts, compare_record_time
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Scan EDLG v1 frames without interpreting typed LogRecord arguments")
+    parser = argparse.ArgumentParser(description="Inspect bounded EDLG/EDLS framing with optional governed typed LogRecord/schema analysis")
     parser.add_argument("path", type=Path,
                         help="existing captured binary framing/archive slot; '-' reads live binary stdin until EOF")
     parser.add_argument("--archive", action="store_true", help="validate EDLS segment header before framing")

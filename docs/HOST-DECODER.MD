@@ -1,6 +1,6 @@
-# Python host diagnostic framing — partial implementation
+# Python host diagnostic framing and governed offline record forensics
 
-**Branch:** feature/logging-v1. **Version:** 0.1.0. Parent approved design: Policy/main D8/D13 and EDP-Logging#1; tracked under EDP-Logging#3.
+**Source baseline:** current branch, 0.1.0 (the early dated test evidence below is historical, not the complete validation record). Parent approved design: Policy/main D8/D13 and EDP-Logging#1; tracked under EDP-Logging#3.
 
 ## Implemented source
 
@@ -12,11 +12,11 @@ The pure-stdlib `tools/edp_logging` Python package provides:
 - `parse_segment_header`: strict `EDLS` 40-byte header checker with slot index, nonzero 64-bit generation, canonical 16-byte device and nonzero 32-bit runtime incarnation, header CRC.
 - `edp-logging PATH` or `python -m edp_logging PATH` CLI prints one JSON event per verified frame or integrity failure with source offsets. `--archive` validates and displays segment metadata; `--forensic` enables qualified bounded resync.
 
-## NOT YET implemented
+## Current scope and explicitly unsupported capabilities — 12 November 2026
 
-- CBOR/JSON **semantic typed LogRecord decoder**, historical schema fingerprint catalogue reconciliation, localisation/parameter interpolation, device-relative sequence gap analysis and Era/uncertainty comparisons.
-- Bounded explicit live serial capture/retention, source-based filters/CSV export, or encoder/firmware interoperability confirmation.
-- Durable storage recovery guarantees, cryptographic authentication, any interrupted-write simulation or physical power-loss validation.
+The early host-only framing prototype described in the preceding paragraphs was subsequently extended. The **current checked-in stdlib Python package implements** optional canonical TypedEnvelope CBOR/JSON structural parsing (`--inspect-record`), supported permanent 15-field LogRecord V1 source-fact validation with an independently pinned root TypeIdentifier (`--validate-record --expected-root-type-hex`), generated EDP-Localisation diagnostic schema and strict positional CBOR argument validation (`--schema --schema-sha256`), explicit historical archive ContractFamily selection/provenance, bounded per-incarnation ticket-gap evidence (`--analyse-attempts`), uncertainty-aware same-era chronological comparison (`--compare-record-times`), and a **separate** bounded JSONL-to-CSV formatter (`python -m edp_logging.export_csv`). The later source-specific sections of this file and [Tooling Reference](../wiki/Tooling-Reference.md) document exact flags, bounds and failure states. Do not mistake an earlier dated “partial” feature note for the current implementation.
+
+**Explicitly unsupported or separate-owner work:** generic historical translated string reconstruction *without exact trusted ContractFamily provenance*, JSON positional argument typing where owner certification has not been established, arbitrary unissued CBOR tags/LogRecord root IDs, generic live UART/serial capture/retention in this **Python CLI**, proof of arbitrary device-side exporter/transport receipts, cryptographic authentication, Flash endurance, direct filesystem mutation and any interrupted-write or electrical PowerLoss validation performed by the host decoder. Optional native EDP-Serial/ESP-IDF output belongs to the distinct Serial owners. The C++ strict FileStorage+NVS-acknowledged production implementation and its named physical cut receipts are **separately implemented and qualified**; this host reader is not their durability evidence.
 
 The CLI reads one source file without modifying it. Frames returned by `scan_stream` own a bounded copy of their payload; aggregate callers must also stream output rather than retaining an unlimited list of frames.
 
