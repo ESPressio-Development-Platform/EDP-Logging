@@ -38,6 +38,9 @@ namespace ESPressio::Logging {
                 "Attempt sequence must select Bits16, Bits32 or Bits64 at compile time"
             );
 
+            // Compile-time representation.
+
+            /// Exact unsigned backing type for the selected ticket width.
             using Type = std::conditional_t<
                 TWidth == AttemptSequenceWidth::Bits16,
                 std::uint16_t,
@@ -47,6 +50,7 @@ namespace ESPressio::Logging {
                     std::uint64_t
                 >
             >;
+
         };
 
     } // ESPressio::Logging::Detail
@@ -60,6 +64,8 @@ namespace ESPressio::Logging {
     class AttemptSequence final {
     public:
 
+        // Compile-time representation.
+
         /// Exact unsigned backing type.
         using Storage = typename Detail::AttemptSequenceStorage<TWidth>::Type;
 
@@ -68,6 +74,8 @@ namespace ESPressio::Logging {
 
     private:
 
+        // Ticket state and trusted construction.
+
         /// Unassigned (zero) or allocated attempt identity.
         Storage _value{0U};
 
@@ -75,6 +83,8 @@ namespace ESPressio::Logging {
         explicit constexpr AttemptSequence(Storage value) noexcept : _value(value) {}
 
     public:
+
+        // Public construction and inspection.
 
         /// Constructs an invalid/unassigned output slot.
         constexpr AttemptSequence() noexcept = default;
@@ -93,6 +103,7 @@ namespace ESPressio::Logging {
         [[nodiscard]] constexpr bool IsValid() const noexcept {
             return _value != 0U;
         }
+
     };
 
     /// Source of non-reused instrumentation attempt tickets within ONE RuntimeIncarnationId.
@@ -106,7 +117,9 @@ namespace ESPressio::Logging {
     class AttemptSequenceCounter final {
     public:
 
-        /// Exact counter/ticket storage Type.
+        // Compile-time limits.
+
+        /// Exact counter/ticket storage type.
         using Storage = typename AttemptSequence<TWidth>::Storage;
 
         /// Largest available ticket within the selected runtime incarnation.
@@ -114,17 +127,28 @@ namespace ESPressio::Logging {
 
     private:
 
+        // Counter state.
+
         /// Last issued nonzero value, or zero before first issue.
         Storage _lastIssued{0U};
 
     public:
 
+        // Counter lifecycle and coordinated access.
+
         /// Starts a new incarnation's counter in the never-issued state.
         constexpr AttemptSequenceCounter() noexcept = default;
 
+        /// Prevents a copied counter from issuing duplicate tickets.
         AttemptSequenceCounter(const AttemptSequenceCounter&) = delete;
+
+        /// Prevents an existing counter from adopting another counter's history.
         AttemptSequenceCounter& operator =(const AttemptSequenceCounter&) = delete;
+
+        /// Keeps the counter bound to the coordinator that owns its sequencing.
         AttemptSequenceCounter(AttemptSequenceCounter&&) = delete;
+
+        /// Prevents moving one coordinator's issuance state into another.
         AttemptSequenceCounter& operator =(AttemptSequenceCounter&&) = delete;
 
         /// Allocates exactly one ticket; rejected admissions still retain their consumed ticket.

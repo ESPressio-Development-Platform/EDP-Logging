@@ -24,10 +24,21 @@ namespace ESPressio::Logging {
 
     /// Borrowed verified frame; source must outlive all consumers of the view.
     struct EdlgFrameView final {
+
+        // Verified framing metadata and borrowed payload.
+
+        /// Wire codec declared in the verified frame header.
         EdlgCodec Codec{EdlgCodec::Cbor};
+
+        /// Encoded bytes borrowed from the input buffer supplied to ReadEdlgFrame.
         std::span<const std::byte> Payload{};
+
+        /// Bytes occupied by the verified header, payload and completion marker.
         std::size_t Consumed = 0U;
+
+        /// Stored CRC32C after comparison with the recomputed frame checksum.
         std::uint32_t Checksum = 0U;
+
     };
 
     /// Inspect one complete frame at offset zero in caller-owned bytes.
@@ -38,7 +49,12 @@ namespace ESPressio::Logging {
     /// and forensic resync are separate explicit responsibilities.
     ///
     /// Until this returns Succeeded, output is unchanged. After it succeeds,
-    /// output.Payload is a borrowed view, not separately retained storage.
+    /// output.Payload borrows storage from source.
+    ///
+    /// @param source Input bytes starting at the candidate frame header.
+    /// @param output View assigned after all framing checks pass.
+    /// @param maximumPayloadBytes Largest encoded payload accepted by the caller.
+    /// @return Succeeded or the first failed framing check.
     [[nodiscard]] inline EdlgFrameReadResult ReadEdlgFrame(
         std::span<const std::byte> source,
         EdlgFrameView& output,
@@ -107,11 +123,21 @@ namespace ESPressio::Logging {
             return EdlgFrameReadResult::InvalidCompletion;
         }
 
-        const auto payload = source.subspan(headerBytes, payloadLength);
+        const auto payload = source.subspan(
+            headerBytes,
+            payloadLength
+        );
         const auto one = Detail::EdlgFrameCrc32C(source.first(12U));
-        const auto two = Detail::EdlgFrameCrc32C(payload, one);
+        const auto two = Detail::EdlgFrameCrc32C(
+            payload,
+            one
+        );
         const auto expected = Detail::EdlgFrameCrc32C(
-            source.subspan(tailOffset, trailerBytes), two
+            source.subspan(
+                tailOffset,
+                trailerBytes
+            ),
+            two
         );
         const std::uint32_t persisted =
             static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(source[12U])) |

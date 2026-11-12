@@ -27,8 +27,10 @@ namespace ESPressio::Logging {
         ///
         /// The initial parameter is the finalized result for the previous block, which
         /// permits header/payload/trailer accumulation without allocating a buffer.
-        /// This algorithm belongs only to Logging's EDLG framing until a common
-        /// integrity provider is actually approved; no native object representation.
+        ///
+        /// @param bytes Next wire-encoded block in checksum order.
+        /// @param previous Finalized CRC32C from the previous block, or zero for the first.
+        /// @return Finalized CRC32C through this block.
         [[nodiscard]] inline std::uint32_t EdlgFrameCrc32C(
             std::span<const std::byte> bytes,
             std::uint32_t previous = 0U
@@ -48,7 +50,11 @@ namespace ESPressio::Logging {
             return crc ^ 0xFFFFFFFFU;
         }
 
-        /// Emits one 32-bit unsigned value in the fixed portable little-endian wire order.
+        /// Stores one unsigned value in the fixed 32-bit little-endian wire format.
+        ///
+        /// @param output Buffer with four writable bytes at offset.
+        /// @param offset First byte to write.
+        /// @param value Unsigned value to encode.
         inline void WriteEdlgLe32(
             std::span<std::byte> output,
             std::size_t offset,
@@ -132,14 +138,29 @@ namespace ESPressio::Logging {
         output[6U] = std::byte{0U};
         output[7U] = std::byte{0U};
 
-        Detail::WriteEdlgLe32(output, 8U, static_cast<std::uint32_t>(payload.size()));
+        Detail::WriteEdlgLe32(
+            output,
+            8U,
+            static_cast<std::uint32_t>(payload.size())
+        );
 
         const std::uint32_t first = Detail::EdlgFrameCrc32C(output.first(12U));
-        const std::uint32_t second = Detail::EdlgFrameCrc32C(payload, first);
-        const std::uint32_t checksum = Detail::EdlgFrameCrc32C(
-            std::span<const std::byte>(completion, 4U), second
+        const std::uint32_t second = Detail::EdlgFrameCrc32C(
+            payload,
+            first
         );
-        Detail::WriteEdlgLe32(output, 12U, checksum);
+        const std::uint32_t checksum = Detail::EdlgFrameCrc32C(
+            std::span<const std::byte>(
+                completion,
+                4U
+            ),
+            second
+        );
+        Detail::WriteEdlgLe32(
+            output,
+            12U,
+            checksum
+        );
 
         for (std::size_t i = 0U; i < payload.size(); ++i) {
             output[headerBytes + i] = payload[i];

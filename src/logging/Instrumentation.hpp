@@ -14,7 +14,7 @@ namespace ESPressio::Logging {
         Invoked = 1
     };
 
-    /// Template isolated, lazy instrumentation-site evaluation.
+    /// Evaluates a diagnostic site lazily according to its severity threshold.
     ///
     /// Unlike a function that accepts previously evaluated argument values, this
     /// template receives one caller expression inside an unevaluated-until-called
@@ -22,9 +22,13 @@ namespace ESPressio::Logging {
     /// provider discovery, time reads, admission-policy evaluation and message
     /// arguments do not execute.
     ///
-    /// TThunk must be a callable with no arguments only for enabled sites.
-    /// Its returned value (which will later be the typed admission outcome)
-    /// is intentionally not interpreted by the compile-out facility.
+    /// The compile-time gate discards the callable's return value.
+    ///
+    /// @tparam TMinimum Compile-time threshold selected for the facility.
+    /// @tparam TSeverity Severity emitted by the diagnostic site.
+    /// @tparam TThunk Caller-supplied callable type, invocable without arguments when enabled.
+    /// @param thunk Deferred site work, invoked once only for an enabled site.
+    /// @return Invoked if the callable returned, or NotInstrumented for an excluded site.
     template<SeverityThreshold TMinimum, Severity TSeverity, class TThunk>
     [[nodiscard]] constexpr SiteInvocationResult InvokeLogSite(
         TThunk&& thunk
@@ -46,12 +50,8 @@ namespace ESPressio::Logging {
 /// one emitted Severity. All site work must live inside __VA_ARGS__; putting
 /// evaluated arguments outside the macro before calling it defeats compile-out.
 ///
-/// This is a gating prerequisite only: it cannot allocate a LogRecord or claim
-/// delivery. A future generated-schema-checked LogSite adapter will supply
-/// producer admission and a separate typed admission result.
-///
-/// The prefix deliberately does not claim the shorter EDP_LOG entry point while
-/// a complete caller-facing instrumentation contract remains unimplemented.
+/// The macro provides lazy evaluation. A producer invoked by the site body
+/// supplies its own admission result and delivery evidence.
 #define EDP_LOG_WHEN_ENABLED(MINIMUM_THRESHOLD, EMITTED_SEVERITY, ...)                \
     do {                                                                            \
         static_cast<void>(                                                         \

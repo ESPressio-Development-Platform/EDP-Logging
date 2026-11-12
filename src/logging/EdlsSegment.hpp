@@ -33,18 +33,34 @@ namespace ESPressio::Logging {
 
     /// Value-only representation of a validated EDLS segment-header record.
     struct EdlsHeader final {
+
+        // Physical location, ordering and source identity recorded on the wire.
+
+        /// Physical slot ordinal selected by the archive owner.
         std::uint16_t Slot = 0U;
+
+        /// Nonzero archive generation allocated before the header is encoded.
         std::uint64_t Generation = 0U;
+
+        /// Source device identifier with at least one nonzero byte.
         std::array<std::byte, 16U> DeviceIdentifier{};
+
+        /// Nonzero runtime incarnation supplied by the record source.
         std::uint32_t RuntimeIncarnation = 0U;
 
         /// Whether exact complete-record count/length and whole-segment CRC are sealed.
         EdlsContentProfile Profile{EdlsContentProfile::Unsealed};
+
     };
 
     namespace Detail {
 
-        /// Little-endian absolute-width store; never emit a native C++ structure.
+        /// Stores the low bytes of a value in little-endian wire order.
+        ///
+        /// @param destination Buffer with room for width bytes starting at offset.
+        /// @param offset First byte to write.
+        /// @param value Unsigned value whose low bytes are written.
+        /// @param width Number of bytes to store, at most eight.
         inline void WriteEdlsLe(
             std::span<std::byte> destination,
             std::size_t offset,
@@ -59,7 +75,11 @@ namespace ESPressio::Logging {
             }
         }
 
-        /// Little-endian absolute-width parse; caller establishes bounds first.
+        /// Loads an unsigned value from little-endian wire bytes.
+        ///
+        /// @param source Buffer containing width bytes starting at offset.
+        /// @param offset First byte to read.
+        /// @param width Number of bytes to load, at most eight.
         [[nodiscard]] inline std::uint64_t ReadEdlsLe(
             std::span<const std::byte> source,
             std::size_t offset,
@@ -97,6 +117,9 @@ namespace ESPressio::Logging {
     /// generation. It does NOT acquire generation, write to flash, issue a
     /// durability guarantee, or bypass the archive owner's no-wrap policy.
     /// Inputs are validated before any destination byte is changed.
+    ///
+    /// @param header Owner-supplied physical slot, identity and content profile.
+    /// @param destination Buffer whose first 40 bytes receive the header on success.
     [[nodiscard]] inline EdlsHeaderStatus WriteEdlsHeader(
         const EdlsHeader& header,
         std::span<std::byte> destination
@@ -117,17 +140,40 @@ namespace ESPressio::Logging {
         destination[4U] = std::byte{1U};
         destination[5U] = std::byte{static_cast<std::uint8_t>(header.Profile)};
 
-        Detail::WriteEdlsLe(destination, 6U, header.Slot, 2U);
-        Detail::WriteEdlsLe(destination, 8U, header.Generation, 8U);
+        Detail::WriteEdlsLe(
+            destination,
+            6U,
+            header.Slot,
+            2U
+        );
+        Detail::WriteEdlsLe(
+            destination,
+            8U,
+            header.Generation,
+            8U
+        );
         for (std::size_t index = 0U; index < 16U; ++index) {
             destination[16U + index] = header.DeviceIdentifier[index];
         }
-        Detail::WriteEdlsLe(destination, 32U, header.RuntimeIncarnation, 4U);
+        Detail::WriteEdlsLe(
+            destination,
+            32U,
+            header.RuntimeIncarnation,
+            4U
+        );
 
         const auto checksum = Detail::EdlgFrameCrc32C(
-            std::span<const std::byte>(destination.data(), 36U)
+            std::span<const std::byte>(
+                destination.data(),
+                36U
+            )
         );
-        Detail::WriteEdlsLe(destination, 36U, checksum, 4U);
+        Detail::WriteEdlsLe(
+            destination,
+            36U,
+            checksum,
+            4U
+        );
         return EdlsHeaderStatus::Succeeded;
     }
 
@@ -136,6 +182,9 @@ namespace ESPressio::Logging {
     /// CRC32C is accidental-corruption detection, not authentication. The caller
     /// separately checks that the header's Slot matches the addressed storage
     /// path and that its Generation participates in the bounded archive plan.
+    ///
+    /// @param source Exactly one serialized header, without following segment bytes.
+    /// @param destination Decoded value assigned only after all checks pass.
     [[nodiscard]] inline EdlsHeaderStatus ReadEdlsHeader(
         std::span<const std::byte> source,
         EdlsHeader& destination
@@ -159,7 +208,11 @@ namespace ESPressio::Logging {
         }
         const auto expected = Detail::EdlgFrameCrc32C(source.first(36U));
         const auto encoded = static_cast<std::uint32_t>(
-            Detail::ReadEdlsLe(source, 36U, 4U)
+            Detail::ReadEdlsLe(
+                source,
+                36U,
+                4U
+            )
         );
         if (encoded != expected) {
             return EdlsHeaderStatus::ChecksumMismatch;
@@ -169,13 +222,27 @@ namespace ESPressio::Logging {
         parsed.Profile = static_cast<EdlsContentProfile>(
             std::to_integer<std::uint8_t>(source[5U])
         );
-        parsed.Slot = static_cast<std::uint16_t>(Detail::ReadEdlsLe(source, 6U, 2U));
-        parsed.Generation = Detail::ReadEdlsLe(source, 8U, 8U);
+        parsed.Slot = static_cast<std::uint16_t>(
+            Detail::ReadEdlsLe(
+                source,
+                6U,
+                2U
+            )
+        );
+        parsed.Generation = Detail::ReadEdlsLe(
+            source,
+            8U,
+            8U
+        );
         for (std::size_t index = 0U; index < 16U; ++index) {
             parsed.DeviceIdentifier[index] = source[16U + index];
         }
         parsed.RuntimeIncarnation = static_cast<std::uint32_t>(
-            Detail::ReadEdlsLe(source, 32U, 4U)
+            Detail::ReadEdlsLe(
+                source,
+                32U,
+                4U
+            )
         );
         if (!Detail::IsValidEdlsIdentity(parsed)) {
             return EdlsHeaderStatus::MalformedHeader;

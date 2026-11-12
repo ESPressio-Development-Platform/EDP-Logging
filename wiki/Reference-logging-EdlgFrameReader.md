@@ -20,7 +20,12 @@ These values distinguish incomplete transports from corrupt records; none trigge
 
 ## Public borrowed output `EdlgFrameView`
 
-The struct's **Codec** identifies the accepted wire representation; **Payload** is a `span<const byte>` *borrowed* from the caller's input; **Consumed** identifies the exact prefix frame length, so a caller can advance over multiple complete frames without trusting arbitrary tails; and **Checksum** is the persisted validated CRC32C. The default instance is an empty view, not a valid decoded LogRecord. The view becomes usable **only** after `Succeeded`, and the backing source must outlive every view consumer. No output buffer or heap allocation is owned.
+- `Codec` is the validated framing header's encoding selector. It says how the caller should interpret the payload bytes.
+- `Payload` borrows the exact encoded payload range. It can be empty on a successful frame read. The caller keeps the backing bytes live and unchanged while the view is used.
+- `Consumed` is the full verified frame length, including the 16-byte header and 4-byte completion marker. Use it to advance to the next candidate after a successful read.
+- `Checksum` is the CRC32C field from the input after comparison with the recomputed checksum.
+
+Default construction yields Cbor, an empty span and zero for the two numeric fields. The reader publishes a verified frame view only on `Succeeded`.
 
 ## Public operation `ReadEdlgFrame`
 
