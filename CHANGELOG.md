@@ -28,6 +28,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 - Real **RPI400 ESP32-WROOM-32** named native workloads previously sustained a bounded **30,000-record / 300-second / 100 records per second** scheduling profile with strict NVS acknowledgement and finite EDLS retention. Named GPIO17 external relay cuts and independent media CRC scans qualified **specific** protected-data durability profiles.
 - The new minimal three-target framing demo and all five directly required Memory demo families have real Arduino-ESP32 and native ESP-IDF compile/link receipts. A build-only result is **not** physical runtime proof; physical and POR-classified subsets are distinguished in the [G1–G15 acceptance matrix](./docs/ACCEPTANCE-G1-G15.MD) and [qualification status](./docs/LOGGING-QUALIFICATION-STATUS.MD).
 
+- The optional Serial and ESP-IDF companions are available from their respective `main` branches. The Logging integration fixtures select the Platform SpinLock required by the current FIFO contract. The native WROOM fixture independently verified receipt of a CRC-valid EDLG frame on UART0.
+
 ### Deliberate non-guarantees and deferred functionality
 
 - **No indefinite retention, Flash lifespan guarantee, universal throughput guarantee or generic LittleFS/VFS FileStorage interruption atomicity.** Storage placement, bootstrapped finite capacity and external-Flash preference for high-volume production use remain application decisions.

@@ -19,6 +19,8 @@ Current [qualification status](../docs/LOGGING-QUALIFICATION-STATUS.MD), [accept
 
 ## Maintained workflow dependency selection
 
-Host foundation, optional ClockEra and ESP-IDF firmware workflows use `main` for EDP-System, EDP-Localisation, EDP-Serialisation, EDP-Memory, EDP-Threading and EDP-Clock where each job selects those owners. The previous workflow refs for Memory, Threading and Localisation resolved to the same commits at this checkpoint. System, Serialisation and Clock advanced only documentation or ignore rules relative to the previous refs. The native fixture's specific ESP-IDF Platform commit remains an application-profile selection. Optional Serial companion refs are selected separately.
+Host foundation, optional ClockEra and ESP-IDF firmware workflows use `main` for EDP-System, EDP-Localisation, EDP-Serialisation, EDP-Memory, EDP-Threading and EDP-Clock where each job selects those owners. The previous workflow refs for Memory, Threading and Localisation resolved to the same commits at this checkpoint. System, Serialisation and Clock advanced only documentation or ignore rules relative to the previous refs. The native fixture's specific ESP-IDF Platform commit remains an application-profile selection. The optional Serial abstract and ESP-IDF companion checkouts also use their verified `main` refs.
 
 The existing RPI400 host and native receipts apply to their recorded checkout topology. The workflow changes here correct branch selection. Hosted workflow execution is tracked independently.
+
+The [G12 integration ledger](../docs/SERIAL-OUTPUT-INTEGRATION.MD) records the RPI400 physical UART fixture and companion post-main runs. The G1 workflow generates its diagnostic schema with the existing Localisation tool before compiling the fixture. The host fan-out fixture uses the Portable SpinLock and the native fixture uses the ESP-IDF SpinLock.

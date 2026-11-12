@@ -5,8 +5,8 @@ This contract explains how an application can emit EDP-Logging's portable EDLG f
 ## Owner and dependency direction
 
 - `EDP-Logging` owns the canonical `logging/EdlgFrame.hpp` writer and framed record format. Its default umbrella and `library.json` have no Serial dependency.
-- `EDP-Serial` (`feature/logging-v1`) owns the abstract Composition `ByteStreamWriter` capability, bounded `TryWriteComplete`, the optional `serial/EdlgFramePump.hpp`, and the `serial/BoundedEdlgFrameQueue.hpp`. Only its **optional frame pump and queue** import Logging; the default Serial umbrella depends directly on EDP-System, not Logging.
-- `EDP-Serial-ESP-IDF` (`feature/logging-v1`) owns `UartFifoByteStreamWriter` for an explicitly configured ESP-IDF UART whose driver TX-buffer size is zero. It adapts the selected native driver to EDP-Serial's *nonblocking* byte endpoint. It does not create a second frame encoder.
+- `EDP-Serial` (`main`) owns the abstract Composition `ByteStreamWriter` capability, bounded `TryWriteComplete`, the optional `serial/EdlgFramePump.hpp`, and the `serial/BoundedEdlgFrameQueue.hpp`. Only its **optional frame pump and queue** import Logging; the default Serial umbrella depends directly on EDP-System, not Logging.
+- `EDP-Serial-ESP-IDF` (`main`) owns `UartFifoByteStreamWriter` for an explicitly configured ESP-IDF UART whose driver TX-buffer size is zero. It adapts the selected native driver to EDP-Serial's *nonblocking* byte endpoint. It does not create a second frame encoder.
 - The application Bootstrap owns the actual UART pins/baud/driver/endpoint lifetime, exclusive endpoint access, the ordinary Threading Mutex, the Platform state SpinLock, queue sizing, output worker and error policy. It must explicitly declare all direct source dependencies of the selected optional feature.
 
 ## Source and runtime boundaries
@@ -21,25 +21,17 @@ This contract explains how an application can emit EDP-Logging's portable EDLG f
 
 | Repository / ref | Current owned implementation | Activation and qualification |
 | --- | --- | --- |
-| EDP-Serial `feature/logging-v1` @ `cc3857fa7767` | Abstract byte endpoint; EDLG frame pump; bounded FIFO | Optional; `main` currently contains only scaffolding |
-| EDP-Serial-ESP-IDF `feature/logging-v1` @ `2ae01782ab4e` | Nonblocking UART FIFO byte writer | Optional ESP-IDF/Arduino-underlying-IDF provider; `main` currently scaffolding |
+| EDP-Serial `main` @ `f731f47d9ba2` | Abstract byte endpoint, EDLG frame pump and bounded FIFO | Optional source dependency of the selected Serial application |
+| EDP-Serial-ESP-IDF `main` @ `11bca276fa6a8` | Nonblocking native UART TX FIFO byte writer | Optional ESP-IDF provider, including the qualified IDF-backed Arduino toolchain |
 | EDP-Serial-Arduino `main` @ `99b5f53b558f` | No source beyond LICENSE/.gitignore | **Not implemented**; no Arduino Serial-specific endpoint contract or concrete provider is available |
-| EDP-Logging `feature/logging-v1` @ the selected Logging revision | Canonical EDLG frame writer, optional source/sink integration tests | There is intentionally no `Logging → Serial` production dependency |
+| EDP-Logging `main` | Canonical EDLG frame writer, optional source/sink integration tests | There is intentionally no `Logging → Serial` production dependency |
 
 ## Verified tests and limits
 
 On 2 November 2026, detached RPI400 run `20261102T103854-7cde01e7` passed **eight** GCC/Clang executions: EDP-Serial's abstract byte endpoint, opt-in complete-frame pump, bounded multi-producer frame queue and ESP-IDF native UART FIFO provider (with fake IDF). All tests use the actual selected Logging EDLG header; none duplicates the codec.
 
-Previous physical ESP32 checkpoint and Serial HIL in the Logging acceptance ledger are configuration-specific and **do not** prove an Arduino `HardwareSerial` adapter, USB CDC delivery, arbitrary concurrent console writers, electrical UART TX drain, or simultaneous multiprovider output. A host fake-IDF pass is not a physical wire-capture result.
+On 12 November, [the recovery handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-12/2026-11-12-11-28-EDP-Logging-Serial-Release-Recovery.MD) records the exact pre- and post-main checks. The physical ESP32-WROOM G1 fixture `20261112T120312-447090b1` passed all 20 checks. It used the native Platform-ESP-IDF SpinLock, Threading Mutex and UART FIFO writer, and the independent host capture verified the exact EDLG payload and CRC. This qualifies the fixture's exclusive UART0 ownership and selected application profile. The application still controls any required TX drain and host acknowledgement.
 
-## Tracking
-
-The missing Arduino provider and physical integration work is tracked in [EDP-Serial-Arduino issue #1](https://github.com/ESPressio-Development-Platform/EDP-Serial-Arduino/issues/1). The existing abstract and ESP-IDF feature owners have their own tests; Logging source itself requires no new Serial dependency.
-
-## Remaining acceptance gate
-
-**G12 is partial.** To claim universal Arduino/ESP-IDF Serial completeness, `EDP-Serial-Arduino` must implement an explicitly qualified nonblocking endpoint in **that owning repository** (not in Logging), and demonstrate the application's exact native stream/driver selection, no interleaving, finite resource and complete frame delivery on the intended hardware. The selected Arduino serial interface, supported boards, and its actual nonblocking acceptance guarantee must be resolved before designing that concrete adapter. No compatible behavior should be invented by wrapping a potentially blocking write call. Branch selection for work in that currently stub repository is independently governed by V2/BRANCHING.MD.
-
-Meanwhile the currently tested ESP-IDF provider and abstract frame pump remain opt-in on their existing feature branches. Do not promote their behavior or dependency pins to their stub `main` branches, and do not hold the separately qualified **file-backed** Logging core hostage to unrelated serial output options.
+The generic [EDP-Serial-Arduino provider](https://github.com/ESPressio-Development-Platform/EDP-Serial-Arduino/issues/1), USB CDC transport, independent console writers and other target profiles remain separate. A supported Arduino-ESP32 build can select the IDF-backed provider only when its SDK and driver profile provide the same UART contract.
 
 See [EDLG checkpoint](EDLG-KEYVALUE-CHECKPOINT.MD), [architecture](ARCHITECTURE.MD), [acceptance matrix](ACCEPTANCE-G1-G15.MD) and the [dependency graph](../DEPENDENCY_GRAPH.MD).
