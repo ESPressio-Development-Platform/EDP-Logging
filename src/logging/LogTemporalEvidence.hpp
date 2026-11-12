@@ -8,53 +8,91 @@
 
 namespace ESPressio::Logging {
 
-    /// The only shape accepted from an application-composed coherent temporal source.
-    /// The source must sample canonical local Monotonic and synchronized quality/era
-    /// against the SAME committed clock/coordinator epoch, never as unrelated reads.
-    struct CoherentLogClockSample final {
-        ESPressio::Clock::MonotonicTimestamp Monotonic;
-        ESPressio::Clock::SynchronizedReading Synchronized;
-        ESPressio::Clock::ClockEra Era;
-        bool HasSynchronizedCoordinate;
-        // Optional owner-issued Clock assessment in the SAME coherent sample.
-        // Legacy four-element initializers remain conservatively unavailable.
-        ESPressio::Clock::ClockCorrelationProjectionStatus ProjectionStatus{
-            ESPressio::Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
-        };
-        ESPressio::Clock::TemporalQualityAssessment Assessment{
-            ESPressio::Clock::TemporalQualityAssessment::Unreliable
-        };
-    };
-
     /// A conservative Logging classification of one immutable temporal sample.
     enum class LogTemporalEvidenceStatus : std::uint8_t {
+        /// The Clock reports synchronized state with a usable coordinate.
         Synchronized = 0U,
+
+        /// A usable coordinate from Clock Holdover or Reacquiring state.
         Degraded = 1U,
+
+        /// The coherent sample supplies local monotonic evidence alone.
         Unavailable = 2U,
+
+        /// The supplied presence, state, era or owner metadata contradicts the contract.
         Incoherent = 3U
     };
 
-    /// Logging's immutable temporal projection; zero is a VALID synchronized time,
-    /// so Status, never numeric timestamp, is the source-availability discriminator.
-    struct QualifiedLogTime final {
+    /// Owner facts captured together from one committed Clock/coordinator epoch.
+    struct CoherentLogClockSample final {
+
+        // Coherent owner observations.
+
+        /// Canonical local monotonic observation.
         ESPressio::Clock::MonotonicTimestamp Monotonic;
-        ESPressio::Clock::SynchronizedTimestamp Synchronized;
-        ESPressio::Clock::SynchronizationUncertainty Uncertainty;
+
+        /// Owner reading that carries synchronized coordinate, state and uncertainty.
+        ESPressio::Clock::SynchronizedReading Synchronized;
+
+        /// Owner-issued era associated with the coordinate when one is present.
         ESPressio::Clock::ClockEra Era;
-        ESPressio::Clock::SynchronizationState ClockState;
-        LogTemporalEvidenceStatus Status;
-        // Caller-supplied EDP-Clock owner statuses: never Logging-derived bits.
+
+        /// Explicit coordinate presence independently of the numerical value.
+        bool HasSynchronizedCoordinate;
+
+        /// Owner correlation outcome, defaulting to unavailable if omitted.
         ESPressio::Clock::ClockCorrelationProjectionStatus ProjectionStatus{
             ESPressio::Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
         };
+
+        /// Owner assessment of temporal quality, defaulting to unreliable if omitted.
         ESPressio::Clock::TemporalQualityAssessment Assessment{
             ESPressio::Clock::TemporalQualityAssessment::Unreliable
         };
 
+    };
+
+    /// Logging's immutable projection of a single coherent Clock sample.
+    struct QualifiedLogTime final {
+
+        // Projected time and its owner provenance.
+
+        /// Exact local monotonic observation from the input sample.
+        ESPressio::Clock::MonotonicTimestamp Monotonic;
+
+        /// Qualified synchronized coordinate whose presence is described by Status.
+        ESPressio::Clock::SynchronizedTimestamp Synchronized;
+
+        /// Owner uncertainty for a usable coordinate, otherwise maximum uncertainty.
+        ESPressio::Clock::SynchronizationUncertainty Uncertainty;
+
+        /// Owner-issued era for a usable coordinate, otherwise invalid.
+        ESPressio::Clock::ClockEra Era;
+
+        /// Original owner synchronization state for diagnostic use.
+        ESPressio::Clock::SynchronizationState ClockState;
+
+        /// Logging classification used to interpret the projected coordinate.
+        LogTemporalEvidenceStatus Status;
+
+        /// Owner projection outcome, reset to unavailable for an incoherent sample.
+        ESPressio::Clock::ClockCorrelationProjectionStatus ProjectionStatus{
+            ESPressio::Clock::ClockCorrelationProjectionStatus::CorrelationUnavailable
+        };
+
+        /// Owner quality assessment, reset to unreliable for an incoherent sample.
+        ESPressio::Clock::TemporalQualityAssessment Assessment{
+            ESPressio::Clock::TemporalQualityAssessment::Unreliable
+        };
+
+        // Projected coordinate presence.
+
+        /// Reports a usable synchronized or degraded coordinate, including zero.
         [[nodiscard]] constexpr bool HasSynchronizedCoordinate() const noexcept {
             return Status == LogTemporalEvidenceStatus::Synchronized ||
-                Status == LogTemporalEvidenceStatus::Degraded;
+                   Status == LogTemporalEvidenceStatus::Degraded;
         }
+
     };
 
     /// Qualifies a *single already-coherent* Clock/coordinator sample.
@@ -125,6 +163,8 @@ namespace ESPressio::Logging {
     /// Application Bootstrap chooses a provider that reads Clock/coordinator
     /// state coherently. Independent MonotonicNow()/SynchronizedNow()/Era reads
     /// must never be substituted, even if they usually agree in host tests.
+    /// @tparam TCoherentClockProvider Bootstrap-selected coherent Clock provider.
+    /// @param provider Borrowed provider with a noexcept value-returning capture.
     template<class TCoherentClockProvider>
     [[nodiscard]] QualifiedLogTime CaptureLogTime(
         const TCoherentClockProvider& provider

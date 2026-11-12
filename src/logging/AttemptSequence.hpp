@@ -8,21 +8,31 @@ namespace ESPressio::Logging {
 
     /// Compile-time storage selection for a unique instrumentation attempt within one incarnation.
     enum class AttemptSequenceWidth : std::uint8_t {
+        /// Use an exact 16-bit unsigned ticket.
         Bits16 = 16,
+
+        /// Use an exact 32-bit unsigned ticket.
         Bits32 = 32,
+
+        /// Use an exact 64-bit unsigned ticket.
         Bits64 = 64
+    };
+
+    /// Outcome of allocating a ticket; exhaustion never wraps or silently reuses a value.
+    enum class AttemptSequenceAllocationResult : std::uint8_t {
+        /// The counter allocated one ticket and filled the output.
+        Issued = 0,
+
+        /// The output already holds a valid ticket and was preserved.
+        OutputOccupied = 1,
+
+        /// Every usable value has been issued for this incarnation.
+        SequenceExhausted = 2
     };
 
     /// Selected width for applications that do not explicitly choose another capacity.
     inline constexpr AttemptSequenceWidth DefaultAttemptSequenceWidth =
         AttemptSequenceWidth::Bits32;
-
-    /// Outcome of allocating a ticket; exhaustion never wraps or silently reuses a value.
-    enum class AttemptSequenceAllocationResult : std::uint8_t {
-        Issued = 0,
-        OutputOccupied = 1,
-        SequenceExhausted = 2
-    };
 
     namespace Detail {
 
@@ -62,6 +72,18 @@ namespace ESPressio::Logging {
     /// @tparam TWidth Selected storage width.
     template<AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
     class AttemptSequence final {
+    private:
+
+        // Ticket state and trusted construction.
+
+        /// Unassigned (zero) or allocated attempt identity.
+        typename Detail::AttemptSequenceStorage<TWidth>::Type _value{0U};
+
+        /// Constructs a ticket from the numeric identity supplied by the factory.
+        explicit constexpr AttemptSequence(
+            typename Detail::AttemptSequenceStorage<TWidth>::Type value
+        ) noexcept : _value(value) {}
+
     public:
 
         // Compile-time representation.
@@ -71,18 +93,6 @@ namespace ESPressio::Logging {
 
         /// Physical memory bit-width selected for this incarnation.
         static constexpr std::uint8_t WidthBits = static_cast<std::uint8_t>(TWidth);
-
-    private:
-
-        // Ticket state and trusted construction.
-
-        /// Unassigned (zero) or allocated attempt identity.
-        Storage _value{0U};
-
-        /// Constructs an already validated ticket produced by a counter.
-        explicit constexpr AttemptSequence(Storage value) noexcept : _value(value) {}
-
-    public:
 
         // Public construction and inspection.
 
@@ -115,6 +125,13 @@ namespace ESPressio::Logging {
     /// @tparam TWidth Statically selected per-incarnation ticket storage width.
     template<AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
     class AttemptSequenceCounter final {
+    private:
+
+        // Counter state.
+
+        /// Last issued nonzero value, or zero before first issue.
+        typename AttemptSequence<TWidth>::Storage _lastIssued{0U};
+
     public:
 
         // Compile-time limits.
@@ -124,15 +141,6 @@ namespace ESPressio::Logging {
 
         /// Largest available ticket within the selected runtime incarnation.
         static constexpr Storage MaximumValue = std::numeric_limits<Storage>::max();
-
-    private:
-
-        // Counter state.
-
-        /// Last issued nonzero value, or zero before first issue.
-        Storage _lastIssued{0U};
-
-    public:
 
         // Counter lifecycle and coordinated access.
 

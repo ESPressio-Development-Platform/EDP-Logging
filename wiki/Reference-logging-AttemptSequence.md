@@ -1,6 +1,6 @@
 # Reference — `src/logging/AttemptSequence.hpp`
 
-**Classification:** public C++20 Logging ticket/value API and private compile-time storage mapping. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8488a4323c96a8f50fed0681ccc08f2592817e99/src/logging/AttemptSequence.hpp). **Dependencies:** only the C++20 standard library. This is identity generation within one application-owned RuntimeIncarnationId, **not** a logger worker, scheduler, global process counter or synchronization primitive.
+**Classification:** public C++20 Logging ticket/value API and private compile-time storage mapping. [Source](../src/logging/AttemptSequence.hpp). **Dependencies:** only the C++20 standard library. This is identity generation within one application-owned RuntimeIncarnationId, **not** a logger worker, scheduler, global process counter or synchronization primitive.
 
 ## Public compile-time vocabulary
 
