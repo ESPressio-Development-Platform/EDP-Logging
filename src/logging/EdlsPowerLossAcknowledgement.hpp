@@ -322,13 +322,13 @@ namespace ESPressio::Logging {
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
-                if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
+                if (Detail::VerifyEdlsPredecessorWithScratch<
                         TPayloadMaximum>(
                         *files_,
                         paths_[slot],
                         slot,
                         prior,
-                        scratch))
+                        scratch) != Detail::EdlsPredecessorVerificationResult::Verified)
                     return {EdlsAcknowledgedStatus::
                                 AcknowledgedHistoryChanged,
                             ack,
@@ -366,13 +366,13 @@ namespace ESPressio::Logging {
                     prior.Header.Generation < first ||
                     prior.Header.Generation > ack)
                     continue;
-                if (!Detail::IsPriorNewestEdlsStillCleanWithScratch<
+                if (Detail::VerifyEdlsPredecessorWithScratch<
                         TPayloadMaximum>(
                         *files_,
                         paths_[slot],
                         slot,
                         prior,
-                        scratch))
+                        scratch) != Detail::EdlsPredecessorVerificationResult::Verified)
                     return {EdlsAcknowledgedStatus::
                                 AcknowledgedHistoryChanged,
                             ack,
@@ -491,13 +491,13 @@ namespace ESPressio::Logging {
                 return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
                         ack,
                         posted.Slot};
-            if (!Detail::IsProtectedPredecessorSetVerifiedWithScratch<
+            if (Detail::VerifyEdlsProtectedPredecessorsWithScratch<
                     TPhysicalSlots,
                     TPayloadMaximum>(
                     *files_,
                     paths_,
                     prior.Inspected,
-                    scratch))
+                    scratch) != Detail::EdlsPredecessorVerificationResult::Verified)
                 return {EdlsAcknowledgedStatus::AcknowledgedHistoryChanged,
                         ack,
                         posted.Slot};

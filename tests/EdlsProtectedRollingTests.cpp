@@ -17,12 +17,16 @@ namespace {
         unsigned writes{0U}, removes{0U};
         bool failWrite{false}, torn{false}, failRemove{false}, crossDamage{false};
         bool damageProtectedAfterRemove{false};
+        bool failSize{false};
 
         static std::size_t idx(P::FilePathView p) noexcept {
             return static_cast<std::size_t>(p.Data()[4U]-'0');
         }
         bool IsFileStorageReady() const noexcept { return true; }
         P::FileSizeResult GetFileSize(P::FilePathView p) const noexcept {
+            if (failSize) {
+                return {P::FileSizeStatus::IoFailure, {}};
+            }
             const auto i=idx(p);
             return length[i] ? P::FileSizeResult{P::FileSizeStatus::Succeeded,P::StorageSize{length[i]}}:
                 P::FileSizeResult{P::FileSizeStatus::NotFound,{}};
@@ -87,6 +91,52 @@ namespace {
     constexpr auto p2=P::FilePathView::Validate("slot2");
     static_assert(p0.IsValuePresent&&p1.IsValuePresent&&p2.IsValuePresent);
     constexpr std::array<P::FilePathView,3U> paths{p0.Value,p1.Value,p2.Value};
+    void VerifyPredecessorOutcomes() {
+        using Result = L::Detail::EdlsPredecessorVerificationResult;
+        Store store{};
+        store.put(0U, 1U);
+        std::array<std::byte, 36U> scratch{};
+        const auto before = L::InspectEdlsSlotWithScratch<16U>(
+            store,
+            paths[0U],
+            0U,
+            scratch);
+        const auto verify = [&] {
+            return L::Detail::VerifyEdlsPredecessorWithScratch<16U>(
+                store,
+                paths[0U],
+                0U,
+                before,
+                scratch);
+        };
+
+        assert(verify() == Result::Verified);
+        assert(L::Detail::VerifyEdlsPredecessor<16U>(
+            store,
+            paths[0U],
+            0U,
+            L::EdlsSlotInspection{}) == Result::InvalidBaseline);
+
+        store.failSize = true;
+        assert(verify() == Result::ProviderFailure);
+        store.failSize = false;
+        store.bytes[0U][38U] ^= std::byte{0x80U};
+        assert(verify() == Result::ReadbackNotClean);
+
+        store.put(0U, 2U);
+        assert(verify() == Result::HeaderChanged);
+
+        store.put(0U, 1U);
+        const auto firstEnd = store.length[0U];
+        const auto frameBytes = firstEnd - L::EdlsHeaderBytes;
+        for (std::size_t offset = 0U; offset < frameBytes; ++offset) {
+            store.bytes[0U][firstEnd + offset] =
+                store.bytes[0U][L::EdlsHeaderBytes + offset];
+        }
+        store.length[0U] += frameBytes;
+        assert(verify() == Result::VerifiedPrefixChanged);
+    }
+
     std::array<std::byte,16U> id=[] {
         std::array<std::byte,16U> result{};
         result.fill(std::byte{0x11U});
@@ -184,4 +234,7 @@ namespace {
         assert(damaged.removes==0U);
     }
 }
-int main(){mainTests();}
+int main() {
+    VerifyPredecessorOutcomes();
+    mainTests();
+}
