@@ -7,13 +7,13 @@ This contract explains how an application can emit EDP-Logging's portable EDLG f
 - `EDP-Logging` owns the canonical `logging/EdlgFrame.hpp` writer and framed record format. Its default umbrella and `library.json` have no Serial dependency.
 - `EDP-Serial` (`feature/logging-v1`) owns the abstract Composition `ByteStreamWriter` capability, bounded `TryWriteComplete`, the optional `serial/EdlgFramePump.hpp`, and the `serial/BoundedEdlgFrameQueue.hpp`. Only its **optional frame pump and queue** import Logging; the default Serial umbrella depends directly on EDP-System, not Logging.
 - `EDP-Serial-ESP-IDF` (`feature/logging-v1`) owns `UartFifoByteStreamWriter` for an explicitly configured ESP-IDF UART whose driver TX-buffer size is zero. It adapts the selected native driver to EDP-Serial's *nonblocking* byte endpoint. It does not create a second frame encoder.
-- The application Bootstrap owns the actual UART pins/baud/driver/endpoint lifetime, exclusive endpoint access, Threading synchronization, queue sizing, output worker and error policy. It must explicitly declare all direct source dependencies of the selected optional feature.
+- The application Bootstrap owns the actual UART pins/baud/driver/endpoint lifetime, exclusive endpoint access, the ordinary Threading Mutex, the Platform state SpinLock, queue sizing, output worker and error policy. It must explicitly declare all direct source dependencies of the selected optional feature.
 
 ## Source and runtime boundaries
 
 1. A Logging producer supplies an already encoded payload and its canonical codec; EDP-Serial's `EdlgFramePump` uses Logging's existing frame writer to make one **complete** owned EDLG frame.
 2. The bounded frame pump retains its unsent suffix across partial native writes, `WouldBlock` and provider failure; it does not retry indefinitely or claim remote reception.
-3. The optional frame queue serializes **only participants of one queue** through the existing EDP-Threading mutex, preserving frame boundaries and bounded committed order. Direct console/printf output or a second queue on the same UART can still interleave bytes; the application must enforce endpoint exclusivity.
+3. The optional frame queue serializes **only participants of one queue** through the existing EDP-Threading Mutex, preserving frame boundaries and bounded committed order. A separate Bootstrap-owned Platform SpinLock protects brief depth and poison snapshots. Direct console/printf output or a second queue on the same UART can still interleave bytes; the application must enforce endpoint exclusivity.
 4. A native `Accepted` count is the exact number of bytes accepted into the provider/FIFO, **not** electrical transmission, remote host receipt, filesystem durability or a PowerLoss commitment. Data already accepted before failure cannot be rolled back.
 5. The UART writer's low-level `uart_tx_chars` contract depends on zero TX buffering and an installed driver. The concrete provider must not be used as a universal adapter to any Arduino `Stream`, whose write operation may block or expose different acceptance semantics.
 

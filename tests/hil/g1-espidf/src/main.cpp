@@ -150,7 +150,13 @@ using ByteOps = Platform::Portable::Memory::ByteOperationsProvider;
 using Nvs = ESPressio::Persistence::EspIdf::NvsKeyValueStorage<NvsTestIdentity,ByteOps>;
 struct SerialMutexIdentity final {};
 using SerialMutex = Threading::OrdinaryMutexProvider<SerialMutexIdentity,Mutex>;
-using SerialQueue = ESPressio::Serial::BoundedEdlgFrameQueue<2U,32U,SerialMutex>;
+using SerialStateSpinLock = Platform::ESPIDF::Synchronization::SpinLockProvider;
+using SerialQueue = ESPressio::Serial::BoundedEdlgFrameQueue<
+    2U,
+    32U,
+    SerialMutex,
+    SerialStateSpinLock
+>;
 bool Check(bool value,const char* label) noexcept;
 
 // Exercises the real governed in-memory validation on the WROOM MCU.
@@ -378,7 +384,11 @@ bool TestComposedSerialHardwareEndpoint() noexcept {
               "serial-install-unbuffered-tx")) return false;
     ESP_IDF::UartFifoByteStreamWriter writer(UART_NUM_0);
     static SerialMutex mutex;
-    SerialQueue fifo(mutex);
+    SerialStateSpinLock stateSpinLock;
+    SerialQueue fifo(
+        mutex,
+        stateSpinLock
+    );
     constexpr std::array<std::byte,4U> payload{
         std::byte{0x83U},std::byte{0x01U},
         std::byte{0x02U},std::byte{0x03U}
@@ -1061,7 +1071,11 @@ bool Run() {
         using EncodedLease=std::remove_reference_t<decltype(encodedPool)>::LeaseType;
         EncodedLease encodedLease;
         SerialMutex copiedSerialMutex;
-        SerialQueue copiedSerial(copiedSerialMutex);
+        SerialStateSpinLock copiedSerialStateSpinLock;
+        SerialQueue copiedSerial(
+            copiedSerialMutex,
+            copiedSerialStateSpinLock
+        );
         struct ArchiveSink {
             std::array<std::byte,32U> Copied{};
             std::size_t Used{0U};
@@ -1206,7 +1220,8 @@ bool Run() {
         std::printf("EDP_LOGGING_HIL|PASS|MEMORY_OWNED_ENCODING_SERIAL_COPY\n");
     }
     if(!Check(CheckG4OwnedRootFanoutOnDevice<
-        Resource,Mutex,Signal,Allocator,Composition,SerialMutex>(),
+        Resource, Mutex, Signal, Allocator, Composition, SerialMutex, SerialStateSpinLock
+    >(),
         "g4-full-root-owned-memory-serial-copy-archive")) return false;
     if (!Check(
         CheckG10AsyncOwnedWorkerOnDevice<

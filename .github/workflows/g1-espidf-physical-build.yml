@@ -126,7 +126,9 @@ jobs:
         working-directory: EDP-Logging/tests/hil/g1-espidf
         env:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
-        run: pio run -e esp32dev
+        run: |
+          python3 generate_g4_root_fixture.py "$EDP_LOGGING_DEPENDENCY_ROOT/EDP-Localisation" "$PWD/src/generated"
+          pio run -e esp32dev
 
       - name: Generate typed Localisation contract and compile strict NVS-ACKed EDLS (build only)
         working-directory: EDP-Logging

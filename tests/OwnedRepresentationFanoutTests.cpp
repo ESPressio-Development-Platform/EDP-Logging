@@ -9,6 +9,7 @@
 #include <logging/OwnedRepresentationFanout.hpp>
 #include <logging/EdlgFrameReader.hpp>
 #include <serial/BoundedEdlgFrameQueue.hpp>
+#include <synchronization/PortableSynchronizationProviders.hpp>
 #include <type_traits>
 
 namespace {
@@ -66,8 +67,18 @@ namespace {
         using SerialMutex=T::OrdinaryMutexProvider<
             SerialIdentity,TestSupport::TestMutexProvider
         >;
+        using SerialStateSpinLock = P::Portable::Synchronization::SpinLockProvider;
         SerialMutex mutex;
-        S::BoundedEdlgFrameQueue<2U,32U,SerialMutex> serial(mutex);
+        SerialStateSpinLock stateSpinLock;
+        S::BoundedEdlgFrameQueue<
+            2U,
+            32U,
+            SerialMutex,
+            SerialStateSpinLock
+        > serial(
+            mutex,
+            stateSpinLock
+        );
         struct Endpoint final : S::Framework::Provider<
             S::Domain,S::Framework::Offers<
                 S::Framework::Offer<S::ByteStreamWriter>

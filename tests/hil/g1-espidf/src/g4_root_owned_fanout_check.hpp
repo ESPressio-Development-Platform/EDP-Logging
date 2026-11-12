@@ -17,7 +17,7 @@ namespace Test {
 /// archive-style test sink -> later EDLG CRC + full G4 decode.
 /// The archive callback is ONLY in-memory copying, not durable storage.
 template<class TResource,class TMutex,class TSignal,class TAllocator,
-         class TComposition,class TSerialMutex>
+         class TComposition,class TSerialMutex,class TSerialStateSpinLock>
 bool CheckG4OwnedRootFanoutOnDevice() noexcept {
     namespace M=ESPressio::Memory;
     namespace L=ESPressio::Logging;
@@ -75,7 +75,16 @@ bool CheckG4OwnedRootFanoutOnDevice() noexcept {
     typename std::remove_reference_t<decltype(pool)>::LeaseType lease;
 
     TSerialMutex serialMutex;
-    F::BoundedEdlgFrameQueue<1U,Capacity,TSerialMutex> serial(serialMutex);
+    TSerialStateSpinLock serialStateSpinLock;
+    F::BoundedEdlgFrameQueue<
+        1U,
+        Capacity,
+        TSerialMutex,
+        TSerialStateSpinLock
+    > serial(
+        serialMutex,
+        serialStateSpinLock
+    );
     struct ArchiveCopy final {
         std::array<std::byte,Capacity> Bytes{};
         std::size_t Used{0U};
