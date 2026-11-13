@@ -10,23 +10,39 @@
 
 namespace ESPressio::Logging {
 
+    /// First refusing stage or confirmed EDLS readback of a generated record.
     enum class GeneratedEdlsPublishStatus : std::uint8_t {
+        /// The protected rolling publisher confirmed the successor.
         Published = 0U,
+        /// The record device or incarnation disagrees with the archive inputs.
         SourceIdentityMismatch = 1U,
+        /// Source validation or generated wire projection declined the record.
         ProjectionRejected = 2U,
+        /// EDP-Serialisation declined the canonical encoding.
         CborRejected = 3U,
+        /// The measured root exceeds the frame payload bound or caller CBOR scratch.
         CborCapacityExceeded = 4U,
+        /// EDLG framing declined the encoded root.
         FramingRejected = 5U,
+        /// The protected rolling publisher did not confirm successful publication.
         ArchiveRejected = 6U
     };
 
+    /// Publication disposition with stage-specific evidence for the caller.
+    /// @tparam N Physical path count used by the archive outcome.
     template <std::size_t N>
     struct GeneratedEdlsPublishOutcome final {
+        /// Overall stage disposition.
         GeneratedEdlsPublishStatus Status{GeneratedEdlsPublishStatus::ProjectionRejected};
+        /// Source projection evidence after the projection is invoked.
         GeneratedLogRecordProjectionOutcome Projection{};
+        /// Protected rolling evidence after the archive is invoked.
         EdlsProtectedRollingOutcome<N> Archive{};
+        /// Size of the successfully produced canonical root, or zero.
         std::size_t CborBytes{0U};
+        /// Size of the complete EDLG frame once framing succeeds.
         std::size_t EdlgBytes{0U};
+        /// Tests for confirmed publication under the selected archive contract.
         [[nodiscard]] bool IsPublished() const noexcept {
             return Status == GeneratedEdlsPublishStatus::Published;
         }
@@ -36,6 +52,16 @@ namespace ESPressio::Logging {
     /// ownership. All scratch is caller-supplied and capacity-bounded. A result
     /// of Published means complete EDLS/EDLG readback and predecessor checks,
     /// not blanket atomicity of the underlying FileStorage device.
+    /// @tparam TMessageSchema Generated descriptor governing identity and argument kinds.
+    /// @tparam TProtectedSlots Number of complete retained segments.
+    /// @tparam TMaximumPayload Maximum bytes in one EDLG frame payload.
+    /// @tparam TMaximumSegment Maximum bytes in one complete EDLS segment.
+    /// @tparam TWidth Selected bit width of the source attempt sequence.
+    /// @tparam TParameters Exact ordered generated argument types.
+    /// @tparam TMaximumArguments Descriptor capacity of the source arena.
+    /// @tparam TArgumentBytes Byte capacity of the source arena.
+    /// @tparam TPhysicalSlots Configured physical paths including the successor reserve.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner.
     template <
         class TMessageSchema,
         std::size_t TProtectedSlots,
@@ -131,11 +157,21 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// The old host API is retained, using stack scratch. ESP32 workers with
-    /// high payload bounds must instead call WithScratch and supply one
+    /// Publish with a fixed stack frame buffer. ESP32 workers with
+    /// high payload bounds can use WithScratch with one
     /// Bootstrap-owned scratch separate from their EDLG frame buffer. Once
     /// framing completes, the former CBOR buffer may be reused as archive
     /// scratch if it has the full EdlsHeaderBytes+maximumPayload+20 capacity.
+    /// @tparam TMessageSchema Generated descriptor governing identity and argument kinds.
+    /// @tparam TProtectedSlots Number of complete retained segments.
+    /// @tparam TMaximumPayload Maximum bytes in one EDLG frame payload.
+    /// @tparam TMaximumSegment Maximum bytes in one complete EDLS segment.
+    /// @tparam TWidth Selected bit width of the source attempt sequence.
+    /// @tparam TParameters Exact ordered generated argument types.
+    /// @tparam TMaximumArguments Descriptor capacity of the source arena.
+    /// @tparam TArgumentBytes Byte capacity of the source arena.
+    /// @tparam TPhysicalSlots Configured physical paths including the successor reserve.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner.
     template <
         class TMessageSchema,
         std::size_t TProtectedSlots,

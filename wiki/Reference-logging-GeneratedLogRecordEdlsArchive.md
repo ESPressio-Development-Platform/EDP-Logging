@@ -1,6 +1,6 @@
 # Reference — `src/logging/GeneratedLogRecordEdlsArchive.hpp`
 
-**Classification:** public opt-in governed-record archival adapter. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/GeneratedLogRecordEdlsArchive.hpp).
+**Classification:** public opt-in governed-record archival adapter. [Reviewed source](../src/logging/GeneratedLogRecordEdlsArchive.hpp).
 
 This adapter uses the [generated wire projection](Reference-logging-GeneratedLogRecordWireProjection), EDP-Serialisation CBOR TypedEnvelope, the canonical EDLG writer and the existing protected rolling EDLS successor writer. Application Bootstrap owns the FileStorage provider and exclusive archive access.
 

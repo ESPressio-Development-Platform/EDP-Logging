@@ -17,6 +17,22 @@
 
 namespace ESPressio::Logging {
 
+    /// Disposition of the source-to-generated wire projection.
+    enum class GeneratedLogRecordProjectionStatus : std::uint8_t {
+        /// All governed fields and positional arguments were projected.
+        Succeeded = 0U,
+        /// The source record failed its own structural validation.
+        InvalidSource = 1U,
+        /// The record does not identify the selected generated diagnostic.
+        GeneratedMessageMismatch = 2U,
+        /// The source fingerprint differs from the generated argument schema.
+        DiagnosticFingerprintMismatch = 3U,
+        /// The owned arena count differs from the generated argument list.
+        ArgumentCountMismatch = 4U,
+        /// Source reconstruction or owner conversion rejected an argument.
+        ArgumentRejected = 5U
+    };
+
     // Schema-bound wire projection of the EXISTING permanent LogRecord.
     // This is not a second semantic TypeIdentifier. Its Field 13 is the
     // generated message's exact ordered positional values, not private
@@ -34,19 +50,32 @@ namespace ESPressio::Logging {
 
         };
 
+        /// Detects an owner-defined canonical representation.
+        /// @tparam TValue Exact generated argument type.
         template <class TValue>
         concept HasOwnerCanonicalRepresentation = requires {
             typename Serialisation::CanonicalRepresentation<TValue>::Type;
         };
 
+        /// Uses the original type when the owner defines no alternate representation.
+        /// @tparam TValue Exact generated argument type.
+        /// @tparam THasCanonical Owner representation availability, deduced by default.
         template <class TValue, bool THasCanonical = HasOwnerCanonicalRepresentation<TValue>>
         struct GeneratedPositionalWireType final {
+            /// Wire value type used unchanged from the generated argument.
             using Type = TValue;
         };
+
+        /// Selects the existing owner canonical representation.
+        /// @tparam TValue Exact generated argument with an owner representation.
         template <class TValue>
         struct GeneratedPositionalWireType<TValue, true> final {
+            /// Owner-defined wire value type for the generated argument.
             using Type = typename Serialisation::CanonicalRepresentation<TValue>::Type;
         };
+
+        /// Resolves a generated argument to its selected wire value type.
+        /// @tparam TValue Exact generated argument type.
         template <class TValue>
         using GeneratedPositionalWireTypeOf =
             typename GeneratedPositionalWireType<TValue>::Type;
@@ -74,31 +103,51 @@ namespace ESPressio::Logging {
         }
     } // namespace Detail
 
+    /// Fixed wire view of the existing fifteen-field governed LogRecord.
+    /// @tparam TWidth Selected bit width of the source attempt sequence.
+    /// @tparam TParameters Exact ordered semantic types from the generated schema.
     template <AttemptSequenceWidth TWidth, class... TParameters>
     struct GeneratedLogRecordWireProjection final {
+        /// Permanent System identity reused from the source record.
         inline static constexpr System::TypeIdentifier Identifier =
             BasicLogRecord<TWidth>::Identifier;
 
+        /// Field0 generated diagnostic message identifier.
         LogMessageIdentifier Message{};
+        /// Field1 severity selected at the logging site.
         Severity Level{Severity::Info};
+        /// Field2 identity of the emitting device.
         System::Identity::DeviceIdentifier Device{};
+        /// Field3 nonzero runtime incarnation of the emitter.
         System::Identity::RuntimeIncarnationId Incarnation{};
+        /// Field4 attempt identity issued within that incarnation.
         AttemptSequence<TWidth> Attempt{};
+        /// Field5 physical bit width of the attempt sequence.
         std::uint8_t SequenceWidth{static_cast<std::uint8_t>(TWidth)};
+        /// Field6 source monotonic occurrence time.
         Clock::MonotonicTimestamp Monotonic{};
+        /// Field7 optional synchronized coordinate from the same observation.
         std::optional<Clock::SynchronizedTimestamp> Synchronized{};
+        /// Field8 synchronization state observed at capture.
         Clock::SynchronizationState SyncState{
             Clock::SynchronizationState::NeverSynchronized};
+        /// Field9 clock era associated with the captured evidence.
         Clock::ClockEra Era{};
+        /// Field10 owner-reported uncertainty for the synchronized coordinate.
         Clock::SynchronizationUncertainty Uncertainty{};
+        /// Field11 provenance of the captured temporal evidence.
         LogTemporalProvenance Provenance{};
+        /// Field12 exact generated diagnostic schema fingerprint.
         std::array<std::uint8_t, 16U> DiagnosticSchemaFingerprint{};
+        /// Field13 ordered canonical owner values.
         std::tuple<Detail::GeneratedPositionalWireTypeOf<TParameters>...> Arguments{};
+        /// Field14 stable record facts preserved from the source.
         LogRecordFacts Facts{};
 
         // The exact fifteen issued FieldIds, preserving the source
         // schema's numbering and root identity; only the Field13 source
         // storage changes to generated typed positional values.
+        /// The exact ordered System FieldId bindings used by the owner codecs.
         using Fields = System::FieldSet<
             System::FieldBinding<&GeneratedLogRecordWireProjection::Message, 0U>,
             System::FieldBinding<&GeneratedLogRecordWireProjection::Level, 1U>,
@@ -117,24 +166,25 @@ namespace ESPressio::Logging {
             System::FieldBinding<&GeneratedLogRecordWireProjection::Facts, 14U>>;
     };
 
-    enum class GeneratedLogRecordProjectionStatus : std::uint8_t {
-        Succeeded = 0U,
-        InvalidSource = 1U,
-        GeneratedMessageMismatch = 2U,
-        DiagnosticFingerprintMismatch = 3U,
-        ArgumentCountMismatch = 4U,
-        ArgumentRejected = 5U
-    };
-
+    /// Source-to-wire result and source rejection position where available.
     struct GeneratedLogRecordProjectionOutcome final {
+        /// Overall projection disposition.
         GeneratedLogRecordProjectionStatus Status{
             GeneratedLogRecordProjectionStatus::InvalidSource};
+        /// Source count on arity mismatch or zero-based index on argument refusal.
         std::size_t FirstFailedArgument{0U};
+        /// Confirms that a complete governed projection is available.
         [[nodiscard]] bool IsSuccessful() const noexcept {
             return Status == GeneratedLogRecordProjectionStatus::Succeeded;
         }
     };
 
+    /// Validate source evidence, reconstruct ordered values and fill the wire projection.
+    /// @tparam TMessageSchema Generated descriptor governing identity and argument kinds.
+    /// @tparam TWidth Selected bit width of the source attempt sequence.
+    /// @tparam TParameters Exact ordered semantic types from the generated schema.
+    /// @tparam N Maximum descriptors in the source arena.
+    /// @tparam B Byte capacity of the source arena.
     template <
         class TMessageSchema,
         AttemptSequenceWidth TWidth,
