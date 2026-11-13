@@ -16,18 +16,26 @@ namespace ESPressio::Logging {
 
     /// Terminal reason published by one EDP-Threading Dedicated Thread activation.
     enum class DedicatedCoordinatorExit : std::uint8_t {
+        /// No Dedicated Thread activation has reported an exit.
         NeverStarted = 0U,
+        /// The Threading context requested stop and the worker returned.
         CooperativeStop = 1U,
+        /// A source claim transition failed before successful consumption.
         ClaimFailed = 2U,
+        /// The existing source claim could not be confirmed retired.
         ReclaimUnconfirmed = 3U,
+        /// An earlier claim still requires owner reconciliation.
         PriorClaimUnresolved = 4U,
+        /// The topology-owned wake operation failed.
         WakeProviderFailure = 5U,
+        /// A sink service callback requires Bootstrap reconciliation.
         SinkServiceRecoveryRequired = 6U
     };
 
     /// Shared read-only-from-Bootstrap operational report.
     /// Only the Dedicated Thread mutates these fields while it is running.
     struct DedicatedCoordinatorReport final {
+        /// Latest terminal activation reason visible to Bootstrap.
         std::atomic<DedicatedCoordinatorExit> Exit{DedicatedCoordinatorExit::NeverStarted};
         /// Records whose source Memory ownership was confirmed retired.
         std::atomic<std::uint64_t> RecordsRetired{0U};
@@ -113,7 +121,7 @@ namespace ESPressio::Logging {
         DedicatedCoordinatorReport *_report;
         /// Stable exclusive source claim retained after unconfirmed retirement.
         typename TQueue::ConsumerClaim _claim{};
-        /// Zero preserves legacy NoWait behavior; a compile-time opt-in supplies a finite positive
+        /// Zero selects immediate NoWait transitions; a compile-time opt-in supplies a finite positive
         /// budget.
         std::int64_t _queueMutexWaitNanoseconds{0};
 
@@ -166,7 +174,7 @@ namespace ESPressio::Logging {
         }
 
       public:
-        /// Borrows the existing owners and preserves legacy no-wait queue transitions.
+        /// Borrows the existing owners and selects immediate NoWait queue transitions.
         explicit DedicatedCoordinator(TQueue &queue,
                                       DedicatedCoordinatorReport &report,
                                       TSinks &...sinks) noexcept

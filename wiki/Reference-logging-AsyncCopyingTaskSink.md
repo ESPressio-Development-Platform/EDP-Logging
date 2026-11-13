@@ -92,7 +92,7 @@ See the normative async copying Task document for detached run IDs.
 
 ## Source-complete declaration and result-state audit — 10 November 2026
 
-**Source link at the exact reviewed implementation:** [`src/logging/AsyncCopyingTaskSink.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/AsyncCopyingTaskSink.hpp). The original host-only “not implemented” list above represents the early G10 test stage. The subsequent physical WROOM DedicatedWorkerLease subset documented below is real but **does not** itself certify an arbitrary sink's durability or all target races.
+**Source link at the exact reviewed implementation:** [`src/logging/AsyncCopyingTaskSink.hpp`](../src/logging/AsyncCopyingTaskSink.hpp). The original host-only “not implemented” list above represents the early G10 test stage. The subsequent physical WROOM DedicatedWorkerLease subset documented below is real but **does not** itself certify an arbitrary sink's durability or all target races.
 
 ### Public `AsyncSinkAdmissionStatus : uint8_t` — every value
 

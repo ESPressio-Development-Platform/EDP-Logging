@@ -17,27 +17,45 @@ namespace ESPressio::Logging {
 
     /// The outcome of submitting a separately owned representation to a Threading Task.
     enum class AsyncSinkAdmissionStatus : std::uint8_t {
+        /// The Task owner accepted dispatch with an independently owned representation.
         Queued = 0,
+        /// An existing Task or retained representation lease still occupies this sink.
         Busy = 1,
+        /// The offered codec differs from the sink codec selected at compile time.
         CodecMismatch = 2,
+        /// The offered representation is empty or exceeds the fixed byte capacity.
         InvalidPayload = 3,
+        /// The native pool has no immediately available representation slot.
         PoolCapacityUnavailable = 4,
+        /// The representation pool is unavailable for acquisition.
         PoolUnavailable = 5,
+        /// The native pool could not confirm acquisition.
         PoolProviderFailure = 6,
+        /// The Task owner declined dispatch and the lease was returned.
         DispatchRejected = 7,
+        /// The native representation lease could not be confirmed released.
         ReclaimUnconfirmed = 8
     };
 
     /// Distinguishes native task completion from admission and Persistence durability.
     enum class AsyncSinkCompletionStatus : std::uint8_t {
+        /// There is no Task awaiting completion.
         NoPendingTask = 0,
+        /// The active Task has not reached a terminal state.
         Pending = 1,
+        /// The Task was cancelled and the representation lease was returned.
         CancelledAndReleased = 2,
+        /// The sink accepted the bytes and the representation lease was returned.
         AcceptedAndReleased = 3,
+        /// The sink refused the bytes and the representation lease was returned.
         RejectedAndReleased = 4,
+        /// The sink reported partial acceptance and the lease was returned.
         PartialAndReleased = 5,
+        /// The sink reported provider failure and the lease was returned.
         ProviderFailureAndReleased = 6,
+        /// The Task has no retrievable terminal delivery result.
         TaskResultUnavailable = 7,
+        /// The representation lease could not be confirmed released.
         ReclaimUnconfirmed = 8
     };
 
@@ -55,22 +73,12 @@ namespace ESPressio::Logging {
             ESPressio::Memory::ObjectPoolLeaseReleaseResult::AlreadyEmpty};
     };
 
-    /// One in-flight, copying, Task-backed sink, using exclusively owner-provided EDP
-    /// facilities. A separate Bootstrap-owned instance is required per async sink.
-    ///
-    /// The Task and Memory lease are externally owned and MUST have stable lifetimes
-    /// beyond both this adapter and the final Task termination. The caller must
-    /// serialize Submit/Finalize against itself (for example with an already-composed
-    /// EDP-Threading OrdinaryMutex); neither a second queue nor a mutex is created.
-    ///
-    /// Dispatch of a callable referencing this adapter's independently pooled bytes
-    /// means Accepted only if EDP-Threading admitted the Task. It does NOT mean
-    /// the native sink has completed, flushed or durably stored the representation.
-    /// Sinks MUST synchronously consume the worker's borrowed span. No original
-    /// LogRecord or initial representation span may survive submission.
     /// One immutable Task callable bound by Bootstrap to a configured
     /// EDP-Threading Task facility or dedicated Worker lease. It retains no
     /// source borrow: Payload points into the independently leased Memory pool.
+    /// @tparam TCodec Codec passed to the borrowed delivery sink.
+    /// @tparam TMaximumPayloadBytes Capacity of the independent Memory object.
+    /// @tparam TDeliverySink Ordinary synchronous sink invoked by this Task.
     template <EdlgCodec TCodec, std::size_t TMaximumPayloadBytes, class TDeliverySink>
     struct AsyncOwnedDeliveryWork final {
 
@@ -89,6 +97,25 @@ namespace ESPressio::Logging {
         }
     };
 
+    /// One in-flight, copying, Task-backed sink, using exclusively owner-provided EDP
+    /// facilities. A separate Bootstrap-owned instance is required per async sink.
+    ///
+    /// The Task and Memory lease are externally owned and MUST have stable lifetimes
+    /// beyond both this adapter and the final Task termination. The caller must
+    /// serialize Submit/Finalize against itself (for example with an already-composed
+    /// EDP-Threading OrdinaryMutex); neither a second queue nor a mutex is created.
+    ///
+    /// Dispatch of a callable referencing this adapter's independently pooled bytes
+    /// means Accepted only if EDP-Threading admitted the Task. It does NOT mean
+    /// the native sink has completed, flushed or durably stored the representation.
+    /// Sinks MUST synchronously consume the worker's borrowed span. No original
+    /// LogRecord or initial representation span may survive submission.
+    /// @tparam TCodec Canonical representation codec selected for this sink.
+    /// @tparam TMaximumPayloadBytes Capacity of each independently leased representation.
+    /// @tparam TPool Bootstrap-owned Memory pool for encoded payload objects.
+    /// @tparam TByteOperations EDP-Memory byte-copy provider.
+    /// @tparam TExecutor Configured Threading Task dispatcher.
+    /// @tparam TDeliverySink Synchronous ordinary-context callback used by the Task.
     template <
         EdlgCodec TCodec,
         std::size_t TMaximumPayloadBytes,
@@ -107,15 +134,23 @@ namespace ESPressio::Logging {
             TByteOperations::CompositionOffers::template Contains<
                 ESPressio::Memory::ByteOperations>,
             "The byte-copy owner must offer EDP-Memory ByteOperations");
+        /// Existing move-only Memory lease type selected by the pool.
         using Lease = typename TPool::LeaseType;
+        /// Existing Task type carrying the native sink submission result.
         using Task = ESPressio::Threading::Task<RecordSinkSubmission>;
 
         // All services and runtime owners are application/Bootstrap supplied.
+        /// Borrowed owner of the independent encoded payload objects.
         TPool *_pool;
+        /// Borrowed stable handle that owns the active independent payload.
         Lease *_lease;
+        /// Borrowed task slot retained until terminal completion.
         std::optional<Task> *_task;
+        /// Borrowed provider that copies source bytes into the independent payload.
         const TByteOperations *_byteOperations;
+        /// Borrowed native Task dispatch owner.
         TExecutor *_executor;
+        /// Borrowed synchronous delivery callback used by the active Task.
         TDeliverySink *_sink;
 
         /// Exactly the Task Type configured in the application's Threading topology.
@@ -162,9 +197,13 @@ namespace ESPressio::Logging {
                     std::declval<std::size_t>())));
         }
 
+        /// Prevents copying the association between a Task and its leased bytes.
         AsyncCopyingTaskSink(const AsyncCopyingTaskSink &) = delete;
+        /// Prevents replacing a sink association through a copy.
         AsyncCopyingTaskSink &operator=(const AsyncCopyingTaskSink &) = delete;
+        /// Keeps the sink association stable through Task completion.
         AsyncCopyingTaskSink(AsyncCopyingTaskSink &&) = delete;
+        /// Prevents replacing a sink association by moving another sink.
         AsyncCopyingTaskSink &operator=(AsyncCopyingTaskSink &&) = delete;
 
         /// Synchronously copies into a real EDP-Memory lease before asynchronous
