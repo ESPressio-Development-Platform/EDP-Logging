@@ -1,10 +1,10 @@
 # logging/BoundedRecordAdmission.hpp
 
-**PUBLIC opt-in G1 composition**, not part of the ordinary Logging umbrella. Source src/logging/BoundedRecordAdmission.hpp on feature/logging-v1. Canonical normative contract: [bounded record admission](../docs/BOUNDED-RECORD-ADMISSION.MD).
+**Classification:** PUBLIC opt-in G1 composition. Import [BoundedRecordAdmission.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/BoundedRecordAdmission.hpp) explicitly to use this contract. Canonical normative contract: [bounded record admission](../docs/BOUNDED-RECORD-ADMISSION.MD).
 
 ## Public result contract
 
-RecordAdmissionStatus : uint8_t has all explicitly assigned values: Admitted=0 (queue reservation owns a lease but is not published); DeadlineElapsed=1; ShutdownRequested=2; QueueWakeRetryLimit=3; QueueWaitProviderFailure=4; QueueFailure=5; MemoryFailure=6; LateMemoryGrantReturned=7 (late grant is being returned); ReleaseUnconfirmed=8 (native Memory still owned); ReleaseNotificationFailed=9 (required wake not confirmed); OutputOccupied=10 (caller input/output owner not empty). Each failure must be distinguished from successful admission and from downstream sink/commit processing.
+RecordAdmissionStatus : uint8_t has all explicitly assigned values: Admitted=0 (queue reservation owns a lease but is not published); DeadlineElapsed=1; ShutdownRequested=2; QueueWakeRetryLimit=3; QueueWaitProviderFailure=4; QueueFailure=5; MemoryFailure=6; LateMemoryGrantReturned=7 (late grant was reclaimed through the release path); ReleaseUnconfirmed=8 (native Memory still owned); ReleaseNotificationFailed=9 (required wake not confirmed); OutputOccupied=10 (caller input/output owner already active); InvalidProducerSlot=11 (slot is outside the producer range). Each failure must be distinguished from successful admission and from downstream sink/commit processing.
 
 RecordAdmissionOutcome stores Status (composed truth), Queue (queue-owner result), Memory (admission-owner result), Release (release-owner result), MemoryAttempted and ReleaseAttempted (whether remaining fields were actually produced by an operation). Outcome has no hidden dynamic storage. Failure can leave an explicitly owned Reservation or scratch lease requiring attention; never discard an active lease.
 

@@ -36,9 +36,13 @@ namespace ESPressio::Logging {
 
     /// A finite attempt to prevent new admissions and drain in-flight attempts.
     enum class AdmissionShutdownStatus : std::uint8_t {
+        /// No tracked acquisition calls remain active.
         Quiescent = 0U,
+        /// The canonical shutdown deadline elapsed.
         DeadlineElapsed = 1U,
+        /// The bounded drain wake budget was exhausted.
         WakeRetryLimitReached = 2U,
+        /// The Threading provider returned a wait failure.
         DrainWaitProviderFailure = 3U
     };
 
@@ -46,8 +50,11 @@ namespace ESPressio::Logging {
     /// ActiveAdmissions is a diagnostic only and may change if callers violate
     /// the explicit stop-invocation precondition.
     struct AdmissionShutdownResult final {
+        /// Reason the drain completed or stopped.
         AdmissionShutdownStatus Status;
+        /// Producer notification outcome from requesting shutdown.
         AdmissionWakePublicationResult WakePublication;
+        /// Observed count of active calls at the result boundary.
         std::uint32_t ActiveAdmissions;
     };
 

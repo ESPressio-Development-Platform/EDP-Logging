@@ -17,26 +17,45 @@ namespace ESPressio::Logging {
 
     /// Results of the composed bounded queue-slot + Memory pool transaction.
     enum class RecordAdmissionStatus : std::uint8_t {
+        /// The output reservation owns the attached source lease.
         Admitted = 0U,
+        /// The canonical deadline elapsed before admission completed.
         DeadlineElapsed = 1U,
+        /// The producer or coordinator requested shutdown.
         ShutdownRequested = 2U,
+        /// Queue wake retries were exhausted before obtaining capacity.
         QueueWakeRetryLimit = 3U,
+        /// The Threading provider failed while waiting for a queue slot.
         QueueWaitProviderFailure = 4U,
+        /// The queue reported a failed transition or rollback.
         QueueFailure = 5U,
+        /// The Memory acquisition returned a non-admitted outcome.
         MemoryFailure = 6U,
+        /// A late native grant was returned before reporting failure.
         LateMemoryGrantReturned = 7U,
+        /// Ownership could not be confirmed returned to Memory.
         ReleaseUnconfirmed = 8U,
+        /// Release succeeded and its advisory notification failed.
         ReleaseNotificationFailed = 9U,
+        /// The reservation or scratch lease already holds ownership.
         OutputOccupied = 10U,
+        /// The slot is outside the registered producer range.
         InvalidProducerSlot = 11U
     };
 
+    /// Separates queue and Memory progress from rollback and notification outcomes.
     struct RecordAdmissionOutcome final {
+        /// Overall result of admission and required rollback.
         RecordAdmissionStatus Status{RecordAdmissionStatus::QueueFailure};
+        /// Last queue transition relevant to the outcome.
         RecordQueueResult Queue{RecordQueueResult::Empty};
+        /// Memory admission result when MemoryAttempted is true.
         AdmissionWaitResult Memory{AdmissionWaitResult::DeadlineElapsed};
+        /// Scratch lease release result when ReleaseAttempted is true.
         CoordinatedReleaseResult Release{CoordinatedReleaseResult::AlreadyEmpty};
+        /// Whether the call reached Memory acquisition.
         bool MemoryAttempted{false};
+        /// Whether the scratch lease release path was attempted.
         bool ReleaseAttempted{false};
         /// Health of wake fanout performed by a successful or late Memory grant.
         /// Admission success and wake publication are independent facts.
@@ -60,6 +79,15 @@ namespace ESPressio::Logging {
     /// must fill/Commit it or let it auto-abort. On provider/failure paths a
     /// lease that could not be released remains explicitly caller-owned and
     /// ReleaseUnconfirmed is returned, never falsely claimed as reclaimed.
+    /// @tparam TMaximumQueueWakes Maximum producer wakes while waiting for queue capacity.
+    /// @tparam TMaximumMemoryWakes Maximum producer wakes while waiting for Memory capacity.
+    /// @tparam TQueue Transactional queue owner that reserves and attaches the source lease.
+    /// @tparam TAdmissionCoordinator Composed Memory admission and wake owner.
+    /// @tparam TWaitWakeProvider Bootstrap-owned Threading provider serving the producer slot.
+    /// @tparam TObjectPool Memory owner supplying the source object.
+    /// @tparam TLease Move-only source lease temporarily held by the caller.
+    /// @tparam TStopPredicate Nonthrowing Boolean predicate supplied by the producer.
+    /// @tparam TArguments Arguments forwarded to construct the source object.
     template <std::size_t TMaximumQueueWakes,
               std::size_t TMaximumMemoryWakes,
               class TQueue,
@@ -70,16 +98,16 @@ namespace ESPressio::Logging {
               class TStopPredicate,
               class... TArguments>
     [[nodiscard]] RecordAdmissionOutcome AcquireRecordUntil(
-        TQueue& queue,
-        TAdmissionCoordinator& admission,
-        TWaitWakeProvider& waitWake,
+        TQueue & queue,
+        TAdmissionCoordinator & admission,
+        TWaitWakeProvider & waitWake,
         std::size_t producerSlot,
-        TObjectPool& pool,
-        TLease& scratchLease,
-        typename TQueue::Reservation& output,
+        TObjectPool & pool,
+        TLease & scratchLease,
+        typename TQueue::Reservation &output,
         ESPressio::Clock::MonotonicTimestamp deadline,
-        TStopPredicate& stopRequested,
-        TArguments&&... arguments) noexcept {
+        TStopPredicate & stopRequested,
+        TArguments &&...arguments) noexcept {
         static_assert(TMaximumQueueWakes > 0U);
         static_assert(TMaximumMemoryWakes > 0U);
         static_assert(noexcept(stopRequested()) && std::is_same_v<decltype(stopRequested()), bool>);
