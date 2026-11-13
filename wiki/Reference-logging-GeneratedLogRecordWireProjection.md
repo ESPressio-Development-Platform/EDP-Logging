@@ -54,4 +54,11 @@ The private generated-value adaptation operation `Detail::ConvertGeneratedValue`
 
 `GeneratedLogRecordWireProjection<TWidth,TParameters...>` is the exact EDP-System `SchemaType` 15-field, type-governed **temporary wire projection** for one existing LogRecord; `TWidth` preserves its attempt ticket width and `TParameters...` fixes the diagnostic positional child values. It carries the same owner-issued message, severity, device/incarnation, attempt, Clock state, optional synchronized coordinate, era/uncertainty, provenance, reserved facts and generated fingerprint as the source, but Field13 becomes the strongly typed ordered positional child tuple instead of the private `OwnedDiagnosticArguments` descriptor arena. It does not borrow a source record's transient argument spans after successful construction.
 
+`GeneratedLogRecordWireProjection::Fields` is the public schema alias used
+by EDP-System and EDP-Serialisation. Its ordered `System::FieldSet` binds
+each projection member to its issued FieldId from 0 to 14. The field set
+keeps the permanent root identity and uses the generated positional tuple
+for Field13. Changing the binding order or reassigning a FieldId would
+change the wire contract.
+
 `ProjectGeneratedLogRecord<TMessageSchema,TWidth,TParameters...,TMaximumArguments,TArgumentBytes>(source,output,scratch)` requires a generated exact message descriptor, validates all source fields, fingerprint and argument count, rehydrates Field13 through the existing owner-certified positional scratch, then publishes the **complete** projection only after all conversions succeed. On failure it preserves a typed stage/argument index and clears/invalidates output as the existing source algorithm specifies; it is not a portable wire serializer or an asynchronous delivery API. Caller scratch is borrowed only for the operation; canonical bytes are later produced by EDP-Serialisation TypedEnvelope CBOR/JSON. No implicit heap or Clock/Memory provider is instantiated.

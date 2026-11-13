@@ -180,6 +180,6 @@ publication, predecessor revalidation and eligible retirement.
 | `RetirementUnconfirmed` | 15 | Independent readback could not confirm retirement. |
 
 Bulk framed bytes are copied through the EDP-Memory ByteOperations
-contract. The supported archive composition uses the existing Portable
-provider by default. The successor rejects a frame span overlapping the
+contract. `TByteOperationsProvider` selects the stateless EDP-Memory copy
+provider for the rolling publication paths and defaults to Portable. The successor rejects a frame span overlapping the
 caller’s archive workspace before inspecting or writing the archive.

@@ -6,23 +6,40 @@ capability with the EDLG format.
 
 ## Public operation `WriteEdlgFrame`
 
-Parameters: `codec` is the chosen canonical representation; `payload: span<const byte>` borrows already encoded bytes; `output: span<byte>` is the application-owned writable frame storage; `written: size_t&` is the result/output length and is **unchanged on all preflight failures**; `maximumPayloadBytes` is the application's finite configured profile bound. The caller must keep source and destination **nonoverlapping**. The operation rejects invalid codec, null nonempty payload, a payload greater than either the configured bound or the 32-bit wire length, an undersized output span, and overlapping spans before writing.
+`TByteOperationsProvider` must satisfy the EDP-Memory ByteOperations
+provider traits. The synchronous operation borrows the selected provider and
+the caller's buffers for the duration of the call.
 
-On success it writes the fixed **16-byte EDLG header** (magic, version 1, codec, zero flags, little-endian 32-bit payload size, CRC32C), exactly the supplied encoded payload, and **4-byte GLDE** completion marker. `written = payload.size() + 20`. There is no heap allocation, task, OS time, FileStorage or implicit mutex. A successful frame write is a complete in-memory representation; it is **not** a sink ACK, FileStorage transaction, power-cut-proof commit, authenticated record or semantic LogRecord validation.
+| Parameter | Contract |
+| --- | --- |
+| `codec` | Selects CBOR or JSON for the frame header. |
+| `payload` | Borrows the already encoded bytes. It can be empty. |
+| `output` | Borrows writable frame storage. This span must be disjoint from the payload. |
+| `written` | Receives the complete frame length on success and retains its prior value on failure. |
+| `maximumPayloadBytes` | Sets the finite payload limit for the selected application profile. |
+| `byteOperations` | Supplies the non-overlapping copy operation for a nonempty payload. The writer retains no provider reference. |
 
-## Private wire helpers
+The writer checks the codec, nonempty payload pointer, configured and wire
+length limits, output capacity and overlap before changing the destination.
+See the [write-result vocabulary](Reference-logging-EdlgFrame) for the result
+of each check.
 
-`Detail::EdlgFrameCrc32C(bytes, previous=0)` performs incremental reflected Castagnoli CRC32C using the finalized previous-block accumulator, without a lookup table or extra allocation. `previous` defaults to zero for the first block. The checksum detects accidental corruption, not active tampering, and its representation must remain stable across hosts/architectures. `Detail::WriteEdlgLe32(output, offset, value)` writes four explicit little-endian bytes; the caller supplies sufficient destination space after preflight. Both helpers are internal implementation details, not supported independent providers.
+On success it writes the 16-byte EDLG v1 header, the supplied payload and
+the four-byte GLDE completion marker. The header carries the codec, zero
+flags, a little-endian 32-bit payload length and CRC32C. The checksum covers
+the header prefix, payload and completion marker. Only the payload reaches
+the provider. `written` is the payload size plus 20. Bytes after the complete
+frame remain available to the caller.
+
+The writer uses bounded caller storage and takes no mutex. It can run
+concurrently on disjoint output buffers when the chosen provider permits
+concurrent use. The call does not establish an ISR-safe contract. Success
+establishes a complete in-memory frame. Application code separately owns
+payload validation, transport and durable acknowledgement.
 
 ## Validation and reading
 
-`ReadEdlgFrame` in [EdlgFrameReader](Reference-logging-EdlgFrameReader) is the separate strict borrowed verifier; it does not decode CBOR/JSON. The current source is covered by real GCC and Clang native host tests (including reference vector, capacity, corruption) and has participated in bounded ESP32 integration as documented in [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD). Earlier historical statements that the tests were “NOT RUN” are superseded by the November 9, 2026 evidence (including the 68/68 host suite). Do **not** generalize this into an arbitrary VFS interruption-atomicity guarantee.
-
-
-`TByteOperationsProvider` must satisfy the EDP-Memory provider traits.
-`byteOperations` is borrowed for the duration of this synchronous call.
-Only a nonempty payload reaches `CopyBytes`, after all codec, size and
-disjoint-buffer checks have passed. Header fields and the trailer are
-encoded at their fixed wire offsets. The provider receives the exact
-payload span and no retained reference. This keeps CRC, overlap refusal and
-`written` behaviour independent of the selected concrete copy provider.
+The [frame reader](Reference-logging-EdlgFrameReader) verifies a borrowed
+frame. GCC and Clang tests cover the reference vector, capacity checks,
+overlap refusal and corruption. Native UART and archive receipts have their
+own measured configurations in [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD).

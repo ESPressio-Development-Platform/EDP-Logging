@@ -110,13 +110,24 @@ or physical-transport claim follows from sink acceptance.
 
 ## Declaration-by-declaration source contract (9 November 2026)
 
-This section follows the *current* `src/logging/RecordProduction.hpp`, including the two internal `Detail` helpers. The earlier dated sections above record how the facility evolved; the declarations below describe the currently selected source. All functions use caller-supplied existing owners and introduce no scheduler, allocator, additional queue or runtime sink.
+This section follows the current [RecordProduction source](../src/logging/RecordProduction.hpp), including the two internal `Detail` helpers. The earlier dated sections above record how the facility evolved; the declarations below describe the currently selected source. All functions use caller-supplied existing owners and introduce no scheduler, allocator, additional queue or runtime sink.
 
 ### Producer entry, result and non-wrapping attempt
 
 - `RecordProductionStatus` is a fixed `uint8_t` enum: `Published=0` means only the queue commit succeeded; `OutputOccupied=1` refuses a nonempty scratch lease or active caller reservation; `InvalidProducerSlot=2` rejects an unassigned producer; `StopRequested=3` prevents new admission; `SequencerTimedOut=4` and `SequencerProviderFailure=5` distinguish existing mutex acquisition outcomes; `SequencerReleaseUnconfirmed=6` preserves a failed/unknown mutex release; `AttemptExhausted=7` refuses counter wrap; `AdmissionFailed=8` reports a bounded queue/Memory failure; and `CommitFailed=9` reports an unsuccessful publication commit. None asserts sink or flash durability.
 - `RecordProductionOutcome<TWidth>` exposes `Status`, the issued/non-issued `Attempt`, the separate typed `Admission` outcome, the native queue `Commit` result, and `TimeCaptured`. The latter records that time was captured even when the attempt later fails; it is not a published-record indicator.
 - `ProduceRecordUntil<TWidth,TMaximumQueueWakes,TMaximumMemoryWakes,...>` captures exactly one `CaptureLogTime(temporal)` sample and a finite owned tuple of caller scalar/enum arguments **before** acquiring the sequencer or waiting for capacity. It refuses active output handles, invalid slots and shutdown. It invokes the existing EDP-Threading ordinary mutex with the canonical remaining deadline; under that lock it issues the non-wrapping attempt and releases the lock with explicit release-failure status. It delegates bounded Memory/queue admission to `AcquireRecordUntil`, then invokes `Reservation::CommitUntil(deadline)` when present or the already-owned `Commit()` contract otherwise. On commit failure, caller-held scratch/Reservation ownership is **not** silently discarded. Pointer/spanned/borrowed complex arguments are compile-time excluded; the generated LogRecord assembly owns those representations.
+
+`TWidth` selects the finite ticket width. `TMaximumQueueWakes` and
+`TMaximumMemoryWakes` bound retries against the original absolute deadline.
+`TSequencerMutex` serializes ticket issue, and `TTemporalProvider` supplies the
+occurrence snapshot captured before any wait. `TQueue` owns the reservation
+and publication, `TAdmissionCoordinator` owns bounded Memory admission and
+release, and `TWaitWakeProvider` supplies the wait associated with the
+producer's assigned slot. `TObjectPool` is the live Memory owner for the
+exact source type and `TLease` is its move-only lease. `TStopPredicate` is
+the caller's nonthrowing Boolean cancellation check. The `TArguments` pack
+holds the scalar or enum types that the producer copies before waiting.
 
 ### Native consumer claim and one synchronous sink
 

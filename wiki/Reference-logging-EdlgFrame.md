@@ -1,6 +1,9 @@
 # Reference — `src/logging/EdlgFrame.hpp`
 
-**Classification:** public allocation-free binary framing API, internal frame wire helpers. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/d6056ed0e463e05d512f90283bc13fe405a71ec6/src/logging/EdlgFrame.hpp). This header has **no EDP library dependency**. It writes an envelope around *already encoded* bytes; the caller, not this frame layer, owns the EDP-Serialisation writer and governed diagnostic schema.
+[Source](../src/logging/EdlgFrame.hpp). This header defines the public
+EDLG codec and write-result vocabulary and the internal wire helpers shared by
+the reader and writer. It depends on the C++ standard library. The application
+supplies bytes encoded by its selected serialisation writer.
 
 ## Public enums and semantics
 
@@ -14,3 +17,15 @@ so the frame reader and umbrella can be used without EDP-Memory.
 predicate used before framing or archive scratch reuse. It checks the two
 nonempty spans with address subtraction on the supported linear address
 model and reads no bytes from either range.
+
+
+`Detail::EdlgFrameCrc32C(bytes, previous = 0U)` is an internal helper shared
+by the framing reader and writer. It computes reflected Castagnoli CRC32C.
+Pass zero for the first block and the returned finalized value for each
+subsequent block. The header prefix, payload and completion marker can thus
+be processed without allocating contiguous temporary storage.
+
+`Detail::WriteEdlgLe32(output, offset, value)` is an internal writer helper.
+It stores an unsigned 32-bit value as four little-endian bytes. Its caller
+must establish that the range at `offset` is writable. It changes only those
+four bytes.

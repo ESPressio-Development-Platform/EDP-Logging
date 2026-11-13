@@ -202,3 +202,29 @@ and the WROOM resource and G11 site checks. A fresh verified 4 MiB backup
 preceded programming. The original image was restored and verified, and
 the board was powered off. The separate strict LittleFS/NVS relay-cut and
 finite 100-record/s receipts govern the storage claims.
+
+
+All nine Logging demo target builds and all six downstream Serial demo
+target builds passed on the ByteOperations pair. The three
+`FramingAndInstrumentation` results are in `20261113T115541-ab83105e`.
+The initial paired run then resolved the wrong Logging sibling in one
+PlatformIO build. A corrected sibling checkout in `20261113T121711-ce7e6c43`
+passed both Logging managed demos and both Serial demo families on
+Arduino IDE, PlatformIO Arduino and PlatformIO ESP-IDF.
+
+
+The strict LittleFS/NVS fixture linked from Logging `5d854d7` in
+`20261113T125037-f7525d43`. The first physical run,
+`20261113T125128-a24d7661`, confirmed a power-on reset after 8.267 s off and
+correct firmware replay. Serial noise interrupted the independent LittleFS
+capture. The original flash was restored and verified.
+
+Repeat `20261113T131942-75630da5` cut at the complete generation 3
+candidate with NVS ACK2. The external controller measured 8.283 s off.
+The new boot epoch and ROM and ESP-IDF reset reasons confirmed a power-on
+reset. Independent LittleFS readback verified generations 3 and 4, all 15
+original typed fields, and the archive and frame checksums. Independent
+NVS readback verified page, entry and blob CRCs, ACK4 and incarnation 7.
+The raw read used fixed-size chunks and baud-rate fallback.
+The original full 4 MiB image was restored and verified. The target was
+powered off before the job completed with exit 0.

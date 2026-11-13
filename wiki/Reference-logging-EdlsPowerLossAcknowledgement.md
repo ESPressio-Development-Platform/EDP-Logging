@@ -69,8 +69,8 @@ The explicit constructor borrows `files`, `watermark`, unique `paths`, a stable 
 Strict host owner integration exercises negative NVS commits/readback, corrupted predecessors, interrupted candidates, ACKed-pending retirement, multi-record sealed segments, byte-capacity guard and cross-incarnation recovery. The named RPI400 WROOM-32 LittleFS+NVS managed-worker electrical relay profiles validate power-cut outcomes **only for the selected concrete fixtures and cut intervals**; see [acknowledgement and recovery](../docs/EDLS-ACKNOWLEDGED-RECOVERY.MD), [protected rolling](../docs/EDLS-PROTECTED-ROLLING.MD), [immutable byte capacity](../docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) and [G1–G15 evidence](../docs/ACCEPTANCE-G1-G15.MD). Logical byte budgeting is not a physical wear model; no two-year lifespan, generic VFS interruption atomicity or indefinite retention is promised. Application-selected external Flash is preferable for heavy production logging.
 
 Bulk framed bytes are copied through the EDP-Memory ByteOperations
-contract. The supported archive composition uses the existing Portable
-provider by default. The successor rejects a frame span overlapping the
+contract. The stateless `TByteOperationsProvider` template parameter supplies the
+successor copy operation and defaults to the existing Portable provider. The successor rejects a frame span overlapping the
 caller’s archive workspace before inspecting or writing the archive.
 
 `AliasedFrameWorkspace` (18) rejects a publication when its input

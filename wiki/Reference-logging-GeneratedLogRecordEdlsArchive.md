@@ -26,6 +26,11 @@ This adapter uses the [generated wire projection](Reference-logging-GeneratedLog
 - `TProtectedSlots` selects retained slots and `TPhysicalSlots` must equal that count plus one for the successor reserve.
 - `TMaximumPayload` is 1 through 4096 bytes. `TMaximumSegment` must accommodate the 40-byte header, maximum payload and 20-byte EDLG envelope.
 - `TStorage` supplies the existing application-selected FileStorage contract.
+- `TByteOperationsProvider` supplies the existing Memory copy contract and
+  defaults to the stateless Portable provider. The WithScratch overload
+  borrows its optional `byteOperations` object for framing. The downstream
+  archive assembles its segment with a default-constructed provider of
+  the same type.
 
 The function checks source identity, projects the record, measures and encodes CBOR, frames the exact bytes and calls the rolling successor owner. Refusals before the archive stage leave FileStorage untouched. The provider and all borrowed buffers must remain live for the ordinary-context synchronous call. Bootstrap serializes writers, establishes paths and selects retention. Publication does not provide the separate KeyValueStorage watermark of the [strict acknowledged archive](../docs/EDLS-ACKNOWLEDGED-RECOVERY.MD).
 

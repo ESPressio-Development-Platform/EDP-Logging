@@ -20,6 +20,12 @@ Bootstrap composes an EDP-Memory ObjectPool for exactly one fixed-size encoded o
 
 **EncodeOnceAndSubmitToSinks<TCodec,TMaximumPayloadBytes>(pool, lease, record, encoder, sinks...)**:
 
+- `TPool` supplies the existing application-owned Memory pool and lease type.
+  `TRecord` is the borrowed source type. `TEncoder` writes into the offered
+  fixed span and returns a typed length and status. The ordered `TSinks` pack
+  supplies synchronous nonthrowing callbacks. Each callback must acquire or
+  copy the encoded bytes it retains before returning.
+
 - Requires TCodec to be explicitly CBOR or JSON, at least one and at most eight static sink callbacks, and exactly the EDP-Memory ObjectPool value type OwnedEncodedPayload<TMaximumPayloadBytes>.
 - Requires an initially empty caller-owned EDP-Memory lease. Admission uses WaitTimeout::NoWait(), and there is no retry, polling, hidden output allocator or wait.
 - Calls the noexcept encoder exactly once on a borrowed immutable source record into the bounded owned payload; rejects overlength or provider-error outputs before invoking any sink.
