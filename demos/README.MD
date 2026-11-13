@@ -1,6 +1,6 @@
 # EDP-Logging Demonstrations
 
-Each demonstrable family supplies Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source projects, using C++20 and explicit application-owned provider wiring where required.
+Each demonstrable family supplies Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source projects, using C++20 and explicit application-owned provider wiring where required. The PlatformIO projects use the PIOArduino ESP32 platform and select C++20 in their manifests.
 
 - [Framing and Instrumentation](./FramingAndInstrumentation/README.MD) — minimal provider-free compile-time severity and attempt identity, bounded EDLG frame/reader and corruption rejection. An illustrative JSON payload **does not constitute a governed LogRecord**.
 - [Typed Managed Batch Worker](./TypedManagedBatchWorker/README.MD) — generated fifteen-field LogRecord, bounded queue, dedicated Threading worker, CBOR, EDLS, checked file and strict NVS ACK/profile.

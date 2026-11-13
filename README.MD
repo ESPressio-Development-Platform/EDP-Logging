@@ -36,7 +36,16 @@ The minimal umbrella header stays lightweight; more extensive facilities are **o
 
 ### 1. Add the library
 
-Use the branch or release selected for your application, together with **C++20**. For PlatformIO, add EDP-Logging to the project's library dependencies or local `lib/` directory; for Arduino IDE, install the library into the Arduino library search path; for ESP-IDF, make its `src/` headers available to the relevant component.
+Build with **C++20**. For PlatformIO projects, use the
+[PIOArduino ESP32 platform](https://github.com/pioarduino/platform-espressif32)
+and add EDP-Logging to the project's libraries. For Arduino IDE, install
+the library in the Arduino library search path. For a native ESP-IDF
+component, add the library's `src/` headers to its include path.
+
+The Arduino-ESP32 [framing demo manifest](./demos/FramingAndInstrumentation/PlatformIO_Arduino/platformio.ini)
+shows the qualified PIOArduino revision and the C++20 flags. Copy the
+`platform`, `build_flags` and `build_unflags` settings into your ESP32
+environment, then run `pio run -e esp32dev` with the demo's board environment.
 
 The default `library.json` deliberately declares no mandatory EDP library dependencies. Additional dependencies are activated by selecting individual Logging facilities; see [Dependencies](#dependencies) before importing opt-in headers.
 

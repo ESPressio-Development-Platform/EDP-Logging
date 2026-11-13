@@ -24,3 +24,10 @@ Host foundation, optional ClockEra and ESP-IDF firmware workflows use `main` for
 The existing RPI400 host and native receipts apply to their recorded checkout topology. The workflow changes here correct branch selection. Hosted workflow execution is tracked independently.
 
 The [G12 integration ledger](../docs/SERIAL-OUTPUT-INTEGRATION.MD) records the RPI400 physical UART fixture and companion post-main runs. The G1 workflow generates its diagnostic schema with the existing Localisation tool before compiling the fixture. The host fan-out fixture uses the Portable SpinLock and the native fixture uses the ESP-IDF SpinLock.
+
+
+The public demo manifests select the PIOArduino ESP32 platform and C++20.
+See the [Arduino-ESP32 framing manifest](../demos/FramingAndInstrumentation/PlatformIO_Arduino/platformio.ini)
+for the qualified pin and build flags. The native workflow runs all six
+PlatformIO demo combinations. RPI400 also compiles the three Arduino IDE
+sketches using the Arduino CLI and ESP32 core.
