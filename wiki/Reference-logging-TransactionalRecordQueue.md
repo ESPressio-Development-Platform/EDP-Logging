@@ -186,3 +186,10 @@ the worker/sink scheduling, or the Persistence/Serial integration.
 The queue itself never promises durable bytes, external signal
 delivery or fairness beyond the specific bounded contracts
 qualified by its tests.
+
+
+The public `Index` and `Ticket` aliases expose the queue's private
+`SlotIndex` and `TicketValue` representations. A ticket remains a
+value with the existing slot/generation fields and shape predicate.
+The queue checks current generation and phase under its owner. The
+private representation and state machine precede the public API.

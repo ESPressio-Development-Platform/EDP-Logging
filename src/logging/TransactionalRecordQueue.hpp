@@ -93,15 +93,14 @@ namespace ESPressio::Logging {
         /// Links published slots in commit order using the owner topology.
         using Queue = ESPressio::BoundedTopology::IntrusiveQueue<RecordIndexSpace, TCapacity>;
 
-      public:
-        /// Compact slot index in this queue's owner-specific topology.
-        using Index = typename Queue::Index;
+        /// Canonical compact index used by the internal record storage.
+        using SlotIndex = typename Queue::Index;
 
         /// Identifies one slot generation for validation under the queue owner.
-        struct Ticket final {
+        struct TicketValue final {
             // Slot identity and generation must travel together.
             /// Slot of the associated record or the invalid sentinel.
-            Index Slot = Index::Invalid();
+            SlotIndex Slot = SlotIndex::Invalid();
             /// Nonzero generation assigned when the slot was reserved.
             TGeneration Generation = 0U;
 
@@ -111,6 +110,359 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Queue phase values remain stable for diagnostics.
+        enum class Phase : std::uint8_t {
+            /// No caller owns this slot.
+            Vacant = 0U,
+            /// A producer holds the slot while acquiring the source lease.
+            AwaitingMemory = 1U,
+            /// A producer holds an unpublished source lease.
+            Reserved = 2U,
+            /// The committed source waits in FIFO order.
+            Queued = 3U,
+            /// The consumer owns the popped source.
+            InFlight = 4U,
+            /// Memory release or retirement finalization remains in progress.
+            Retiring = 5U,
+            /// This slot can no longer issue a new generation.
+            Exhausted = 6U
+        };
+
+        /// Native mutex release is an operation, not a Boolean predicate.
+        enum class UnlockStatus : std::uint8_t {
+            /// Native mutex ownership was released successfully.
+            Released = 0U,
+            /// Native release could not be confirmed; queue integrity is quarantined.
+            Unconfirmed = 1U
+        };
+
+        /// Stores the slot's source lease, FIFO link and retirement state.
+        struct Record final {
+            /// Intrusive link used by the FIFO while the slot is queued.
+            SlotIndex Next = SlotIndex::Invalid();
+            /// Native Memory lease owned by this slot after attachment.
+            TLease Lease{};
+            /// Most recent generation assigned to the slot.
+            TGeneration Generation = 0U;
+            /// Current transition phase while protected by the ordinary mutex.
+            Phase State = Phase::Vacant;
+            // Only one caller may release the source Memory lease. This
+            // prevents two copies of one ticket from racing the native owner.
+            /// Serializes the native release across all copies of a ticket.
+            std::atomic<bool> RetirementClaimed{false};
+
+            /// A confirmed release notification failure survives a later finalization timeout.
+            bool RetirementNotificationFailed{false};
+
+            /// Reads the intrusive FIFO link under queue ownership.
+            [[nodiscard]] SlotIndex QueueNext() const noexcept {
+                return Next;
+            }
+            /// Writes the intrusive FIFO link under queue ownership.
+            void SetQueueNext(SlotIndex next) noexcept {
+                Next = next;
+            }
+        };
+
+        /// Borrowed ordinary mutex guarding slot state and FIFO topology.
+        TMutexProvider *_mutex;
+        /// Borrowed owner of native lease release and producer wake publication.
+        TReleaseCoordinator *_releases;
+        /// Fixed slot-occupancy topology.
+        Topology _slots{};
+        /// Intrusive FIFO of committed sources awaiting consumption.
+        Queue _fifo{};
+        /// One stable record slot per configured queue entry.
+        std::array<Record, TCapacity> _records{};
+        /// Sticky latch preventing further queue use after an uncertain transition.
+        std::atomic<bool> _integrityFailed{false};
+
+        /// Attempts immediate ownership, mapping contention and uncertain acquisition separately.
+        [[nodiscard]] RecordQueueResult Lock() noexcept {
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                return RecordQueueResult::IntegrityFailure;
+            }
+            const auto acquired = _mutex->TryAcquire();
+            if (acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut) {
+                return RecordQueueResult::Busy;
+            }
+            if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                return RecordQueueResult::IntegrityFailure;
+            }
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            return RecordQueueResult::Succeeded;
+        }
+
+        /// Confirms release or quarantines the queue when native unlock is uncertain.
+        [[nodiscard]] UnlockStatus Unlock() noexcept {
+            if (_mutex->Release() != ESPressio::Threading::OrdinaryMutexReleaseResult::Released) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                return UnlockStatus::Unconfirmed;
+            }
+            return UnlockStatus::Released;
+        }
+
+        /// Reserve mutex using an already-computed native remaining budget;
+        /// the caller owns the canonical Clock deadline and never restarts it.
+        [[nodiscard]] RecordQueueResult LockWith(
+            ESPressio::Platform::Synchronization::WaitTimeout remaining) noexcept {
+            if (remaining.IsNoWait())
+                return Lock();
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                return RecordQueueResult::IntegrityFailure;
+            }
+            const auto acquired = _mutex->Acquire(remaining);
+            if (acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut) {
+                return RecordQueueResult::Busy;
+            }
+            if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                return RecordQueueResult::IntegrityFailure;
+            }
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            return RecordQueueResult::Succeeded;
+        }
+
+        /// Reuses the same ordinary mutex, rejecting a late native grant before any queue mutation.
+        [[nodiscard]] RecordQueueResult LockUntil(
+            ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
+            if (_integrityFailed.load(std::memory_order_acquire)) {
+                return RecordQueueResult::IntegrityFailure;
+            }
+            if (ESPressio::Clock::MonotonicNow() >= deadline) {
+                return RecordQueueResult::DeadlineElapsed;
+            }
+            const auto acquired = LockWith(Detail::RemainingRecordAdmissionWait(deadline));
+            if (acquired != RecordQueueResult::Succeeded) {
+                if (acquired == RecordQueueResult::Busy &&
+                    ESPressio::Clock::MonotonicNow() >= deadline) {
+                    return RecordQueueResult::DeadlineElapsed;
+                }
+                return acquired;
+            }
+            if (ESPressio::Clock::MonotonicNow() >= deadline) {
+                return UnlockWith(RecordQueueResult::DeadlineElapsed);
+            }
+            return RecordQueueResult::Succeeded;
+        }
+
+        /// Preserves the requested result only after confirming native mutex release.
+        [[nodiscard]] RecordQueueResult UnlockWith(RecordQueueResult outcome) noexcept {
+            return Unlock() == UnlockStatus::Released ? outcome
+                                                      : RecordQueueResult::IntegrityFailure;
+        }
+
+        /// The single compact slot-allocation algorithm shared by native
+        /// Begin and ahead-of-Memory slot reservation. Called under mutex.
+        /// Claims a free slot and advances its generation under the mutex.
+        [[nodiscard]] RecordQueueResult ClaimSlot(Phase initial, TicketValue &ticket) noexcept {
+            bool exhausted = false;
+            for (std::size_t i = 0U; i < TCapacity; ++i) {
+                const auto claim = _slots.Acquire();
+                if (!claim.IsSucceeded()) {
+                    return exhausted ? RecordQueueResult::GenerationExhausted
+                                     : RecordQueueResult::CapacityUnavailable;
+                }
+                const auto index = claim.AcquiredIndex();
+                auto &record = _records[static_cast<std::size_t>(index.Value())];
+                if (record.Generation == std::numeric_limits<TGeneration>::max()) {
+                    record.State = Phase::Exhausted;
+                    exhausted = true;
+                    continue;
+                }
+                ++record.Generation;
+                record.RetirementNotificationFailed = false;
+                record.State = initial;
+                ticket = TicketValue{index, record.Generation};
+                return RecordQueueResult::Succeeded;
+            }
+            return RecordQueueResult::GenerationExhausted;
+        }
+
+        /// Checks the ticket against the slot's current generation under queue ownership.
+        [[nodiscard]] bool IsMatchingTicket(TicketValue ticket) const noexcept {
+            return ticket.IsValid() && _slots.IsOccupied(ticket.Slot) &&
+                   _records[static_cast<std::size_t>(ticket.Slot.Value())].Generation ==
+                       ticket.Generation;
+        }
+
+        /// Reports whether a phase still represents owned queue work.
+        [[nodiscard]] static constexpr bool IsPhaseLive(Phase phase) noexcept {
+            return phase == Phase::AwaitingMemory || phase == Phase::Reserved ||
+                   phase == Phase::Queued || phase == Phase::InFlight || phase == Phase::Retiring;
+        }
+
+        /// Releases outside the queue mutex, then finalizes under the SAME deadline without double
+        /// release.
+        [[nodiscard]] RecordQueueResult Retire(
+            TicketValue ticket,
+            Phase expected,
+            std::optional<ESPressio::Clock::MonotonicTimestamp> deadline = std::nullopt) noexcept {
+            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
+            if (outcome != RecordQueueResult::Succeeded)
+                return outcome;
+
+            if (!IsMatchingTicket(ticket)) {
+                return UnlockWith(RecordQueueResult::InvalidTicket);
+            }
+            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+            if (record.State != expected && record.State != Phase::Retiring &&
+                !(expected == Phase::Reserved && record.State == Phase::AwaitingMemory)) {
+                return UnlockWith(RecordQueueResult::WrongPhase);
+            }
+            if (record.RetirementClaimed.exchange(
+                    true,
+                    std::memory_order_acq_rel)) {
+                return UnlockWith(RecordQueueResult::Busy);
+            }
+            record.State = Phase::Retiring;
+            if (Unlock() != UnlockStatus::Released)
+                return RecordQueueResult::IntegrityFailure;
+
+            // Never call native Memory release, user code, or Threading wake
+            // while holding the queue mutex. A failed release retains this
+            // stable Retiring slot, which cannot be recycled or published.
+            bool notified = !record.RetirementNotificationFailed;
+            if (!record.Lease.IsEmpty()) {
+                const auto released = _releases->ReleaseAndNotify(record.Lease);
+                if (released != CoordinatedReleaseResult::ReleasedAndNotified &&
+                    released != CoordinatedReleaseResult::ReleasedNotificationFailed) {
+                    if (record.Lease.IsEmpty()) {
+                        // The provider denied a confirmed release, yet the
+                        // lease no longer proves ownership. Quarantine.
+                        _integrityFailed.store(
+                            true,
+                            std::memory_order_release);
+                        return RecordQueueResult::IntegrityFailure;
+                    }
+                    record.RetirementClaimed.store(
+                        false,
+                        std::memory_order_release);
+                    return RecordQueueResult::ReleaseUnconfirmed;
+                }
+                notified = notified && released == CoordinatedReleaseResult::ReleasedAndNotified;
+                record.RetirementNotificationFailed = !notified;
+                if (!record.Lease.IsEmpty()) {
+                    _integrityFailed.store(
+                        true,
+                        std::memory_order_release);
+                    return RecordQueueResult::IntegrityFailure;
+                }
+            }
+
+            outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
+            if (outcome == RecordQueueResult::Busy ||
+                outcome == RecordQueueResult::DeadlineElapsed) {
+                // Lease is empty; a later ticket holder can only finalize,
+                // and must never release the native Memory object twice.
+                record.RetirementClaimed.store(
+                    false,
+                    std::memory_order_release);
+                return outcome;
+            }
+            if (outcome != RecordQueueResult::Succeeded)
+                return outcome;
+            if (!IsMatchingTicket(ticket) || record.State != Phase::Retiring ||
+                _slots.Release(ticket.Slot) !=
+                    ESPressio::BoundedTopology::BoundedSlotReleaseResult::Succeeded) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            record.State = Phase::Vacant;
+            record.RetirementClaimed.store(
+                false,
+                std::memory_order_release);
+            if (Unlock() != UnlockStatus::Released)
+                return RecordQueueResult::IntegrityFailure;
+
+            // Queue-slot availability is distinct from Memory pool capacity.
+            // Publish only AFTER slot retirement so a racing producer cannot
+            // miss the sole capacity-release notification.
+            if (_releases->PublishCapacityAvailable() !=
+                AdmissionWakePublicationResult::Published) {
+                notified = false;
+            }
+            return notified ? RecordQueueResult::Succeeded
+                            : RecordQueueResult::ReleasedNotificationFailed;
+        }
+
+        /// Transaction commit publishes the already-owned record to FIFO once.
+        [[nodiscard]] RecordQueueResult CommitUnderPolicy(
+            TicketValue ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
+            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
+            if (outcome != RecordQueueResult::Succeeded)
+                return outcome;
+            if (!IsMatchingTicket(ticket)) {
+                return UnlockWith(RecordQueueResult::InvalidTicket);
+            }
+            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+            if (record.State != Phase::Reserved) {
+                return UnlockWith(RecordQueueResult::WrongPhase);
+            }
+            if (_fifo.Push(
+                    _records,
+                    ticket.Slot) !=
+                ESPressio::BoundedTopology::IntrusiveQueuePushResult::Succeeded) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            record.State = Phase::Queued;
+            return Unlock() == UnlockStatus::Released ? RecordQueueResult::Succeeded
+                                                      : RecordQueueResult::IntegrityFailure;
+        }
+
+        /// Claims the oldest committed record for exclusive consumer handling.
+        [[nodiscard]] RecordQueueResult PopUnderPolicy(
+            TicketValue &ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
+            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
+            if (outcome != RecordQueueResult::Succeeded)
+                return outcome;
+            SlotIndex index = SlotIndex::Invalid();
+            if (_fifo.Pop(
+                    _records,
+                    index) ==
+                ESPressio::BoundedTopology::IntrusiveQueuePopResult::Empty) {
+                return UnlockWith(RecordQueueResult::Empty);
+            }
+            auto &record = _records[static_cast<std::size_t>(index.Value())];
+            if (record.State != Phase::Queued) {
+                _integrityFailed.store(
+                    true,
+                    std::memory_order_release);
+                static_cast<void>(Unlock());
+                return RecordQueueResult::IntegrityFailure;
+            }
+            record.State = Phase::InFlight;
+            ticket = TicketValue{index, record.Generation};
+            return Unlock() == UnlockStatus::Released ? RecordQueueResult::Succeeded
+                                                      : RecordQueueResult::IntegrityFailure;
+        }
+
+      public:
+        /// Compact slot index in this queue's owner-specific topology.
+        using Index = SlotIndex;
+
+        /// Slot and generation proof used by transactional operations.
+        using Ticket = TicketValue;
 
         /// Outcome of a ticket-based borrow with a lease view on success.
         class BorrowResult final {
@@ -204,6 +556,7 @@ namespace ESPressio::Logging {
                 return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
 
+            /// Publishes the reserved record and relinquishes the guard on success.
             [[nodiscard]] RecordQueueResult Commit() noexcept {
                 if (!_owner)
                     return RecordQueueResult::InvalidTicket;
@@ -342,6 +695,7 @@ namespace ESPressio::Logging {
                 return outcome;
             }
 
+            /// Returns the consumer lease and relinquishes the guard on confirmed release.
             [[nodiscard]] RecordQueueResult Complete() noexcept {
                 if (!_owner)
                     return RecordQueueResult::InvalidTicket;
@@ -356,355 +710,6 @@ namespace ESPressio::Logging {
             }
         };
 
-      private:
-        /// Queue phase values remain stable for diagnostics.
-        enum class Phase : std::uint8_t {
-            /// No caller owns this slot.
-            Vacant = 0U,
-            /// A producer holds the slot while acquiring the source lease.
-            AwaitingMemory = 1U,
-            /// A producer holds an unpublished source lease.
-            Reserved = 2U,
-            /// The committed source waits in FIFO order.
-            Queued = 3U,
-            /// The consumer owns the popped source.
-            InFlight = 4U,
-            /// Memory release or retirement finalization remains in progress.
-            Retiring = 5U,
-            /// This slot can no longer issue a new generation.
-            Exhausted = 6U
-        };
-
-        /// Native mutex release is an operation, not a Boolean predicate.
-        enum class UnlockStatus : std::uint8_t {
-            /// Native mutex ownership was released successfully.
-            Released = 0U,
-            /// Native release could not be confirmed; queue integrity is quarantined.
-            Unconfirmed = 1U
-        };
-
-        /// Stores the slot's source lease, FIFO link and retirement state.
-        struct Record final {
-            /// Intrusive link used by the FIFO while the slot is queued.
-            Index Next = Index::Invalid();
-            /// Native Memory lease owned by this slot after attachment.
-            TLease Lease{};
-            /// Most recent generation assigned to the slot.
-            TGeneration Generation = 0U;
-            /// Current transition phase while protected by the ordinary mutex.
-            Phase State = Phase::Vacant;
-            // Only one caller may release the source Memory lease. This
-            // prevents two copies of one ticket from racing the native owner.
-            /// Serializes the native release across all copies of a ticket.
-            std::atomic<bool> RetirementClaimed{false};
-
-            /// A confirmed release notification failure survives a later finalization timeout.
-            bool RetirementNotificationFailed{false};
-
-            /// Reads the intrusive FIFO link under queue ownership.
-            [[nodiscard]] Index QueueNext() const noexcept {
-                return Next;
-            }
-            /// Writes the intrusive FIFO link under queue ownership.
-            void SetQueueNext(Index next) noexcept {
-                Next = next;
-            }
-        };
-
-        /// Borrowed ordinary mutex guarding slot state and FIFO topology.
-        TMutexProvider *_mutex;
-        /// Borrowed owner of native lease release and producer wake publication.
-        TReleaseCoordinator *_releases;
-        /// Fixed slot-occupancy topology.
-        Topology _slots{};
-        /// Intrusive FIFO of committed sources awaiting consumption.
-        Queue _fifo{};
-        /// One stable record slot per configured queue entry.
-        std::array<Record, TCapacity> _records{};
-        /// Sticky latch preventing further queue use after an uncertain transition.
-        std::atomic<bool> _integrityFailed{false};
-
-        /// Attempts immediate ownership, mapping contention and uncertain acquisition separately.
-        [[nodiscard]] RecordQueueResult Lock() noexcept {
-            if (_integrityFailed.load(std::memory_order_acquire)) {
-                return RecordQueueResult::IntegrityFailure;
-            }
-            const auto acquired = _mutex->TryAcquire();
-            if (acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut) {
-                return RecordQueueResult::Busy;
-            }
-            if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                return RecordQueueResult::IntegrityFailure;
-            }
-            if (_integrityFailed.load(std::memory_order_acquire)) {
-                static_cast<void>(Unlock());
-                return RecordQueueResult::IntegrityFailure;
-            }
-            return RecordQueueResult::Succeeded;
-        }
-
-        /// Confirms release or quarantines the queue when native unlock is uncertain.
-        [[nodiscard]] UnlockStatus Unlock() noexcept {
-            if (_mutex->Release() != ESPressio::Threading::OrdinaryMutexReleaseResult::Released) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                return UnlockStatus::Unconfirmed;
-            }
-            return UnlockStatus::Released;
-        }
-
-        /// Reserve mutex using an already-computed native remaining budget;
-        /// the caller owns the canonical Clock deadline and never restarts it.
-        [[nodiscard]] RecordQueueResult LockWith(
-            ESPressio::Platform::Synchronization::WaitTimeout remaining) noexcept {
-            if (remaining.IsNoWait())
-                return Lock();
-            if (_integrityFailed.load(std::memory_order_acquire)) {
-                return RecordQueueResult::IntegrityFailure;
-            }
-            const auto acquired = _mutex->Acquire(remaining);
-            if (acquired == ESPressio::Threading::OrdinaryMutexAcquireResult::TimedOut) {
-                return RecordQueueResult::Busy;
-            }
-            if (acquired != ESPressio::Threading::OrdinaryMutexAcquireResult::Acquired) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                return RecordQueueResult::IntegrityFailure;
-            }
-            if (_integrityFailed.load(std::memory_order_acquire)) {
-                static_cast<void>(Unlock());
-                return RecordQueueResult::IntegrityFailure;
-            }
-            return RecordQueueResult::Succeeded;
-        }
-
-        /// Reuses the same ordinary mutex, rejecting a late native grant before any queue mutation.
-        [[nodiscard]] RecordQueueResult LockUntil(
-            ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
-            if (_integrityFailed.load(std::memory_order_acquire)) {
-                return RecordQueueResult::IntegrityFailure;
-            }
-            if (ESPressio::Clock::MonotonicNow() >= deadline) {
-                return RecordQueueResult::DeadlineElapsed;
-            }
-            const auto acquired = LockWith(Detail::RemainingRecordAdmissionWait(deadline));
-            if (acquired != RecordQueueResult::Succeeded) {
-                if (acquired == RecordQueueResult::Busy &&
-                    ESPressio::Clock::MonotonicNow() >= deadline) {
-                    return RecordQueueResult::DeadlineElapsed;
-                }
-                return acquired;
-            }
-            if (ESPressio::Clock::MonotonicNow() >= deadline) {
-                return UnlockWith(RecordQueueResult::DeadlineElapsed);
-            }
-            return RecordQueueResult::Succeeded;
-        }
-
-        /// Preserves the requested result only after confirming native mutex release.
-        [[nodiscard]] RecordQueueResult UnlockWith(RecordQueueResult outcome) noexcept {
-            return Unlock() == UnlockStatus::Released ? outcome
-                                                      : RecordQueueResult::IntegrityFailure;
-        }
-
-        /// The single compact slot-allocation algorithm shared by native
-        /// Begin and ahead-of-Memory slot reservation. Called under mutex.
-        /// Claims a free slot and advances its generation under the mutex.
-        [[nodiscard]] RecordQueueResult ClaimSlot(Phase initial, Ticket &ticket) noexcept {
-            bool exhausted = false;
-            for (std::size_t i = 0U; i < TCapacity; ++i) {
-                const auto claim = _slots.Acquire();
-                if (!claim.IsSucceeded()) {
-                    return exhausted ? RecordQueueResult::GenerationExhausted
-                                     : RecordQueueResult::CapacityUnavailable;
-                }
-                const auto index = claim.AcquiredIndex();
-                auto &record = _records[static_cast<std::size_t>(index.Value())];
-                if (record.Generation == std::numeric_limits<TGeneration>::max()) {
-                    record.State = Phase::Exhausted;
-                    exhausted = true;
-                    continue;
-                }
-                ++record.Generation;
-                record.RetirementNotificationFailed = false;
-                record.State = initial;
-                ticket = Ticket{index, record.Generation};
-                return RecordQueueResult::Succeeded;
-            }
-            return RecordQueueResult::GenerationExhausted;
-        }
-
-        /// Checks the ticket against the slot's current generation under queue ownership.
-        [[nodiscard]] bool IsMatchingTicket(Ticket ticket) const noexcept {
-            return ticket.IsValid() && _slots.IsOccupied(ticket.Slot) &&
-                   _records[static_cast<std::size_t>(ticket.Slot.Value())].Generation ==
-                       ticket.Generation;
-        }
-
-        /// Reports whether a phase still represents owned queue work.
-        [[nodiscard]] static constexpr bool IsPhaseLive(Phase phase) noexcept {
-            return phase == Phase::AwaitingMemory || phase == Phase::Reserved ||
-                   phase == Phase::Queued || phase == Phase::InFlight || phase == Phase::Retiring;
-        }
-
-        /// Releases outside the queue mutex, then finalizes under the SAME deadline without double
-        /// release.
-        [[nodiscard]] RecordQueueResult Retire(
-            Ticket ticket,
-            Phase expected,
-            std::optional<ESPressio::Clock::MonotonicTimestamp> deadline = std::nullopt) noexcept {
-            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
-            if (outcome != RecordQueueResult::Succeeded)
-                return outcome;
-
-            if (!IsMatchingTicket(ticket)) {
-                return UnlockWith(RecordQueueResult::InvalidTicket);
-            }
-            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
-            if (record.State != expected && record.State != Phase::Retiring &&
-                !(expected == Phase::Reserved && record.State == Phase::AwaitingMemory)) {
-                return UnlockWith(RecordQueueResult::WrongPhase);
-            }
-            if (record.RetirementClaimed.exchange(
-                    true,
-                    std::memory_order_acq_rel)) {
-                return UnlockWith(RecordQueueResult::Busy);
-            }
-            record.State = Phase::Retiring;
-            if (Unlock() != UnlockStatus::Released)
-                return RecordQueueResult::IntegrityFailure;
-
-            // Never call native Memory release, user code, or Threading wake
-            // while holding the queue mutex. A failed release retains this
-            // stable Retiring slot, which cannot be recycled or published.
-            bool notified = !record.RetirementNotificationFailed;
-            if (!record.Lease.IsEmpty()) {
-                const auto released = _releases->ReleaseAndNotify(record.Lease);
-                if (released != CoordinatedReleaseResult::ReleasedAndNotified &&
-                    released != CoordinatedReleaseResult::ReleasedNotificationFailed) {
-                    if (record.Lease.IsEmpty()) {
-                        // The provider denied a confirmed release, yet the
-                        // lease no longer proves ownership. Quarantine.
-                        _integrityFailed.store(
-                            true,
-                            std::memory_order_release);
-                        return RecordQueueResult::IntegrityFailure;
-                    }
-                    record.RetirementClaimed.store(
-                        false,
-                        std::memory_order_release);
-                    return RecordQueueResult::ReleaseUnconfirmed;
-                }
-                notified = notified && released == CoordinatedReleaseResult::ReleasedAndNotified;
-                record.RetirementNotificationFailed = !notified;
-                if (!record.Lease.IsEmpty()) {
-                    _integrityFailed.store(
-                        true,
-                        std::memory_order_release);
-                    return RecordQueueResult::IntegrityFailure;
-                }
-            }
-
-            outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
-            if (outcome == RecordQueueResult::Busy ||
-                outcome == RecordQueueResult::DeadlineElapsed) {
-                // Lease is empty; a later ticket holder can only finalize,
-                // and must never release the native Memory object twice.
-                record.RetirementClaimed.store(
-                    false,
-                    std::memory_order_release);
-                return outcome;
-            }
-            if (outcome != RecordQueueResult::Succeeded)
-                return outcome;
-            if (!IsMatchingTicket(ticket) || record.State != Phase::Retiring ||
-                _slots.Release(ticket.Slot) !=
-                    ESPressio::BoundedTopology::BoundedSlotReleaseResult::Succeeded) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                static_cast<void>(Unlock());
-                return RecordQueueResult::IntegrityFailure;
-            }
-            record.State = Phase::Vacant;
-            record.RetirementClaimed.store(
-                false,
-                std::memory_order_release);
-            if (Unlock() != UnlockStatus::Released)
-                return RecordQueueResult::IntegrityFailure;
-
-            // Queue-slot availability is distinct from Memory pool capacity.
-            // Publish only AFTER slot retirement so a racing producer cannot
-            // miss the sole capacity-release notification.
-            if (_releases->PublishCapacityAvailable() !=
-                AdmissionWakePublicationResult::Published) {
-                notified = false;
-            }
-            return notified ? RecordQueueResult::Succeeded
-                            : RecordQueueResult::ReleasedNotificationFailed;
-        }
-
-        /// Transaction commit publishes the already-owned record to FIFO once.
-        [[nodiscard]] RecordQueueResult CommitUnderPolicy(
-            Ticket ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
-            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
-            if (outcome != RecordQueueResult::Succeeded)
-                return outcome;
-            if (!IsMatchingTicket(ticket)) {
-                return UnlockWith(RecordQueueResult::InvalidTicket);
-            }
-            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
-            if (record.State != Phase::Reserved) {
-                return UnlockWith(RecordQueueResult::WrongPhase);
-            }
-            if (_fifo.Push(
-                    _records,
-                    ticket.Slot) !=
-                ESPressio::BoundedTopology::IntrusiveQueuePushResult::Succeeded) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                static_cast<void>(Unlock());
-                return RecordQueueResult::IntegrityFailure;
-            }
-            record.State = Phase::Queued;
-            return Unlock() == UnlockStatus::Released ? RecordQueueResult::Succeeded
-                                                      : RecordQueueResult::IntegrityFailure;
-        }
-
-        /// Claims the oldest committed record for exclusive consumer handling.
-        [[nodiscard]] RecordQueueResult PopUnderPolicy(
-            Ticket &ticket, std::optional<ESPressio::Clock::MonotonicTimestamp> deadline) noexcept {
-            auto outcome = deadline.has_value() ? LockUntil(*deadline) : Lock();
-            if (outcome != RecordQueueResult::Succeeded)
-                return outcome;
-            Index index = Index::Invalid();
-            if (_fifo.Pop(
-                    _records,
-                    index) ==
-                ESPressio::BoundedTopology::IntrusiveQueuePopResult::Empty) {
-                return UnlockWith(RecordQueueResult::Empty);
-            }
-            auto &record = _records[static_cast<std::size_t>(index.Value())];
-            if (record.State != Phase::Queued) {
-                _integrityFailed.store(
-                    true,
-                    std::memory_order_release);
-                static_cast<void>(Unlock());
-                return RecordQueueResult::IntegrityFailure;
-            }
-            record.State = Phase::InFlight;
-            ticket = Ticket{index, record.Generation};
-            return Unlock() == UnlockStatus::Released ? RecordQueueResult::Succeeded
-                                                      : RecordQueueResult::IntegrityFailure;
-        }
-
-      public:
         /// Maximum number of source slots, including in-flight work.
         static constexpr std::size_t Capacity = TCapacity;
         /// Size of this queue object, including its fixed slot storage.
