@@ -174,6 +174,23 @@ frame-offset reporting apply to nonseekable chunked pipes. A valid
 CRC is evidence of accidental corruption detection, not
 authenticated origin or durable persistence.
 
+For live viewing with an independent raw evidence file, configure an
+exclusive binary capture process to emit bytes on stdout. With
+`PYTHONPATH=tools`, feed its output through `tee` before the decoder.
+For example, if `capture_command` is your configured capture program:
+
+```bash
+set -o pipefail
+capture_command | tee -a capture.edlg | python3 -u -m edp_logging - --forensic
+```
+
+Choose a new capture file for a new session. The capture process owns the
+device and link settings, and `tee` writes the original bytes independently
+of decoder interpretation. Inspect the pipeline exit status and keep the
+raw capture if a schema is unavailable or frames are damaged. This example
+uses ordinary host file writes. Application-specific evidence durability
+requires its own storage policy.
+
 ## 2026-10-17 bounded uncertainty-aware pairwise time evidence (partial G9)
 
 `--validate-record --expected-root-type-hex HEX16 --compare-record-times`

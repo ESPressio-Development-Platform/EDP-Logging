@@ -49,3 +49,8 @@ After first damage, the scanner classifies every later record in the same stream
 ## Sequence and time provenance
 
 `analysis.py` offers strictly bounded per-incarnation observed attempt intervals/duplicates with no inference of why a ticket is unseen, and a deterministic pairwise `compare_record_time` that is monotonic within one Device/Incarnation and uncertainty-interval-aware only within the same valid ClockEra. Saturated uncertainty, missing time or mismatched Era results in Incomparable; overlapping intervals do not establish order. These analysis tests passed in the RPI400 Python host suite on 2026-10-16; no distributed physical-clock validation is implied.
+
+For a live binary source, run the decoder with `python3 -u -m edp_logging -`.
+The capture utility owns the endpoint. The [host decoder contract](../docs/HOST-DECODER.MD#binary-stdin-and-live-byte-stream-input-2026-10-17)
+shows how to preserve the raw bytes before decoding and describes the
+capture and parser failure boundaries.
