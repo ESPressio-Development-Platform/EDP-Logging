@@ -1,6 +1,6 @@
 # Reference — `src/logging/LogRecordCoreFieldSerialisation.hpp`
 
-**Classification:** internal scalar traits and cross-library canonical field adapters. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/LogRecordCoreFieldSerialisation.hpp).
+**Classification:** internal scalar traits and cross-library canonical field adapters. [Reviewed source](../src/logging/LogRecordCoreFieldSerialisation.hpp).
 
 The header implements the [G4 scalar child mappings](../docs/G4-CORE-FIELD-ADAPTERS.MD). It consumes EDP-BoundedTypes conversion contracts and EDP-Serialisation canonical traits, including the existing ClockEra adapter. These mappings operate on individual values. The generated projection owns root record encoding and Field 13 positional values.
 

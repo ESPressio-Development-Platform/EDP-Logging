@@ -13,12 +13,16 @@
 
 namespace ESPressio::Logging {
     enum class LogRecordCoreFieldConversion : std::uint8_t {
+        /// The approved scalar mapping completed.
         Succeeded = 0U,
+        /// The value violated the mapped field’s domain.
         InvalidSemanticValue = 1U
     };
 
     namespace Detail {
-        // Only explicitly approved strong source/wire pairs are specialized.
+        /// Maps an explicitly approved semantic type to its canonical scalar representation.
+        /// @tparam TSemantic Strong source value.
+        /// @tparam TWire Exact scalar or fixed aggregate consumed by the owner codec.
         template <class TSemantic, class TWire>
         struct LogRecordScalarRepresentation;
 
@@ -58,6 +62,8 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Converts a nonzero attempt sequence using its exact storage width.
+        /// @tparam TWidth Selected attempt sequence width.
         template <AttemptSequenceWidth TWidth>
         struct LogRecordScalarRepresentation<
             AttemptSequence<TWidth>,
@@ -171,6 +177,7 @@ namespace ESPressio::Serialisation {
     struct CanonicalRepresentation<ESPressio::Logging::LogMessageIdentifier> final {
         using Type = std::array<std::uint32_t, 3U>;
     };
+    /// @tparam TWidth Selected width of the source record attempt sequence.
     template <ESPressio::Logging::AttemptSequenceWidth TWidth>
     struct CanonicalRepresentation<
         ESPressio::Logging::AttemptSequence<TWidth>>
@@ -194,6 +201,9 @@ namespace ESPressio::Serialisation {
 } // namespace ESPressio::Serialisation
 
 namespace ESPressio::Logging::Detail {
+    /// Adapts the semantic-to-wire mapping to the BoundedTypes conversion protocol.
+    /// @tparam TSemantic Strong source type.
+    /// @tparam TWire Destination wire representation.
     template <class TSemantic, class TWire>
     struct ToCoreWire {
         using ResultType = LogRecordCoreFieldConversion;
@@ -207,6 +217,9 @@ namespace ESPressio::Logging::Detail {
             return LogRecordScalarRepresentation<TSemantic, TWire>::To(source, wire);
         }
     };
+    /// Adapts the wire-to-semantic mapping to the BoundedTypes conversion protocol.
+    /// @tparam TWire Encoded scalar source representation.
+    /// @tparam TSemantic Strong destination type.
     template <class TWire, class TSemantic>
     struct FromCoreWire {
         using ResultType = LogRecordCoreFieldConversion;
@@ -240,6 +253,7 @@ namespace ESPressio::Bounded {
                     std::array<std::uint32_t, 3U>,
                     ESPressio::Logging::LogMessageIdentifier> {};
 
+    /// @tparam TWidth Selected width of the source record attempt sequence.
     template <ESPressio::Logging::AttemptSequenceWidth TWidth>
     struct TypeConversionAdapter<
         ESPressio::Logging::AttemptSequence<TWidth>,
@@ -247,6 +261,7 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Logging::AttemptSequence<TWidth>,
                     typename ESPressio::Logging::AttemptSequence<TWidth>::Storage> {};
+    /// @tparam TWidth Selected width of the source record attempt sequence.
     template <ESPressio::Logging::AttemptSequenceWidth TWidth>
     struct TypeConversionAdapter<
         typename ESPressio::Logging::AttemptSequence<TWidth>::Storage,
