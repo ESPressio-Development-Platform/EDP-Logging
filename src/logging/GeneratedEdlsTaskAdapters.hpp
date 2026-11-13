@@ -23,6 +23,7 @@ namespace ESPressio::Logging {
     namespace Detail {
 
         /// Existing bounded batch operations required by this ordinary delivery callback.
+        /// @tparam TTarget Application-selected batch with ordinary Offer, Service and Flush.
         template <class TTarget>
         concept BatchDeliveryTarget = requires(TTarget &target, std::span<const std::byte> frame) {
             { target.Offer(frame) } noexcept -> std::same_as<EdlsBatchOutcome>;
@@ -38,13 +39,20 @@ namespace ESPressio::Logging {
     /// Schema-qualified canonical-CBOR encoder, for the EXISTING
     /// EncodeOnceAndSubmitToSinks / EDP-Memory pooled representation owner.
     /// This adapter has no queue, worker, storage or SDK of its own.
+    /// @tparam TMessageSchema Generated descriptor governing argument types and identity.
+    /// @tparam TWidth Selected source attempt ticket width.
+    /// @tparam TMaximumArguments Descriptor capacity of the owned source arena.
+    /// @tparam TArgumentBytes Byte capacity of the owned source arena.
+    /// @tparam TParameters Exact ordered owner-certified argument types.
     template <class TMessageSchema,
               AttemptSequenceWidth TWidth,
               std::size_t TMaximumArguments,
               std::size_t TArgumentBytes,
               class... TParameters>
     class GeneratedLogRecordCborEncoder final {
+        /// Exact bounded source representation consumed by this encoder.
         using Source = BasicLogRecord<TWidth, TMaximumArguments, TArgumentBytes>;
+        /// Canonical wire projection for the selected diagnostic types.
         using Projection = GeneratedLogRecordWireProjection<TWidth, TParameters...>;
         /// Borrowed generated projection used only during synchronous encoding.
         Projection *_projection;
@@ -52,6 +60,7 @@ namespace ESPressio::Logging {
         OwnedPositionalScratch<TParameters...> *_scratch;
 
       public:
+        /// Borrows exclusive caller-owned projection and argument workspace.
         explicit GeneratedLogRecordCborEncoder(
             Projection &projection, OwnedPositionalScratch<TParameters...> &scratch) noexcept
             : _projection(&projection), _scratch(&scratch) {}

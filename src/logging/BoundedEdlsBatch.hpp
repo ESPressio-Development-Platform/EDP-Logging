@@ -19,27 +19,45 @@ namespace ESPressio::Logging {
 
     /// Result of changing the empty batch's Bootstrap-selected dwell.
     enum class EdlsBatchConfigurationStatus : std::uint8_t {
+        /// The requested dwell was applied to an empty, ready batch.
         Configured = 0U,
+        /// The requested duration is outside the configured compile-time bound.
         InvalidDwell = 1U,
+        /// Existing pending frames retain their original dwell configuration.
         PendingBatch = 2U,
+        /// The archive requires explicit recovery before more progress.
         RecoveryRequired = 3U,
+        /// The caller workspace is too small for this configured profile.
         InsufficientScratch = 4U,
+        /// The archive logical byte budget cannot support this batch profile.
         InvalidByteCapacity = 5U
     };
 
     /// Admission, service and durable completion outcomes for one batch.
     enum class EdlsBatchStatus : std::uint8_t {
+        /// One complete frame was admitted to owned volatile storage.
         Buffered = 0U,
+        /// The incoming frame was left unconsumed so the existing batch can be flushed.
         FlushRequired = 1U,
+        /// Pending records are below the flush threshold and their dwell has not elapsed.
         Waiting = 2U,
+        /// There are no pending frames to service.
         Empty = 3U,
+        /// The batch has no usable Bootstrap configuration.
         NotConfigured = 4U,
+        /// The input failed complete canonical CBOR EDLG validation.
         InvalidFrame = 5U,
+        /// The input exceeds the current bounded batch capacity.
         FrameTooLarge = 6U,
+        /// The requested deadline cannot be represented in the canonical timebase.
         ClockRangeExhausted = 7U,
+        /// The sampled monotonic coordinate precedes the retained batch start.
         ClockRegressed = 8U,
+        /// The archive independently confirmed the segment and its watermark.
         DurablyAcknowledged = 9U,
+        /// The watermark is confirmed and eligible retirement still needs reconciliation.
         DurablyAcknowledgedPendingRetirement = 10U,
+        /// The archive requires explicit recovery before more progress.
         RecoveryRequired = 11U
     };
 
