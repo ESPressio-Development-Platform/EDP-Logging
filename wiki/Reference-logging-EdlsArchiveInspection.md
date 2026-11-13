@@ -40,7 +40,7 @@ or mismatched headers keep their existing classifications; no repair occurs.
 
 ## 12 November 2026 — full per-declaration classification, native reads and failure contract
 
-**Exact source:** [`src/logging/EdlsArchiveInspection.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/EdlsArchiveInspection.hpp). This public **read-only** optional API composes the abstract EDP-Persistence FileStorage owner and the existing Logging strict EDLS/EDLG readers. No independent provider, allocator, file writer, recovery mutation, task or volatile evidence cache is created.
+**Current source:** [`src/logging/EdlsArchiveInspection.hpp`](../src/logging/EdlsArchiveInspection.hpp). This public **read-only** optional API composes the abstract EDP-Persistence FileStorage owner and the existing Logging strict EDLS/EDLG readers. No independent provider, allocator, file writer, recovery mutation, task or volatile evidence cache is created.
 
 **Public enum `EdlsSlotCondition : uint8_t`:** **Empty (0)** means FileStorage reports no physical file; **Clean (1)** means exact header, path/slot, complete frame and optional EDLC seal were independently verified; **DamagedTail (2)** means a previously valid prefix is followed by an incomplete/invalid frame or seal and **must not** be treated as appendable; **InvalidHeader (3)** means the 40-byte EDLS header is absent, incompatible or CRC-invalid; **SlotMismatch (4)** means an otherwise parseable header claims another physical slot ordinal; **ProviderFailure (5)** means a native file operation/read is refused or indeterminate. Only the complete Clean result is eligible for subsequent guarded archive preflight, and even Clean is not a write authorization.
 

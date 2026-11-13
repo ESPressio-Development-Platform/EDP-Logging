@@ -41,7 +41,7 @@ namespace ESPressio::Logging {
     /// and deliberately over-notifies to avoid sleeping across a capacity
     /// handoff or a provider-level NoWait mutex-contention result.
     ///
-    /// This is not yet a FIFO entitlement allocator or proven full G1 producer.
+    /// The caller uses the transactional queue for FIFO slot entitlement.
     /// Every capacity release MUST go through ReleaseAndNotify or a manually
     /// checked PublishCapacityAvailable, including release on RAII teardown.
     ///
@@ -55,6 +55,7 @@ namespace ESPressio::Logging {
             "EDP-Threading wake owner has fewer slots than Logging producers"
         );
 
+        /// Borrowed provider for the configured producer wake slots.
         TWaitWakeProvider* _waitWake;
 
 
@@ -82,6 +83,7 @@ namespace ESPressio::Logging {
 
         /// Return one currently owned Memory lease, then notify all possible producers.
         /// An unsuccessful Memory release cannot be advertised as available capacity.
+        /// @tparam TLease Caller-owned native Memory lease to return.
         template<class TLease>
         [[nodiscard]] CoordinatedReleaseResult ReleaseAndNotify(TLease& lease) noexcept {
             switch (lease.Release()) {
@@ -101,6 +103,10 @@ namespace ESPressio::Logging {
         /// Attempt bounded acquisition on the caller's EXCLUSIVE slot; publish
         /// a wake on any grant (other capacity may remain). Deadline is never reset.
         /// A grant that completed late leaves the lease owned by the caller.
+        /// @tparam TMaximumWakeRetries Bounded retries after advisory producer wakes.
+        /// @tparam TObjectPool Bootstrap-owned Memory pool providing the object.
+        /// @tparam TLease Native Memory lease populated by a grant.
+        /// @tparam TArguments Object construction arguments forwarded to the pool.
         template<
             std::size_t TMaximumWakeRetries,
             class TObjectPool,

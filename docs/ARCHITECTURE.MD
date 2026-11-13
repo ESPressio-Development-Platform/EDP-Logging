@@ -1,6 +1,6 @@
 # EDP-Logging architecture — current implementation contract
 
-**Source:** `feature/logging-v1`, version `0.1.0`, reconciled 1 November 2026. This document describes the currently implemented layers and their boundaries. The original D1–D13 design decisions and chronological experiments are retained in [Policy's architecture living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Current gate/evidence classification is in [G1–G15 acceptance](ACCEPTANCE-G1-G15.MD) and the [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD). A release-wide production sign-off has **not** been made.
+**Source:** `main`, version `0.1.0`. This document describes the currently implemented layers and their boundaries. The original D1–D13 design decisions and chronological experiments are retained in [Policy's architecture living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Current gate/evidence classification is in [G1–G15 acceptance](ACCEPTANCE-G1-G15.MD) and the [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD). A release-wide production sign-off has **not** been made.
 
 ## Architectural ownership
 

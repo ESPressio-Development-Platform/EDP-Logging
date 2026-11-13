@@ -141,3 +141,22 @@ See [Serial output integration](SERIAL-OUTPUT-INTEGRATION.MD) and the [dependenc
 ## 12 November 2026 — EDLS typed revalidation checkpoint
 
 Logging source `8fb097ca26c9d4f034c57c539fd5eaed97394b27` passed the selected post-main host and Serial consumer checks on RPI400. The exact preceding archive candidate passed the strict typed-ACK-gap ESP32 fixture with an 8.273 s POR-confirmed GPIO17 cut. Independent LittleFS and NVS reads verified generations 3 and 4 and watermark ACK4. The full original 4 MiB image was restored and verified, and the integrated ESP32 was powered off. See the [G1–G15 qualification ledger](ACCEPTANCE-G1-G15.MD#12-november-2026--strict-edls-predecessor-revalidation) and the [living Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-12/2026-11-12-11-28-EDP-Logging-Serial-Release-Recovery.MD) for the run IDs and tested configuration.
+
+## 13 November 2026 — release-readiness checkpoint
+
+Both Logging branches include the typed queue borrow contract introduced by
+`d6056ed0e463e05d512f90283bc13fe405a71ec6`. Callers inspect `Status()` and use
+`Lease()` only on success. The cross-repository audit found two active caller
+files, both in Logging's tests. EDP-Serial consumes the EDLG frame contract.
+The queue GCC, Clang, UBSan and Xtensa checks, native G1 build, and downstream
+Serial frame-pump/FIFO tests passed. The three demonstration families
+compiled and linked across all nine Arduino IDE, PlatformIO Arduino and
+PlatformIO ESP-IDF combinations. The [living Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-13/2026-11-13-08-38-EDP-Logging-Serial-Qualification.MD)
+records the exact revisions and detached run IDs.
+
+Run `20261113T110737-c123431b` passed ten GCC and Clang checks covering the
+coordinator quantum, Memory NoWait admission, wake and release publication,
+admission shutdown and producer coordination. These are host checks. The
+strict LittleFS/NVS, GPIO17 PowerLoss and UART receipts above govern the
+physical scope. The complete V2 reference review remains tracked in
+[Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).

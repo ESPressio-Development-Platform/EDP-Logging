@@ -1,6 +1,6 @@
 # EDP-Logging G1–G15 acceptance and V2 owner review
 
-**Status:** the 12 November 2026 main integration and selected-profile evidence are current. The earlier G14 feature audits remain dated evidence. All versions remain `0.1.0`. This is a **requirement-to-evidence reconciliation**, not certification that all gates or V2 requirements are complete. The original gate definitions and locked D1–D13 design are in the [15 October living architecture handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Their 2026-10-15 blocker labels are historical: later source and evidence supersede them. The current [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) and [immutable capacity contract](IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) provide concrete test receipts.
+**Status:** Logging and its Serial companions are integrated on main. The 13 November release-readiness checkpoint below records the latest source and validation. The earlier G14 feature audits remain dated evidence. All versions remain `0.1.0`. This is a **requirement-to-evidence reconciliation**, not certification that all gates or V2 requirements are complete. The original gate definitions and locked D1–D13 design are in the [15 October living architecture handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Their 2026-10-15 blocker labels are historical: later source and evidence supersede them. The current [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) and [immutable capacity contract](IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) provide concrete test receipts.
 
 For the inspected newest working branches, optional provider activation and manifest-pin differences, see [G14 conditional owner and transitive baseline](DEPENDENCY-OWNER-BASELINE.MD). It now includes a 37-repository source/manifest inventory, 12 dependency-branch-pin comparisons, representative owner contract tests and four independently successful current-source ESP-IDF/Arduino builds; these do not certify all provider combinations or all 37 repositories for every V2 source convention.
 
@@ -30,7 +30,7 @@ The five-minute native offered-load sample used 30,000 scheduled records at 100/
 
 Application Bootstrap chooses persistent storage and an immutable byte capacity. The budget includes the successor reservation and fixed ACK representation but **not** provider-internal filesystem allocation/GC/NVS overhead. Production deployments with substantial logging should preferably use separate storage rather than ESP-integrated Flash. There is no operational-lifespan or flash-endurance assurance and no platform-wide prescribed retention amount.
 
-## Affected-repository ownership / V2 compliance matrix
+## Affected-repository ownership and V2 audit as of 1 November
 
 | Owner / selected role | Required boundary | Audit position on 1 November |
 | --- | --- | --- |
@@ -56,11 +56,11 @@ Following explicit user approval and an all-37-repository consumer audit, option
 
 As explicitly authorised for source-breaking V2 compliance, Logging has updated the remaining discovered Boolean predicate and compile-time generated-schema names to begin with `Is` (including historical EDLS predecessor validity, key identity, transactional ticket/phase state and generated diagnostic schema qualification). Source, tests and applicable Wiki references were migrated together; no compatibility aliases retain the former unprefixed spellings. `GeneratedLogRecordWireProjection` now returns its new dedicated `GeneratedValueConversionResult` (`Succeeded=0`, `OwnerRejected=1`) instead of using a Boolean to represent the fallible strong-Type adapter; the calling encoder requires the explicit successful status. Negative tests and external source searches are recorded in the Policy living handoff. These source corrections do not grant new persistence durability or runtime physical-test claims; acceptance remains scoped to the verified builds and profiles.
 
-## 1 November 2026 final physical acceptance checkpoint — NOT RELEASED
+## 1 November 2026 historical physical acceptance checkpoint
 
 The complete post-V2 GCC/Clang matrix (68/68), 178 Python offline tests, Xtensa compile, governed generated-schema wire and whole-application G11 off/on linked comparison have passed. A fresh near-capacity GPIO17 power-cut test passed with 8.619s OFF / POR confirmed and independent raw-media/NVS original 15-field validation of 128 committed records. **However, final 30,000-record 100 rps physical workload `20261101T143310-918c289b` failed** at ~13,000 published sources because three 100 ms producer queue-admission deadlines elapsed (`AdmissionFailed/DeadlineElapsed/CapacityUnavailable`, Memory not attempted). Logging remains **not production ready** until the long-tail queue/worker/storage service source is measured, corrected/qualified, a subsequent exact five-minute physical run and raw LittleFS/NVS audit pass, and the original device image restoration and Policy V2 evidence closure are verified. See [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD). Do not call a timeout a corrupted durable acknowledgment or accept a shortened workload as five-minute proof.
 
-## Open acceptance and human decision points
+## Historical 1 November acceptance and decision points
 
 - **V2 component reuse/UTF-8 (resolved):** user-approved strict EDP-Serialisation validator is reused in optional Logging source capture. Embedded U+0000 is rejected by AddUtf8 and remains available as generated-schema-qualified binary using AddBytes; both source changes and all cross-library GCC/Clang and two ESP32 firmware builds passed on 1 November. Historical alternative permissive policy is NOT in force.
 - **V2 Memory operations (1 November resolution):** the private OwnedDiagnosticArguments Store and owned scalar/identity rehydration loops have been replaced with the existing stateless EDP-Memory ByteOperations CopyBytes provider contract; no Memory API extension or retained provider state. Mutating owned capture is runtime-only instead of previously constexpr, preserving all typed results/capacity, with explicit application-selectable stateless provider and portable default. Independent native GCC/Clang, substitution/negative and target checks remain in the qualification ledger; this resolves the earlier duplicated copy loop design concern.
@@ -160,3 +160,22 @@ The EDLS predecessor check in `0b79c4dc51a08ca908a0ef56774e9abb8ac195d1` keeps p
 Physical RPI400 run `20261112T210501-b2a64228` cut the integrated WROOM supply for **8.273 s** after the complete generation 3 candidate and before its NVS acknowledgement. The controller and new boot epoch verified the cut, and ROM and ESP-IDF reported power-on reset. The pre-cut watermark was ACK2. The fresh boot recovered the protected history and completed through ACK4. Independent readback of the LittleFS partition verified exactly generations 3 and 4, all 15 typed fields and the EDLS/EDLG CRCs. Independent NVS media parsing verified the page, entry and blob CRCs, ACK4 and incarnation 7. The original 4 MiB flash image was restored and verified, and the target was powered off. This is the strict typed ACK-gap configuration. The earlier finite 100 records/s profiles retain their own evidence and limits.
 
 The Logging source was promoted to `8fb097ca26c9d4f034c57c539fd5eaed97394b27` on `main` and the retained feature branch. The two later commits document ticket, temporal and structural record declarations. Host runs `20261112T210132-c42a63dd` and `20261112T210828-c695280e` passed 16 selected checks, including matching public type layouts, generated diagnostic contracts and typed archive integration. Published-main run `20261112T211616-9b0f35f0` verified all 42 Logging source blobs, 19 test and runner blobs and five EDP-Serial main source blobs. It passed 14 GCC/Clang checks across archive inspection, protected rolling, strict ACK, batching, generated worker integration, temporal qualification and Serial fan-out. [Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15) remains open for the release-wide V2 review. Exact revisions, harness retry details and scoped evidence are recorded in the [living Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-12/2026-11-12-11-28-EDP-Logging-Serial-Release-Recovery.MD).
+
+## 13 November 2026 — release-readiness checkpoint
+
+Both Logging branches include the typed queue borrow contract introduced by
+`d6056ed0e463e05d512f90283bc13fe405a71ec6`. Callers inspect `Status()` and use
+`Lease()` only on success. The cross-repository audit found two active caller
+files, both in Logging's tests. EDP-Serial consumes the EDLG frame contract.
+The queue GCC, Clang, UBSan and Xtensa checks, native G1 build, and downstream
+Serial frame-pump/FIFO tests passed. The three demonstration families
+compiled and linked across all nine Arduino IDE, PlatformIO Arduino and
+PlatformIO ESP-IDF combinations. The [living Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-13/2026-11-13-08-38-EDP-Logging-Serial-Qualification.MD)
+records the exact revisions and detached run IDs.
+
+Run `20261113T110737-c123431b` passed ten GCC and Clang checks covering the
+coordinator quantum, Memory NoWait admission, wake and release publication,
+admission shutdown and producer coordination. These are host checks. The
+strict LittleFS/NVS, GPIO17 PowerLoss and UART receipts above govern the
+physical scope. The complete V2 reference review remains tracked in
+[Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).

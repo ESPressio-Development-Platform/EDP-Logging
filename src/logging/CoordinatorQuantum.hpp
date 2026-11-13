@@ -23,14 +23,23 @@ namespace ESPressio::Logging {
 
     /// Exact per-sink submission and reclamation evidence from one bounded pass.
     /// No Accepted result here denotes Persistence durability or Serial receipt.
-    template <std::size_t TSinkCount> struct CoordinatorQuantumOutcome final {
+    /// @tparam TSinkCount Number of statically selected synchronous sinks.
+    template <std::size_t TSinkCount>
+    struct CoordinatorQuantumOutcome final {
         static_assert(TSinkCount >= 1U && TSinkCount <= 8U);
+        /// Why the quantum returned.
         CoordinatorQuantumStatus Status{CoordinatorQuantumStatus::QueueEmpty};
+        /// Records that reached sink and reclaim accounting.
         std::size_t Processed{0U};
+        /// Records accepted by all sinks with confirmed source reclamation.
         std::size_t AcceptedByAll{0U};
+        /// Accounted records for which full acceptance and reclamation were not reported.
         std::size_t FailedSubmissionRecords{0U};
+        /// Confirmed reclamations whose advisory capacity notification failed.
         std::size_t NotificationFailures{0U};
+        /// Acceptances by sink position.
         std::array<std::size_t, TSinkCount> PerSinkAccepted{};
+        /// Non-acceptance outcomes by sink position.
         std::array<std::size_t, TSinkCount> PerSinkUnaccepted{};
     };
 

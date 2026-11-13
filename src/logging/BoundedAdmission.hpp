@@ -190,8 +190,12 @@ namespace ESPressio::Logging {
         }
     }
 
-    /// Backwards-compatible no-cancellation variant.
-    /// Existing source callers retain the exact previous function signature.
+    /// Acquire against one canonical deadline without a caller-supplied stop predicate.
+    /// @tparam TMaximumWakeRetries Bounded retries after advisory wakes.
+    /// @tparam TObjectPool Bootstrap-owned Memory pool providing the object.
+    /// @tparam TWaitPoint Caller-selected bounded Threading wait point.
+    /// @tparam TLease Native Memory lease populated by a grant.
+    /// @tparam TArguments Object construction arguments forwarded to the pool.
     template <std::size_t TMaximumWakeRetries,
               class TObjectPool,
               class TWaitPoint,

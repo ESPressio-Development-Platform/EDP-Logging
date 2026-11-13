@@ -1,6 +1,6 @@
 # Reference — `src/logging/CoordinatorQuantum.hpp`
 
-**Classification:** public bounded drain helper and result vocabulary, private queue-policy implementation. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/CoordinatorQuantum.hpp).
+**Classification:** public bounded drain helper and result vocabulary, private queue-policy implementation. [Source](../src/logging/CoordinatorQuantum.hpp).
 
 The coordinator processes a finite quantum of immutable queue records using the existing [record-production ownership contract](Reference-logging-RecordProduction). The caller owns the queue, reusable consumer claim and synchronous sinks. The application-composed worker owns wake, stop and join.
 

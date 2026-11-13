@@ -1,6 +1,6 @@
 # Reference — `src/logging/BoundedAdmission.hpp`
 
-**Classification:** PUBLIC OPTIONAL G1 admission helper and PRIVATE IMPLEMENTATION deadline-conversion helpers. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/BoundedAdmission.hpp). This header is **opt-in** and imports abstract **EDP-Clock, EDP-Memory, EDP-Platform and EDP-Threading** directly. It is not part of the default lightweight Logging umbrella. No local task, queue, Mutex, Signal, heap or independent clock owner is created by this header.
+**Classification:** PUBLIC OPTIONAL G1 admission helper and PRIVATE IMPLEMENTATION deadline-conversion helpers. [Source](../src/logging/BoundedAdmission.hpp). This header is **opt-in** and imports abstract **EDP-Clock, EDP-Memory, EDP-Platform and EDP-Threading** directly. It is not part of the default lightweight Logging umbrella. No local task, queue, Mutex, Signal, heap or independent clock owner is created by this header.
 
 ## Public `AdmissionWaitResult` enum — exact result contract
 
