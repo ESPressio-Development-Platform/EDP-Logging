@@ -35,10 +35,14 @@ namespace ESPressio::Logging {
         ByteCapacityExceeded = 17,
     };
 
+    /// Observed watermark generation and candidate location for one archive operation.
     struct EdlsAcknowledgedObservation final {
+        /// Outcome of the read, recovery or publication attempt.
         EdlsAcknowledgedStatus Status{
             EdlsAcknowledgedStatus::InvalidWatermark};
+        /// Last acknowledged segment generation when known. Zero represents genesis.
         std::uint64_t AcknowledgedGeneration{0U};
+        /// Physical slot implicated by a candidate or retirement result.
         std::size_t CandidateSlot{0U};
         /// Runtime incarnation of the LAST acknowledged source, not this boot.
         std::uint32_t AcknowledgedIncarnation{0U};
@@ -57,6 +61,12 @@ namespace ESPressio::Logging {
     /// Strict guarantees apply only to writers that use this exact ordering;
     /// this API MUST NOT be adopted to infer provenance for legacy EDLS files
     /// that were published/acknowledged without this companion watermark.
+    /// @tparam TPhysicalSlots Total number of immutable segment paths, including one successor reserve.
+    /// @tparam TProtectedSlots Maximum retained acknowledged generations in the steady state.
+    /// @tparam TPayloadMaximum Maximum encoded payload bytes per EDLG frame.
+    /// @tparam TSegmentMaximum Upper bound on bytes per immutable EDLS segment.
+    /// @tparam TFileStorage Exclusive caller-owned FileStorage provider for segment paths.
+    /// @tparam TKeyValueStorage Independent PowerLoss-atomic read/write provider for the watermark.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
@@ -66,7 +76,10 @@ namespace ESPressio::Logging {
         class TKeyValueStorage>
     class PowerLossAcknowledgedEdls final {
 
+        // Composition contract for the independent acknowledgement provider.
+        /// KeyValueStorage capability selected by Bootstrap.
         using Capability = ESPressio::Persistence::KeyValueStorage;
+        /// Declared retention, interruption atomicity, access mode and size limits.
         using Properties = typename TKeyValueStorage::CompositionOffers ::template PropertiesFor<Capability>;
         static_assert(TPhysicalSlots == TProtectedSlots + 1U);
         static_assert(TProtectedSlots >= 2U && TPhysicalSlots <= 64U);
@@ -109,19 +122,31 @@ namespace ESPressio::Logging {
             return SegmentByteCapacity() >= EdlsHeaderBytes + 21U;
         }
 
+        // Borrowed storage providers and names.
+        /// Exclusive provider used to publish, read and retire EDLS segment files.
         TFileStorage *files_;
+        /// Independent provider used to commit and read back the acknowledgement.
         TKeyValueStorage *watermark_;
+        /// Copied path views whose backing storage must outlive this owner.
         std::array<ESPressio::Persistence::FilePathView, TPhysicalSlots> paths_;
+        /// Copied key view whose backing storage must outlive this owner.
         ESPressio::Persistence::KeyView watermarkKey_;
+
+        // Source identity persisted in new segment and watermark headers.
+        /// Stable device identity used to validate the protected history.
         std::array<std::byte, 16U> identity_;
+        /// Runtime incarnation assigned by Bootstrap for this writer.
         std::uint32_t incarnation_;
         // A volatile fast-path hint, NEVER a durability acknowledgement.
         // Valid ONLY after this exclusive writer completed all physical
         // successor verification, NVS commit/readback and retirement.
         // Boot, explicit recovery or ANY failed publication invalidates it.
+        /// Whether the last transaction completed every required verification step.
         bool exclusiveWriterCompleted_{false};
+        /// Acknowledged generation paired with the valid in-memory writer hint.
         std::uint64_t exclusiveWriterAck_{0U};
 
+        /// Stores and rereads the watermark, confirming generation and incarnation.
         [[nodiscard]] EdlsAcknowledgedObservation StoreWatermark(
             std::uint64_t latest) noexcept {
             namespace P = ESPressio::Persistence;
@@ -152,8 +177,149 @@ namespace ESPressio::Logging {
                              EdlsAcknowledgedStatus::WatermarkStoreRejected};
         }
 
+        /// Strict two-provider commit order:
+        ///  1. reserve previously physically ABSENT EDLS path;
+        ///  2. publish and CRC-readback new immutable EDLS successor;
+        ///  3. prove every still ACKed predecessor unchanged;
+        ///  4. commit+readback PowerLoss-atomic ACK watermark in KeyValue;
+        ///  5. ONLY THEN retire the oldest physically acknowledged segment.
+        ///
+        /// Never report accepted before step 4. Failed watermark persistence
+        /// leaves the old protected window intact and a safely unacknowledged
+        /// candidate that Recover can resolve after a restart.
+        /// @tparam TMaximumFrames Maximum records in this immutable segment.
+        template <std::size_t TMaximumFrames>
+        [[nodiscard]] EdlsAcknowledgedObservation PublishFrameSequence(
+            std::span<const std::byte> completeEdlg,
+            std::span<std::byte> scratch) noexcept {
+            // Refuse before recovery or any provider mutation. This bound
+            // includes EDLS framing/seal and reserves every physical slot,
+            // including the unacknowledged successor, plus the ACK value.
+            if (!IsByteCapacityValid())
+                return {EdlsAcknowledgedStatus::InvalidByteCapacity};
+            constexpr std::uint64_t overhead =
+                EdlsHeaderBytes + (TMaximumFrames > 1U ? EdlsSealBytes : 0U);
+            const auto slotCapacity = SegmentByteCapacity();
+            if (slotCapacity < overhead || completeEdlg.size() > slotCapacity - overhead) {
+                exclusiveWriterCompleted_ = false;
+                return {EdlsAcknowledgedStatus::ByteCapacityExceeded};
+            }
+            // The full initial Recover remains authoritative after boot,
+            // interrupted/failed publish, explicit recovery or uncertainty.
+            // Once this same exclusive writer completed a fully verified
+            // transaction, a fresh independent NVS watermark read combined
+            // with the mandatory full CRC-clean physical preflight below
+            // is sufficient; repeating Recover's previous scan is redundant.
+            // Never cache a physical file inspection across publications.
+            const bool previouslyComplete = exclusiveWriterCompleted_;
+            const auto previousAck = exclusiveWriterAck_;
+            exclusiveWriterCompleted_ = false;
+            const auto recovered = previouslyComplete ? Read() : Recover(scratch);
+            if (previouslyComplete && (recovered.Status != EdlsAcknowledgedStatus::Ready ||
+                                       recovered.AcknowledgedGeneration != previousAck ||
+                                       recovered.AcknowledgedIncarnation != incarnation_))
+                return {EdlsAcknowledgedStatus::InvalidWatermark};
+            if (recovered.Status != EdlsAcknowledgedStatus::Ready &&
+                recovered.Status !=
+                    EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved &&
+                recovered.Status !=
+                    EdlsAcknowledgedStatus::CommittedOldestRetired)
+                return recovered;
+            const auto ack = recovered.AcknowledgedGeneration;
+            if (ack >= std::numeric_limits<std::uint64_t>::max() - 1U)
+                return {EdlsAcknowledgedStatus::GenerationExhausted, ack};
+
+            const auto prior = Detail::InspectProtectedRollingPlanWithScratch<
+                TPhysicalSlots,
+                TProtectedSlots,
+                TPayloadMaximum>(
+                *files_,
+                paths_,
+                scratch);
+            const auto expected = ack < TProtectedSlots
+                                      ? static_cast<std::size_t>(ack)
+                                      : TProtectedSlots;
+            if (prior.Status != EdlsProtectedRollingStatus::NoPendingRetirement ||
+                prior.Occupied != expected ||
+                prior.NewestGeneration != ack)
+                return {EdlsAcknowledgedStatus::ArchiveAmbiguous, ack};
+            if (prior.Occupied >= TPhysicalSlots)
+                return {EdlsAcknowledgedStatus::NoPhysicalReserve, ack};
+            // The exclusive-writer fast path must also reject externally
+            // enlarged protected segments; never trust cached byte counts.
+            for (const auto &slot : prior.Inspected.Slots) {
+                if (slot.Condition == EdlsSlotCondition::Clean &&
+                    slot.VerifiedPrefixBytes > slotCapacity)
+                    return {EdlsAcknowledgedStatus::ByteCapacityExceeded, ack};
+            }
+            const auto posted = PublishEdlsSuccessorIntoEmptySlotWithScratch<
+                TPhysicalSlots,
+                TPayloadMaximum,
+                TSegmentMaximum,
+                TFileStorage,
+                TMaximumFrames>(
+                *files_,
+                paths_,
+                identity_,
+                incarnation_,
+                completeEdlg,
+                scratch,
+                &prior.Inspected);
+            if (posted.Status != EdlsSuccessorStatus::PublishedAndVerified ||
+                posted.Generation != ack + 1U ||
+                posted.Slot >= TPhysicalSlots ||
+                prior.Inspected.Slots[posted.Slot].Condition !=
+                    EdlsSlotCondition::Empty)
+                return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
+                        ack,
+                        posted.Slot};
+            if (Detail::VerifyEdlsProtectedPredecessorsWithScratch<
+                    TPhysicalSlots,
+                    TPayloadMaximum>(
+                    *files_,
+                    paths_,
+                    prior.Inspected,
+                    scratch) != Detail::EdlsPredecessorVerificationResult::Verified)
+                return {EdlsAcknowledgedStatus::AcknowledgedHistoryChanged,
+                        ack,
+                        posted.Slot};
+            const auto committed = StoreWatermark(ack + 1U);
+            if (committed.Status != EdlsAcknowledgedStatus::Ready)
+                return {EdlsAcknowledgedStatus::WatermarkStoreRejected,
+                        ack,
+                        posted.Slot};
+            if (prior.Occupied < TProtectedSlots) {
+                exclusiveWriterAck_ = ack + 1U;
+                exclusiveWriterCompleted_ = true;
+                return {EdlsAcknowledgedStatus::AcknowledgedWithinCapacity,
+                        ack + 1U,
+                        posted.Slot};
+            }
+            const auto retired =
+                FinishEdlsProtectedRollingRetirementWithScratch<
+                    TPhysicalSlots,
+                    TProtectedSlots,
+                    TPayloadMaximum>(
+                    *files_,
+                    paths_,
+                    scratch);
+            if (retired.Status ==
+                EdlsProtectedRollingStatus::RecoveredPendingRetirement) {
+                exclusiveWriterAck_ = ack + 1U;
+                exclusiveWriterCompleted_ = true;
+            }
+            return {
+                retired.Status ==
+                        EdlsProtectedRollingStatus::RecoveredPendingRetirement
+                    ? EdlsAcknowledgedStatus::AcknowledgedAndRetired
+                    : EdlsAcknowledgedStatus::AcknowledgedPendingRetirement,
+                ack + 1U,
+                posted.Slot};
+        }
+
       public:
-        /// Bind caller-owned, non-aliased owners and bounded physical names.
+        /// Bind caller-owned, non-aliased providers and borrow the path and key storage.
+        /// Bootstrap keeps both providers and the backing names alive for the archive lifetime.
         explicit PowerLossAcknowledgedEdls(
             TFileStorage &files,
             TKeyValueStorage &watermark,
@@ -394,148 +560,6 @@ namespace ESPressio::Logging {
                 candidate};
         }
 
-      private:
-        /// Strict two-provider commit order:
-        ///  1. reserve previously physically ABSENT EDLS path;
-        ///  2. publish and CRC-readback new immutable EDLS successor;
-        ///  3. prove every still ACKed predecessor unchanged;
-        ///  4. commit+readback PowerLoss-atomic ACK watermark in KeyValue;
-        ///  5. ONLY THEN retire the oldest physically acknowledged segment.
-        ///
-        /// Never report accepted before step 4. Failed watermark persistence
-        /// leaves the old protected window intact and a safely unacknowledged
-        /// candidate that Recover can resolve after a restart.
-        /// @tparam TMaximumFrames Maximum records in this immutable segment.
-        template <std::size_t TMaximumFrames>
-        [[nodiscard]] EdlsAcknowledgedObservation PublishFrameSequence(
-            std::span<const std::byte> completeEdlg,
-            std::span<std::byte> scratch) noexcept {
-            // Refuse before recovery or any provider mutation. This bound
-            // includes EDLS framing/seal and reserves every physical slot,
-            // including the unacknowledged successor, plus the ACK value.
-            if (!IsByteCapacityValid())
-                return {EdlsAcknowledgedStatus::InvalidByteCapacity};
-            constexpr std::uint64_t overhead =
-                EdlsHeaderBytes + (TMaximumFrames > 1U ? EdlsSealBytes : 0U);
-            const auto slotCapacity = SegmentByteCapacity();
-            if (slotCapacity < overhead || completeEdlg.size() > slotCapacity - overhead) {
-                exclusiveWriterCompleted_ = false;
-                return {EdlsAcknowledgedStatus::ByteCapacityExceeded};
-            }
-            // The full initial Recover remains authoritative after boot,
-            // interrupted/failed publish, explicit recovery or uncertainty.
-            // Once this same exclusive writer completed a fully verified
-            // transaction, a fresh independent NVS watermark read combined
-            // with the mandatory full CRC-clean physical preflight below
-            // is sufficient; repeating Recover's previous scan is redundant.
-            // Never cache a physical file inspection across publications.
-            const bool previouslyComplete = exclusiveWriterCompleted_;
-            const auto previousAck = exclusiveWriterAck_;
-            exclusiveWriterCompleted_ = false;
-            const auto recovered = previouslyComplete ? Read() : Recover(scratch);
-            if (previouslyComplete && (recovered.Status != EdlsAcknowledgedStatus::Ready ||
-                                       recovered.AcknowledgedGeneration != previousAck ||
-                                       recovered.AcknowledgedIncarnation != incarnation_))
-                return {EdlsAcknowledgedStatus::InvalidWatermark};
-            if (recovered.Status != EdlsAcknowledgedStatus::Ready &&
-                recovered.Status !=
-                    EdlsAcknowledgedStatus::UnacknowledgedCandidateRemoved &&
-                recovered.Status !=
-                    EdlsAcknowledgedStatus::CommittedOldestRetired)
-                return recovered;
-            const auto ack = recovered.AcknowledgedGeneration;
-            if (ack >= std::numeric_limits<std::uint64_t>::max() - 1U)
-                return {EdlsAcknowledgedStatus::GenerationExhausted, ack};
-
-            const auto prior = Detail::InspectProtectedRollingPlanWithScratch<
-                TPhysicalSlots,
-                TProtectedSlots,
-                TPayloadMaximum>(
-                *files_,
-                paths_,
-                scratch);
-            const auto expected = ack < TProtectedSlots
-                                      ? static_cast<std::size_t>(ack)
-                                      : TProtectedSlots;
-            if (prior.Status != EdlsProtectedRollingStatus::NoPendingRetirement ||
-                prior.Occupied != expected ||
-                prior.NewestGeneration != ack)
-                return {EdlsAcknowledgedStatus::ArchiveAmbiguous, ack};
-            if (prior.Occupied >= TPhysicalSlots)
-                return {EdlsAcknowledgedStatus::NoPhysicalReserve, ack};
-            // The exclusive-writer fast path must also reject externally
-            // enlarged protected segments; never trust cached byte counts.
-            for (const auto &slot : prior.Inspected.Slots) {
-                if (slot.Condition == EdlsSlotCondition::Clean &&
-                    slot.VerifiedPrefixBytes > slotCapacity)
-                    return {EdlsAcknowledgedStatus::ByteCapacityExceeded, ack};
-            }
-            const auto posted = PublishEdlsSuccessorIntoEmptySlotWithScratch<
-                TPhysicalSlots,
-                TPayloadMaximum,
-                TSegmentMaximum,
-                TFileStorage,
-                TMaximumFrames>(
-                *files_,
-                paths_,
-                identity_,
-                incarnation_,
-                completeEdlg,
-                scratch,
-                &prior.Inspected);
-            if (posted.Status != EdlsSuccessorStatus::PublishedAndVerified ||
-                posted.Generation != ack + 1U ||
-                posted.Slot >= TPhysicalSlots ||
-                prior.Inspected.Slots[posted.Slot].Condition !=
-                    EdlsSlotCondition::Empty)
-                return {EdlsAcknowledgedStatus::PublishedNotAcknowledged,
-                        ack,
-                        posted.Slot};
-            if (Detail::VerifyEdlsProtectedPredecessorsWithScratch<
-                    TPhysicalSlots,
-                    TPayloadMaximum>(
-                    *files_,
-                    paths_,
-                    prior.Inspected,
-                    scratch) != Detail::EdlsPredecessorVerificationResult::Verified)
-                return {EdlsAcknowledgedStatus::AcknowledgedHistoryChanged,
-                        ack,
-                        posted.Slot};
-            const auto committed = StoreWatermark(ack + 1U);
-            if (committed.Status != EdlsAcknowledgedStatus::Ready)
-                return {EdlsAcknowledgedStatus::WatermarkStoreRejected,
-                        ack,
-                        posted.Slot};
-            if (prior.Occupied < TProtectedSlots) {
-                exclusiveWriterAck_ = ack + 1U;
-                exclusiveWriterCompleted_ = true;
-                return {EdlsAcknowledgedStatus::AcknowledgedWithinCapacity,
-                        ack + 1U,
-                        posted.Slot};
-            }
-            const auto retired =
-                FinishEdlsProtectedRollingRetirementWithScratch<
-                    TPhysicalSlots,
-                    TProtectedSlots,
-                    TPayloadMaximum>(
-                    *files_,
-                    paths_,
-                    scratch);
-            if (retired.Status ==
-                EdlsProtectedRollingStatus::RecoveredPendingRetirement) {
-                exclusiveWriterAck_ = ack + 1U;
-                exclusiveWriterCompleted_ = true;
-            }
-            return {
-                retired.Status ==
-                        EdlsProtectedRollingStatus::RecoveredPendingRetirement
-                    ? EdlsAcknowledgedStatus::AcknowledgedAndRetired
-                    : EdlsAcknowledgedStatus::AcknowledgedPendingRetirement,
-                ack + 1U,
-                posted.Slot};
-        }
-
-      public:
         /// Immutable sink-owned logical byte budget selected before initialisation.
         [[nodiscard]] std::uint64_t ByteCapacity() const noexcept {
             return byteCapacity_;
