@@ -66,6 +66,16 @@ namespace {
             ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==Logging::EdlgFrameWriteResult::Succeeded);
         const auto frame=std::span<const std::byte>(buffer.data(),used);
 
+        bytes.CopyBytes(
+            scratch.data(),
+            frame.data(),
+            frame.size()
+        );
+        const auto originalScratch = scratch;
+        const auto aliased = std::span<const std::byte>(scratch).first(frame.size());
+        assert(writer.Publish(aliased, scratch).Status == S::AliasedFrameWorkspace);
+        assert(scratch == originalScratch);
+
         assert(writer.Read().Status==S::MissingWatermark);
         assert(writer.InitializeEmpty().Status==S::Initialized);
         assert(writer.Read().AcknowledgedGeneration==0U);
