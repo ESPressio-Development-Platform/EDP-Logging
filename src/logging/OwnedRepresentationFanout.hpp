@@ -15,27 +15,14 @@
 
 namespace ESPressio::Logging {
 
-    /// EDP-Memory-pool object containing one complete encoded representation.
-    /// Storage and lifetime are provided by a *Bootstrap-configured EDP-Memory
-    /// ObjectPool*, not a hidden or independently allocated Logging pool.
-    template<std::size_t TMaximumPayloadBytes>
-    struct OwnedEncodedPayload final {
-        static_assert(TMaximumPayloadBytes > 0U);
-        std::array<std::byte, TMaximumPayloadBytes> Bytes{};
-        std::size_t Used{0U};
-    };
-
+    /// Outcome reported by the application-selected encoder.
     enum class RepresentationEncodeStatus : std::uint8_t {
         Succeeded = 0U,
         Rejected = 1U,
         ProviderFailure = 2U
     };
 
-    struct RepresentationEncodeResult final {
-        RepresentationEncodeStatus Status{RepresentationEncodeStatus::ProviderFailure};
-        std::size_t Written{0U};
-    };
-
+    /// Aggregate outcome for the bounded encode, submit and release operation.
     enum class OwnedRepresentationStatus : std::uint8_t {
         SubmittedAndReleased = 0U,
         PoolCapacityUnavailable = 1U,
@@ -49,23 +36,53 @@ namespace ESPressio::Logging {
         MemoryReclaimUnconfirmed = 9U
     };
 
+    /// EDP-Memory-pool object containing one complete encoded representation.
+    /// Storage and lifetime are provided by a *Bootstrap-configured EDP-Memory
+    /// ObjectPool*, not a hidden or independently allocated Logging pool.
+    /// @tparam TMaximumPayloadBytes Compile-time capacity of the owned encoded payload.
+    template<std::size_t TMaximumPayloadBytes>
+    struct OwnedEncodedPayload final {
+        static_assert(TMaximumPayloadBytes > 0U);
+        /// Writable storage owned by the Memory pool lease.
+        std::array<std::byte, TMaximumPayloadBytes> Bytes{};
+        /// Number of bytes initialized by the last successful encoding.
+        std::size_t Used{0U};
+    };
+
+    /// Encoder outcome and bounded output length.
+    struct RepresentationEncodeResult final {
+        /// Result of the encoder callback.
+        RepresentationEncodeStatus Status{RepresentationEncodeStatus::ProviderFailure};
+        /// Encoded byte count on success, checked against the offered span.
+        std::size_t Written{0U};
+    };
+
     /// Encodes once for a selected codec and attempts one to eight sinks independently.
     /// No accepted submission is mistaken for Persistence durability, UART
     /// transmission, or a destination's eventual consumption.
+    /// @tparam TSinkCount Number of statically selected synchronous sinks.
     template<std::size_t TSinkCount>
     struct OwnedRepresentationOutcome final {
         static_assert(TSinkCount >= 1U && TSinkCount <= 8U);
+        /// Aggregate status after the attempted phases.
         OwnedRepresentationStatus Status{OwnedRepresentationStatus::PoolUnavailable};
+        /// Native Memory acquisition outcome.
         ESPressio::Memory::ObjectPoolAcquisitionResult Acquisition{
             ESPressio::Memory::ObjectPoolAcquisitionResult::NotInitialized
         };
+        /// Native release outcome when release is attempted.
         ESPressio::Memory::ObjectPoolLeaseReleaseResult Release{
             ESPressio::Memory::ObjectPoolLeaseReleaseResult::AlreadyEmpty
         };
+        /// Encoded byte count after a successful bounded encoder result.
         std::size_t EncodedBytes{0U};
+        /// Number of encoder invocations in this operation.
         std::size_t EncoderInvocations{0U};
+        /// Number of sinks invoked in this operation.
         std::size_t SinkInvocations{0U};
+        /// Number of sinks that reported acceptance.
         std::size_t Accepted{0U};
+        /// Per-sink results in invocation order, meaningful through SinkInvocations.
         std::array<RecordSinkSubmission, TSinkCount> Submissions{};
     };
 
@@ -91,6 +108,12 @@ namespace ESPressio::Logging {
     /// EDP-Memory release, and explicitly resolve ownership at Bootstrap.
     /// No source Queue mutex is held by this function. The only acquisition
     /// wait policy is NoWait, irrespective of sink selection.
+    /// @tparam TCodec Codec supplied to every selected sink.
+    /// @tparam TMaximumPayloadBytes Byte capacity of the Memory-owned output object.
+    /// @tparam TPool Bootstrap-owned Memory pool for this exact payload type.
+    /// @tparam TRecord Borrowed source record type.
+    /// @tparam TEncoder Nonthrowing encoder writing into the offered output span.
+    /// @tparam TSinks Ordered nonthrowing callbacks that accept or refuse the borrowed bytes.
     template<
         EdlgCodec TCodec,
         std::size_t TMaximumPayloadBytes,

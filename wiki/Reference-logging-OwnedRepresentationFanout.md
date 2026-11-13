@@ -14,7 +14,7 @@ Bootstrap composes an EDP-Memory ObjectPool for exactly one fixed-size encoded o
 
 **OwnedRepresentationStatus** includes SubmittedAndReleased, PoolCapacityUnavailable, PoolUnavailable, PoolProviderFailure, OutputLeaseOccupied, EncoderRejected, EncoderProviderFailure, EncoderLengthInvalid, SubmissionNotAccepted and MemoryReclaimUnconfirmed. These distinguish bounded capacity/ownership failure, typed encode refusal, individual sink decisions, and possible unreleased owner capacity; they do not claim actual UART delivery or durable Persistence commit.
 
-**OwnedRepresentationOutcome<TSinkCount>** is a statically bounded result Type for one through eight sinks. Status summarizes the result; Acquisition and Release preserve the exact EDP-Memory owner outcomes; EncodedBytes is the successfully written byte count; EncoderInvocations and SinkInvocations record bounded callback counts; Accepted records accepted callbacks (not end-to-end delivery). Submissions is the fixed TSinkCount array containing ordered per-sink RecordSinkSubmission outcomes, including partial/rejected callbacks.
+**OwnedRepresentationOutcome<TSinkCount>** is a statically bounded result Type for one through eight sinks. Status summarizes the result; Acquisition and Release preserve the exact EDP-Memory owner outcomes; EncodedBytes is the successfully written byte count; EncoderInvocations and SinkInvocations record bounded callback counts; Accepted records accepted callbacks (not end-to-end delivery). Submissions is the fixed TSinkCount array containing ordered per-sink RecordSinkSubmission outcomes, including rejected callbacks. Read only the first SinkInvocations entries; the other entries are initialized sentinels for callbacks that were never invoked.
 
 ## Function and ownership contract
 
@@ -32,7 +32,7 @@ Bootstrap composes an EDP-Memory ObjectPool for exactly one fixed-size encoded o
 
 The host owner-composed [test](../tests/OwnedRepresentationFanoutTests.cpp) and [runner](../tests/run-owned-representation-fanout-tests.sh) verify one-sink acceptance and rejection, one encoding, source mutation after output copying, owner pool exhaustion, encoder failure without callback, and unchanged two-sink Serial FIFO/EDLG CRC. RPI400 detached 20261019T094312-c9539875 **PASS exit 0** with GCC and Clang. The initial attempt failed on a C++ test assertion lexical error and was explicitly corrected and rerun. This is executable host evidence, not newly re-flashed firmware.
 
-Missing G4 Field 11 and 14 governed wire sub-vocabulary, full G10 asynchronous fork/join and complete product resource budgets remain open. Consult [G10 documentation](../docs/OWNED-REPRESENTATION-FANOUT.MD) and parent Logging issue #1.
+The October 19 one-sink fixture predates the later governed 15-field wire integration. See the [current qualification ledger](../docs/LOGGING-QUALIFICATION-STATUS.MD) for that profile. This synchronous function does not supply asynchronous fork/join or a product resource budget. Consult [G10 documentation](../docs/OWNED-REPRESENTATION-FANOUT.MD) and parent Logging issue #1.
 
 ## 2026-10-19 — G10 one-sink *real ESP32-WROOM* integration
 

@@ -52,6 +52,7 @@ namespace ESPressio::Logging {
 
         /// One exact bounded read, with no assumption of atomic file mutation.
         /// Report provider rejection separately from successful short transfer.
+        /// @tparam TStorage FileStorage provider supplying a bounded positional read.
         template<class TStorage>
         [[nodiscard]] EdlsExactReadResult ReadExactEdlsBytes(
             const TStorage& storage,
