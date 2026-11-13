@@ -14,20 +14,68 @@ namespace ESPressio::Logging {
     /// A no-cross-slot-mutation best-effort EDLS rotation decision. This is
     /// provider/readback truth, never an acknowledgement of power-cut retention.
     enum class EdlsRollingStatus : std::uint8_t {
+        /// A new generation was written and independently verified in an absent slot.
         PublishedInEmptySlot = 0U,
+        /// The selected oldest slot was replaced and readback confirmed the successor.
         PublishedAfterOldestReclaim = 1U,
+        /// The source device, incarnation or input EDLG frame was rejected.
         InvalidIdentityOrFrame = 2U,
+        /// Inspection could not establish a safe next generation.
         ArchiveAmbiguous = 3U,
+        /// The complete successor exceeds the configured slot capacity.
         SlotCapacityExceeded = 4U,
+        /// A checked physical slot no longer matches its preflight state.
         ChangedDuringPreflight = 5U,
+        /// The FileStorage owner declined the mutation.
         ProviderRejected = 6U,
+        /// The replacement lacks independently confirmed readback.
         ReadbackUnconfirmed = 7U,
+        /// The preceding newest generation did not pass revalidation.
         PriorNewestUnconfirmed = 8U,
+        /// No eligible older physical slot was found.
         NoReclaimableSlot = 9U
+    };
+
+    /// Explicit result of immutable bounded rolling over TProtected+1 paths.
+    /// No status grants generic FileStorage interruption atomicity.
+    enum class EdlsProtectedRollingStatus : std::uint8_t {
+        /// Readback confirmed a successor and the oldest eligible slot was removed.
+        PublishedAndRetired = 0U,
+        /// Readback confirmed a successor without requiring retirement.
+        PublishedWithinCapacity = 1U,
+        /// Recovery removed the oldest eligible slot after verifying all generations.
+        RecoveredPendingRetirement = 2U,
+        /// Inspection established that no excess clean generation needs retirement.
+        NoPendingRetirement = 3U,
+        /// An existing complete extra generation must be reconciled before a new write.
+        RecoveryRequired = 4U,
+        /// Slot evidence is insufficient to plan a safe mutation.
+        ArchiveAmbiguous = 5U,
+        /// The clean generation range contains a gap.
+        NoncontiguousHistory = 6U,
+        /// The source device disagrees with the checked protected archive.
+        IdentityMismatch = 7U,
+        /// The proposed EDLG frame or source identity is invalid.
+        InvalidFrame = 8U,
+        /// No strictly increasing generation remains representable.
+        GenerationExhausted = 9U,
+        /// A reusable, absent successor path could not be established.
+        NoPhysicalReserve = 10U,
+        /// The provider declined the successor write.
+        ProviderRejected = 11U,
+        /// The successor lacks complete independent readback.
+        ReadbackUnconfirmed = 12U,
+        /// A preceding protected generation failed revalidation.
+        ProtectedHistoryChanged = 13U,
+        /// The provider declined removal of the eligible oldest slot.
+        RetirementRejected = 14U,
+        /// Independent readback could not confirm retirement.
+        RetirementUnconfirmed = 15U
     };
 
     /// Separates the native FileStorage mutation from surviving generation
     /// evidence and the independent readback of a newly published frame.
+    /// @tparam TSlots Number of fixed application-selected physical paths.
     template <std::size_t TSlots>
     struct EdlsRollingOutcome final {
 
@@ -76,6 +124,8 @@ namespace ESPressio::Logging {
 
         /// Reinspect one physical slot using caller-owned frame scratch and
         /// compare its header identity and CRC-verified prefix with the baseline.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPayloadMaximum,
             class TStorage>
@@ -122,6 +172,8 @@ namespace ESPressio::Logging {
         }
 
         /// Reinspect one physical slot using fixed frame scratch on the stack.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPayloadMaximum,
             class TStorage>
@@ -382,30 +434,10 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// Explicit result of immutable bounded rolling over TProtected+1 paths.
-    /// No status grants generic FileStorage interruption atomicity.
-    enum class EdlsProtectedRollingStatus : std::uint8_t {
-        PublishedAndRetired = 0U,
-        PublishedWithinCapacity = 1U,
-        RecoveredPendingRetirement = 2U,
-        NoPendingRetirement = 3U,
-        RecoveryRequired = 4U,
-        ArchiveAmbiguous = 5U,
-        NoncontiguousHistory = 6U,
-        IdentityMismatch = 7U,
-        InvalidFrame = 8U,
-        GenerationExhausted = 9U,
-        NoPhysicalReserve = 10U,
-        ProviderRejected = 11U,
-        ReadbackUnconfirmed = 12U,
-        ProtectedHistoryChanged = 13U,
-        RetirementRejected = 14U,
-        RetirementUnconfirmed = 15U
-    };
-
     /// Full operation evidence, with native write/removal outcomes preserved.
     /// A partially completed operation may have committed a complete successor;
     /// the caller must NOT mistake a non-Published result for an empty slot.
+    /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
     template <std::size_t TPhysicalSlots>
     struct EdlsProtectedRollingOutcome final {
 
@@ -436,6 +468,10 @@ namespace ESPressio::Logging {
         /// Strict read-only assessment of a finite protected EDLS history.
         /// One spare physical slot remains necessary for each new successor.
         /// Unknown/damaged/zero-byte existing files are NOT retired by guess.
+        /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+        /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPhysicalSlots,
             std::size_t TProtectedSlots,
@@ -443,22 +479,32 @@ namespace ESPressio::Logging {
             class TStorage>
         struct EdlsProtectedRollingPlan final {
 
+            /// Disposition after checking occupancy, identities and generation order.
             EdlsProtectedRollingStatus Status{
                 EdlsProtectedRollingStatus::ArchiveAmbiguous};
 
+            /// Independent observations used as the mutation preflight baseline.
             EdlsArchiveInspection<TPhysicalSlots> Inspected{};
 
+            /// Count of independently verified occupied segments.
             std::size_t Occupied{0U};
 
+            /// Physical index of the oldest clean segment, or the slot-count sentinel.
             std::size_t OldestSlot{TPhysicalSlots};
 
+            /// Smallest checked generation, zero when none was found.
             std::uint64_t OldestGeneration{0U};
 
+            /// Largest checked generation, zero when none was found.
             std::uint64_t NewestGeneration{0U};
         };
 
         /// Verify unique contiguous histories, exact physical occupancy and
         /// stable cross-generation device identity before ANY mutation.
+        /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+        /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPhysicalSlots,
             std::size_t TProtectedSlots,
@@ -540,7 +586,11 @@ namespace ESPressio::Logging {
             return result;
         }
 
-        /// Backward-compatible local scratch path for the strict plan.
+        /// Check the protected plan with a fixed stack frame buffer.
+        /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+        /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPhysicalSlots,
             std::size_t TProtectedSlots,
@@ -565,6 +615,9 @@ namespace ESPressio::Logging {
 
         /// Reinspect each previously clean slot using shared caller scratch.
         /// Return the first verification failure in physical slot order.
+        /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPhysicalSlots,
             std::size_t TPayloadMaximum,
@@ -599,6 +652,9 @@ namespace ESPressio::Logging {
         }
 
         /// Reinspect the protected set using one fixed frame buffer on the stack.
+        /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+        /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+        /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
         template <
             std::size_t TPhysicalSlots,
             std::size_t TPayloadMaximum,
@@ -632,6 +688,10 @@ namespace ESPressio::Logging {
     /// It NEVER removes invalid/unidentifiable/torn candidate files.
     ///
     /// Bootstrap owns exclusive FileStorage access during scan-to-retire.
+    /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+    /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+    /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
@@ -700,8 +760,12 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// Legacy stack-backed entrypoint delegates to the SAME single actual
-    /// retirement state machine; new high-payload workers choose WithScratch.
+    /// Use the shared retirement state machine with fixed stack scratch.
+    /// High-payload workers can supply bounded scratch through WithScratch.
+    /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+    /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+    /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
     template <std::size_t TPhysicalSlots, std::size_t TProtectedSlots, std::size_t TPayloadMaximum, class TStorage>
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
     FinishEdlsProtectedRollingRetirement(
@@ -730,6 +794,11 @@ namespace ESPressio::Logging {
     /// if ALL N+1 files are independently clean/contiguous. A torn candidate
     /// remains ambiguous and MUST NOT be auto-erased by these routines.
     /// No claim of generic FileStorage PowerLoss atomicity is introduced.
+    /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+    /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+    /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+    /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
@@ -836,9 +905,13 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// Legacy API intentionally remains callable and regression-compatible.
-    /// This stack-backed path is not recommended at TPayloadMaximum=4096 on
-    /// the ESP32 main task; use the caller-owned WithScratch overload.
+    /// Use the shared publication state machine with fixed stack scratch.
+    /// For large ESP32 payload bounds, provision workspace with WithScratch.
+    /// @tparam TPhysicalSlots Number of fixed physical paths, including one successor reserve.
+    /// @tparam TProtectedSlots Maximum protected complete segments before a successor is published.
+    /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
+    /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
+    /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
     template <std::size_t TPhysicalSlots, std::size_t TProtectedSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage>
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
     PublishEdlsProtectedRollingSuccessor(

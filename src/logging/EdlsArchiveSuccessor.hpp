@@ -16,17 +16,26 @@ namespace ESPressio::Logging {
     /// Result of introducing a new EDLS generation into a PHYSICALLY EMPTY
     /// slot, never destroying prior history to make space.
     enum class EdlsSuccessorStatus : std::uint8_t {
+        /// Independent readback confirmed the new generation and frame.
         PublishedAndVerified = 0U,
+        /// The proposed identity or complete frame input was rejected.
         InvalidIdentityOrFrame = 1U,
+        /// Inspection could not establish an unambiguous successor generation.
         ArchiveAmbiguous = 2U,
+        /// No configured physical path was available for exclusive creation.
         NoEmptySlot = 3U,
+        /// The complete proposed segment exceeds its configured byte bound.
         SlotCapacityExceeded = 4U,
+        /// The selected physical path no longer satisfies preflight.
         ChangedDuringPreflight = 5U,
+        /// The FileStorage owner declined replacement.
         ProviderRejected = 6U,
+        /// The proposed generation or frame could not be confirmed independently.
         ReadbackUnconfirmed = 7U
     };
 
     /// Exact provider mutation and independent readback observation.
+    /// @tparam TSlots Number of physical paths and the unselected-slot sentinel.
     template <std::size_t TSlots>
     struct EdlsSuccessorOutcome final {
         /// Logical source-side publication state, not media durability.
@@ -257,9 +266,12 @@ namespace ESPressio::Logging {
         return outcome;
     }
 
-    /// Backward-compatible local scratch path. High-payload native workers
-    /// SHOULD provision stable Bootstrap-owned scratch via WithScratch to
-    /// avoid nested >8KB stack frames under archive scan and publication.
+    /// Publish one complete frame with fixed stack scratch.
+    /// High-payload workers can provision Bootstrap-owned scratch via WithScratch.
+    /// @tparam TSlots Number of application-owned physical EDLS paths.
+    /// @tparam TPayloadMaximum Maximum EDLG payload temporarily retained.
+    /// @tparam TSlotMaximum Maximum bytes permitted in one physical slot.
+    /// @tparam TStorage Application-composed FileStorage owner.
     template <std::size_t TSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage>
     [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlot(
         TStorage &storage,

@@ -15,12 +15,29 @@ namespace ESPressio::Logging {
 
     /// Truthful result of inspecting one fixed EDLS archive slot in bounded memory.
     enum class EdlsSlotCondition : std::uint8_t {
+        /// No bytes were present at this path.
         Empty = 0U,
+        /// A valid header and complete contiguous frame prefix cover the observed file.
         Clean = 1U,
+        /// A valid header or frame prefix precedes an invalid or truncated tail.
         DamagedTail = 2U,
+        /// The observed header could not establish EDLS identity.
         InvalidHeader = 3U,
+        /// The recorded physical slot differs from the expected slot.
         SlotMismatch = 4U,
+        /// FileStorage could not supply the requested evidence.
         ProviderFailure = 5U
+    };
+
+    /// Conservative cross-slot generation/identity assessment. Never issues
+    /// a generation when ANY slot is unreadable, inconsistent or exhausted.
+    enum class EdlsArchiveCondition : std::uint8_t {
+        /// A unique successor generation can be determined from the observations.
+        Unambiguous = 0U,
+        /// Slot conditions, duplicate generations or device identity prevent a successor plan.
+        Ambiguous = 1U,
+        /// The highest generation cannot be incremented without wrap.
+        GenerationExhausted = 2U
     };
 
     /// Read-only facts of a single physical slot, never a write authorization.
@@ -45,8 +62,11 @@ namespace ESPressio::Logging {
 
         /// Strongly typed result for bounded exact-file reads.
         enum class EdlsExactReadResult : std::uint8_t {
+            /// The provider returned the full requested byte extent.
             Succeeded = 0U,
+            /// FileStorage could not supply the requested evidence.
             ProviderFailure = 1U,
+            /// The provider accepted the read and returned fewer bytes than requested.
             IncompleteRead = 2U
         };
 
@@ -253,9 +273,11 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// Backward-compatible bounded single-slot scan, using stack scratch.
+    /// Scan one physical slot with a fixed stack frame buffer.
     /// High-payload native workers SHOULD select WithScratch explicitly and
     /// provision the buffer through their existing Bootstrap Memory owner.
+    /// @tparam TMaximumPayloadBytes Maximum temporarily retained EDLG payload.
+    /// @tparam TStorage Bootstrap-owned EDP-Persistence FileStorage provider.
     template<std::size_t TMaximumPayloadBytes, class TStorage>
     [[nodiscard]] EdlsSlotInspection InspectEdlsSlot(
         const TStorage& storage,
@@ -268,16 +290,8 @@ namespace ESPressio::Logging {
             storage,path,expectedSlot,ownedScratch);
     }
 
-    /// Conservative cross-slot generation/identity assessment. Never issues
-    /// a generation when ANY slot is unreadable, inconsistent or exhausted.
-    enum class EdlsArchiveCondition : std::uint8_t {
-        Unambiguous = 0U,
-        Ambiguous = 1U,
-        GenerationExhausted = 2U
-    };
-
     /// No segment is mutated or reserved; this is read-only planning evidence.
-    /// TSlots is the number of exact application-configured paths.
+    /// @tparam TSlots Number of application-configured physical paths.
     template<std::size_t TSlots>
     struct EdlsArchiveInspection final {
         /// Overall no-wrap, identity and generation coherency status.
@@ -361,9 +375,10 @@ namespace ESPressio::Logging {
         return result;
     }
 
-    /// Existing stack-backed API remains stable. Worker-side high-payload
-    /// call sites can use InspectEdlsArchiveWithScratch for predictable
-    /// low stack usage without creating any duplicate filesystem owner.
+    /// Inspect all configured paths with one fixed stack frame buffer.
+    /// @tparam TSlots Number of application-configured physical paths.
+    /// @tparam TMaximumPayloadBytes Maximum temporarily retained EDLG payload.
+    /// @tparam TStorage Bootstrap-owned EDP-Persistence FileStorage provider.
     template<std::size_t TSlots, std::size_t TMaximumPayloadBytes, class TStorage>
     [[nodiscard]] EdlsArchiveInspection<TSlots> InspectEdlsArchive(
         const TStorage& storage,

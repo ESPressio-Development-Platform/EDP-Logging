@@ -130,3 +130,51 @@ The current `src/logging/EdlsArchiveRotation.hpp` also declares the following in
 - `Detail::VerifyEdlsProtectedPredecessors<TPhysicalSlots,TPayloadMaximum,TStorage>` is its fixed stack-backed wrapper; it does not strengthen the underlying FileStorage interruption semantics and is subject to the same WROOM stack constraint.
 
 The older `PublishEdlsOldestEligibleSuccessor` intentionally has **weaker best-effort semantics**: once full, it may replace the oldest slot even though the provider could partially modify it on failure. That routine must not be substituted for `PublishEdlsProtectedRollingSuccessorWithScratch` plus the separately qualified strict ACK/immutable-retention owner when the application requires preservation of still-protected records across a real power cut. In all variants, application Bootstrap owns physical retention capacity, storage location, writer exclusivity, and all SDK-specific services. Tests should preserve the exact distinction between bounded logical record retention, verified ordinary reads, and actual external-power-cut evidence.
+
+
+### Protected rolling plan state
+
+The internal `EdlsProtectedRollingPlan` retains a read-only decision and
+the corresponding `Inspected` observations. `Occupied` counts complete,
+CRC-verified slots. `OldestSlot` identifies the eligible retirement candidate
+when there is one. `OldestGeneration` and `NewestGeneration` establish the
+range used to reject gaps. The physical slot-count sentinel and generation
+zero represent absence. The plan grants no independent right to mutate.
+The application retains one exclusive writer across inspection, successor
+publication, predecessor revalidation and eligible retirement.
+
+#### `EdlsRollingStatus` outcomes
+
+| Status | Value | Meaning |
+| --- | ---: | --- |
+| `PublishedInEmptySlot` | 0 | A new generation was written and independently verified in an absent slot. |
+| `PublishedAfterOldestReclaim` | 1 | The selected oldest slot was replaced and readback confirmed the successor. |
+| `InvalidIdentityOrFrame` | 2 | The source device, incarnation or input EDLG frame was rejected. |
+| `ArchiveAmbiguous` | 3 | Inspection could not establish a safe next generation. |
+| `SlotCapacityExceeded` | 4 | The complete successor exceeds the configured slot capacity. |
+| `ChangedDuringPreflight` | 5 | A checked physical slot no longer matches its preflight state. |
+| `ProviderRejected` | 6 | The FileStorage owner declined the mutation. |
+| `ReadbackUnconfirmed` | 7 | The replacement lacks independently confirmed readback. |
+| `PriorNewestUnconfirmed` | 8 | The preceding newest generation did not pass revalidation. |
+| `NoReclaimableSlot` | 9 | No eligible older physical slot was found. |
+
+#### `EdlsProtectedRollingStatus` outcomes
+
+| Status | Value | Meaning |
+| --- | ---: | --- |
+| `PublishedAndRetired` | 0 | Readback confirmed a successor and the oldest eligible slot was removed. |
+| `PublishedWithinCapacity` | 1 | Readback confirmed a successor without requiring retirement. |
+| `RecoveredPendingRetirement` | 2 | Recovery removed the oldest eligible slot after verifying all generations. |
+| `NoPendingRetirement` | 3 | Inspection established that no excess clean generation needs retirement. |
+| `RecoveryRequired` | 4 | An existing complete extra generation must be reconciled before a new write. |
+| `ArchiveAmbiguous` | 5 | Slot evidence is insufficient to plan a safe mutation. |
+| `NoncontiguousHistory` | 6 | The clean generation range contains a gap. |
+| `IdentityMismatch` | 7 | The source device disagrees with the checked protected archive. |
+| `InvalidFrame` | 8 | The proposed EDLG frame or source identity is invalid. |
+| `GenerationExhausted` | 9 | No strictly increasing generation remains representable. |
+| `NoPhysicalReserve` | 10 | A reusable, absent successor path could not be established. |
+| `ProviderRejected` | 11 | The provider declined the successor write. |
+| `ReadbackUnconfirmed` | 12 | The successor lacks complete independent readback. |
+| `ProtectedHistoryChanged` | 13 | A preceding protected generation failed revalidation. |
+| `RetirementRejected` | 14 | The provider declined removal of the eligible oldest slot. |
+| `RetirementUnconfirmed` | 15 | Independent readback could not confirm retirement. |

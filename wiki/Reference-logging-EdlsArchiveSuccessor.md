@@ -1,6 +1,6 @@
 # Reference — `src/logging/EdlsArchiveSuccessor.hpp`
 
-**Classification:** PUBLIC OPTIONAL EDLS immutable empty-slot publication API. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/EdlsArchiveSuccessor.hpp). This header is a direct consumer of existing abstract **EDP-Persistence FileStorage** and sibling Logging EDLG strict reader, EDLS header writer and read-only archive inspector. It does **not** own a Flash partition, filesystem, coordinator task, allocator or automatic retention policy.
+**Classification:** PUBLIC OPTIONAL EDLS immutable empty-slot publication API. [Exact source](../src/logging/EdlsArchiveSuccessor.hpp). This header is a direct consumer of existing abstract **EDP-Persistence FileStorage** and sibling Logging EDLG strict reader, EDLS header writer and read-only archive inspector. It does **not** own a Flash partition, filesystem, coordinator task, allocator or automatic retention policy.
 
 ## Public status enum
 
