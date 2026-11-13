@@ -165,3 +165,21 @@ The full host matrix on exact baseline `c80a80aae52362c79af1443bdf68897fca590d6c
 completed in RPI400 run `20261113T110345-92db528b`. All 34 GCC and 34 Clang
 test runners passed, along with all 40 Python tests. The later diagnostic
 API migration has its own focused qualification receipt in the handoff.
+
+### EDLG and EDLS ByteOperations migration
+
+Logging `5d854d7c7d6d96af0041c9943e50e129f9e5df36` and downstream Serial
+`b021ff65fb405937ce2d097d17abe0d59422556e` were published to both active
+branches. The opt-in writer borrows the selected Memory byte-copy
+provider. Archive copies use the same owner contract and reject overlapping
+frame and archive workspace before recovery. The default Logging umbrella
+and reader remain dependency-free.
+
+RPI400 run `20261113T115314-5fbcbbf0` passed 68 GCC/Clang runners and 40
+Python tests. `20261113T123917-dd8fc7b0` verified the published refs and
+passed four Serial pump/FIFO tests. The physical UART run
+`20261113T121301-dffea777` passed 20/20, including an independent EDLG CRC
+and the WROOM resource and G11 site checks. A fresh verified 4 MiB backup
+preceded programming. The original image was restored and verified, and
+the board was powered off. The separate strict LittleFS/NVS relay-cut and
+finite 100-record/s receipts govern the storage claims.
