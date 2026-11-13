@@ -22,17 +22,29 @@ namespace ESPressio::Logging {
     /// Results distinguish a transactional transition from the health of the
     /// required native lease release and producer wake publication.
     enum class RecordQueueResult : std::uint8_t {
+        /// The requested transition completed.
         Succeeded = 0U,
+        /// No queued source was available to claim.
         Empty = 1U,
+        /// The queue has no free slot for another reservation.
         CapacityUnavailable = 2U,
+        /// The ordinary mutex or retirement owner could not be acquired immediately.
         Busy = 3U,
+        /// The ticket does not identify the current slot generation.
         InvalidTicket = 4U,
+        /// The slot is in a phase incompatible with this transition.
         WrongPhase = 5U,
+        /// The caller supplied an empty source lease.
         OutputLeaseEmpty = 6U,
+        /// The selected slot cannot issue another nonzero generation.
         GenerationExhausted = 7U,
+        /// Memory release succeeded and the producer notification failed.
         ReleasedNotificationFailed = 8U,
+        /// The native Memory lease release could not be confirmed.
         ReleaseUnconfirmed = 9U,
+        /// The queue is quarantined because transition integrity could not be confirmed.
         IntegrityFailure = 10U,
+        /// The caller's output guard already owns a slot.
         OutputHandleOccupied = 11U,
         /// No transition was started, or retirement finalization is still owned, at the canonical
         /// deadline.
@@ -73,9 +85,12 @@ namespace ESPressio::Logging {
         static_assert(noexcept(std::declval<const TLease &>().IsEmpty()));
         static_assert(noexcept(std::declval<TLease &>().Release()));
 
+        /// Separates this queue's compact indices from other topologies.
         struct RecordIndexSpace final {};
+        /// Tracks free and occupied slots in the queue's index space.
         using Topology =
             ESPressio::BoundedTopology::BoundedSlotTopology<RecordIndexSpace, TCapacity>;
+        /// Links published slots in commit order using the owner topology.
         using Queue = ESPressio::BoundedTopology::IntrusiveQueue<RecordIndexSpace, TCapacity>;
 
       public:
@@ -109,6 +124,7 @@ namespace ESPressio::Logging {
             /// occupancy-bitmap read.
             TLease *_borrowedLease{nullptr};
 
+            /// Attempts RAII abort and quarantines an unconfirmed transition.
             void AbandonOnScopeExit() noexcept {
                 if (!_owner)
                     return;
@@ -125,9 +141,13 @@ namespace ESPressio::Logging {
             }
 
           public:
+            /// Creates an inactive reservation.
             Reservation() noexcept = default;
+            /// Prevents duplicate ownership of the reservation.
             Reservation(const Reservation &) = delete;
+            /// Prevents replacing a reservation by copying another handle.
             Reservation &operator=(const Reservation &) = delete;
+            /// Transfers the slot proof and lease view, leaving the source inactive.
             Reservation(Reservation &&other) noexcept
                 : _owner(std::exchange(
                       other._owner,
@@ -138,15 +158,19 @@ namespace ESPressio::Logging {
                   _borrowedLease(std::exchange(
                       other._borrowedLease,
                       nullptr)) {}
+            /// Prevents overwriting a possibly active destination reservation.
             Reservation &operator=(Reservation &&) = delete;
+            /// Aborts a reservation that still owns an unpublished slot.
             ~Reservation() noexcept {
                 AbandonOnScopeExit();
             }
 
+            /// Reports whether the guard still owns the associated slot generation.
             [[nodiscard]] bool IsActive() const noexcept {
                 return _owner != nullptr;
             }
 
+            /// Borrows the stable lease while this guard owns an intact slot.
             [[nodiscard]] TLease *Borrow() noexcept {
                 return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
@@ -223,6 +247,7 @@ namespace ESPressio::Logging {
             /// occupancy-bitmap read.
             TLease *_borrowedLease{nullptr};
 
+            /// Attempts RAII completion and quarantines an unconfirmed transition.
             void CompleteOnScopeExit() noexcept {
                 if (!_owner)
                     return;
@@ -237,9 +262,13 @@ namespace ESPressio::Logging {
             }
 
           public:
+            /// Creates an inactive consumer claim.
             ConsumerClaim() noexcept = default;
+            /// Prevents two consumer handles from owning the same claim.
             ConsumerClaim(const ConsumerClaim &) = delete;
+            /// Prevents replacing a consumer claim by copying another handle.
             ConsumerClaim &operator=(const ConsumerClaim &) = delete;
+            /// Transfers the source claim and lease view, leaving the source inactive.
             ConsumerClaim(ConsumerClaim &&other) noexcept
                 : _owner(std::exchange(
                       other._owner,
@@ -250,15 +279,19 @@ namespace ESPressio::Logging {
                   _borrowedLease(std::exchange(
                       other._borrowedLease,
                       nullptr)) {}
+            /// Prevents overwriting a possibly active destination claim.
             ConsumerClaim &operator=(ConsumerClaim &&) = delete;
+            /// Completes an outstanding claim when the final handle goes out of scope.
             ~ConsumerClaim() noexcept {
                 CompleteOnScopeExit();
             }
 
+            /// Reports whether the guard still owns the associated slot generation.
             [[nodiscard]] bool IsActive() const noexcept {
                 return _owner != nullptr;
             }
 
+            /// Borrows the stable lease while this guard owns an intact slot.
             [[nodiscard]] TLease *Borrow() noexcept {
                 return _owner && !_owner->IsIntegrityFailed() ? _borrowedLease : nullptr;
             }
@@ -297,12 +330,19 @@ namespace ESPressio::Logging {
       private:
         /// Queue phase values remain stable for diagnostics.
         enum class Phase : std::uint8_t {
+            /// No caller owns this slot.
             Vacant = 0U,
+            /// A producer holds the slot while acquiring the source lease.
             AwaitingMemory = 1U,
+            /// A producer holds an unpublished source lease.
             Reserved = 2U,
+            /// The committed source waits in FIFO order.
             Queued = 3U,
+            /// The consumer owns the popped source.
             InFlight = 4U,
+            /// Memory release or retirement finalization remains in progress.
             Retiring = 5U,
+            /// This slot can no longer issue a new generation.
             Exhausted = 6U
         };
 
@@ -314,33 +354,48 @@ namespace ESPressio::Logging {
             Unconfirmed = 1U
         };
 
+        /// Stores the slot's source lease, FIFO link and retirement state.
         struct Record final {
+            /// Intrusive link used by the FIFO while the slot is queued.
             Index Next = Index::Invalid();
+            /// Native Memory lease owned by this slot after attachment.
             TLease Lease{};
+            /// Most recent generation assigned to the slot.
             TGeneration Generation = 0U;
+            /// Current transition phase while protected by the ordinary mutex.
             Phase State = Phase::Vacant;
             // Only one caller may release the source Memory lease. This
             // prevents two copies of one ticket from racing the native owner.
+            /// Serializes the native release across all copies of a ticket.
             std::atomic<bool> RetirementClaimed{false};
 
             /// A confirmed release notification failure survives a later finalization timeout.
             bool RetirementNotificationFailed{false};
 
+            /// Reads the intrusive FIFO link under queue ownership.
             [[nodiscard]] Index QueueNext() const noexcept {
                 return Next;
             }
+            /// Writes the intrusive FIFO link under queue ownership.
             void SetQueueNext(Index next) noexcept {
                 Next = next;
             }
         };
 
+        /// Borrowed ordinary mutex guarding slot state and FIFO topology.
         TMutexProvider *_mutex;
+        /// Borrowed owner of native lease release and producer wake publication.
         TReleaseCoordinator *_releases;
+        /// Fixed slot-occupancy topology.
         Topology _slots{};
+        /// Intrusive FIFO of committed sources awaiting consumption.
         Queue _fifo{};
+        /// One stable record slot per configured queue entry.
         std::array<Record, TCapacity> _records{};
+        /// Sticky latch preventing further queue use after an uncertain transition.
         std::atomic<bool> _integrityFailed{false};
 
+        /// Attempts immediate ownership, mapping contention and uncertain acquisition separately.
         [[nodiscard]] RecordQueueResult Lock() noexcept {
             if (_integrityFailed.load(std::memory_order_acquire)) {
                 return RecordQueueResult::IntegrityFailure;
@@ -422,6 +477,7 @@ namespace ESPressio::Logging {
             return RecordQueueResult::Succeeded;
         }
 
+        /// Preserves the requested result only after confirming native mutex release.
         [[nodiscard]] RecordQueueResult UnlockWith(RecordQueueResult outcome) noexcept {
             return Unlock() == UnlockStatus::Released ? outcome
                                                       : RecordQueueResult::IntegrityFailure;
@@ -429,6 +485,7 @@ namespace ESPressio::Logging {
 
         /// The single compact slot-allocation algorithm shared by native
         /// Begin and ahead-of-Memory slot reservation. Called under mutex.
+        /// Claims a free slot and advances its generation under the mutex.
         [[nodiscard]] RecordQueueResult ClaimSlot(Phase initial, Ticket &ticket) noexcept {
             bool exhausted = false;
             for (std::size_t i = 0U; i < TCapacity; ++i) {
@@ -453,12 +510,14 @@ namespace ESPressio::Logging {
             return RecordQueueResult::GenerationExhausted;
         }
 
+        /// Checks the ticket against the slot's current generation under queue ownership.
         [[nodiscard]] bool IsMatchingTicket(Ticket ticket) const noexcept {
             return ticket.IsValid() && _slots.IsOccupied(ticket.Slot) &&
                    _records[static_cast<std::size_t>(ticket.Slot.Value())].Generation ==
                        ticket.Generation;
         }
 
+        /// Reports whether a phase still represents owned queue work.
         [[nodiscard]] static constexpr bool IsPhaseLive(Phase phase) noexcept {
             return phase == Phase::AwaitingMemory || phase == Phase::Reserved ||
                    phase == Phase::Queued || phase == Phase::InFlight || phase == Phase::Retiring;
@@ -617,15 +676,21 @@ namespace ESPressio::Logging {
         }
 
       public:
+        /// Maximum number of source slots, including in-flight work.
         static constexpr std::size_t Capacity = TCapacity;
+        /// Size of this queue object, including its fixed slot storage.
         static constexpr std::size_t StorageBytes = sizeof(TransactionalRecordQueue);
 
+        /// Binds the queue to application-owned synchronization and release providers.
         TransactionalRecordQueue(TMutexProvider &mutex, TReleaseCoordinator &releases) noexcept
             : _mutex(&mutex), _releases(&releases) {}
 
+        /// Prevents copying live slot ownership and mutex bindings.
         TransactionalRecordQueue(const TransactionalRecordQueue &) = delete;
+        /// Prevents replacing live slot ownership by copying another queue.
         TransactionalRecordQueue &operator=(const TransactionalRecordQueue &) = delete;
 
+        /// Requires all reservations and claims to have been drained before destruction.
         ~TransactionalRecordQueue() noexcept {
             // An active Memory lease must never fall through native RAII without
             // the coordinator observing its actual release. It is a Bootstrap
@@ -737,7 +802,8 @@ namespace ESPressio::Logging {
 
         /// Bounded commit never publishes after its original canonical deadline.
         [[nodiscard]] RecordQueueResult CommitUntil(
-            Ticket ticket, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
+            Ticket ticket,
+            ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             return CommitUnderPolicy(
                 ticket,
                 deadline);
@@ -791,7 +857,8 @@ namespace ESPressio::Logging {
 
         /// RAII bounded claim binds its stable lease view while the generation is exclusive.
         [[nodiscard]] RecordQueueResult PopUntil(
-            ConsumerClaim &out, ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
+            ConsumerClaim &out,
+            ESPressio::Clock::MonotonicTimestamp deadline) noexcept {
             if (out.IsActive()) {
                 return RecordQueueResult::OutputHandleOccupied;
             }
@@ -840,6 +907,7 @@ namespace ESPressio::Logging {
                 deadline);
         }
 
+        /// Reports whether an uncertain transition has quarantined the queue.
         [[nodiscard]] bool IsIntegrityFailed() const noexcept {
             return _integrityFailed.load(std::memory_order_acquire);
         }

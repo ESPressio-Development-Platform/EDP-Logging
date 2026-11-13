@@ -56,9 +56,7 @@ without pretending that the producer was awakened.
 **`RecordIndexSpace`**, `Topology`, `Queue` and `Index`
 are bindings to the existing EDP-BoundedTopology owner, not local
 second implementations of a slot bitmap or FIFO.
-A `Ticket` holds `Slot` (invalid by default) and a nonzero
-`Generation`; `IsValid()` checks both. A stale ticket cannot
-claim a newly reused physical slot.
+The owner rejects stale generations when a physical slot is reused. `Slot` defaults to the invalid sentinel and `Generation` defaults to zero.
 
 The per-slot private `Record` groups `Next` (intrusive FIFO link),
 `Lease` (the actual move-only Memory owner), `Generation`,
