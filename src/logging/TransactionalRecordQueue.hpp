@@ -79,12 +79,18 @@ namespace ESPressio::Logging {
         using Queue = ESPressio::BoundedTopology::IntrusiveQueue<RecordIndexSpace, TCapacity>;
 
       public:
+        /// Compact slot index in this queue's owner-specific topology.
         using Index = typename Queue::Index;
 
+        /// Identifies one slot generation for validation under the queue owner.
         struct Ticket final {
+            // Slot identity and generation must travel together.
+            /// Slot of the associated record or the invalid sentinel.
             Index Slot = Index::Invalid();
+            /// Nonzero generation assigned when the slot was reserved.
             TGeneration Generation = 0U;
 
+            /// Tests ticket shape. Queue transitions also validate the live phase and generation.
             [[nodiscard]] bool IsValid() const noexcept {
                 return Slot.IsValid() && Generation != 0U;
             }

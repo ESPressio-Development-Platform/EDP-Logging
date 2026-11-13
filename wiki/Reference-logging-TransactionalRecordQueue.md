@@ -51,6 +51,8 @@ without pretending that the producer was awakened.
 
 ### Nested ownership and topology
 
+`Index` names the compact index in this queue's owner-specific topology. A `Ticket` carries that slot and the generation assigned to its reservation. `Ticket::IsValid()` checks the shape only (a valid index and a nonzero generation). Queue transitions separately verify the stored generation and allowed phase while holding the queue owner. A stale ticket can pass the shape check.
+
 **`RecordIndexSpace`**, `Topology`, `Queue` and `Index`
 are bindings to the existing EDP-BoundedTopology owner, not local
 second implementations of a slot bitmap or FIFO.
