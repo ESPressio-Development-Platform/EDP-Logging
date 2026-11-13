@@ -1,6 +1,6 @@
 # Reference — `src/logging/EdlgFrame.hpp`
 
-**Classification:** public allocation-free binary framing API, internal frame wire helpers. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/0ac9b2b4c10f31823c7834c39f2a372ca1ac98ad/src/logging/EdlgFrame.hpp). This header has **no EDP library dependency**. It writes an envelope around *already encoded* bytes; the caller, not this frame layer, owns the EDP-Serialisation writer and governed diagnostic schema.
+**Classification:** public allocation-free binary framing API, internal frame wire helpers. [Source at reviewed commit](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/d6056ed0e463e05d512f90283bc13fe405a71ec6/src/logging/EdlgFrame.hpp). This header has **no EDP library dependency**. It writes an envelope around *already encoded* bytes; the caller, not this frame layer, owns the EDP-Serialisation writer and governed diagnostic schema.
 
 ## Public enums and semantics
 

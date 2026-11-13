@@ -1,6 +1,6 @@
 # Reference — `src/logging/Instrumentation.hpp`
 
-**Classification:** PUBLIC API, compile-time-only expression gate and statement macro. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/Instrumentation.hpp). This header includes `Severity.hpp` and C++20 standard-library utilities only. It owns **neither** a record allocator nor a timestamp provider.
+**Classification:** PUBLIC API, compile-time-only expression gate and statement macro. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/d6056ed0e463e05d512f90283bc13fe405a71ec6/src/logging/Instrumentation.hpp). This header includes `Severity.hpp` and C++20 standard-library utilities only. It owns **neither** a record allocator nor a timestamp provider.
 
 ## Public result Type
 

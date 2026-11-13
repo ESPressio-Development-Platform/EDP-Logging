@@ -1,6 +1,6 @@
 # Reference — `src/logging/EdlsSegment.hpp`
 
-**Classification:** PUBLIC C++20 versioned EDLS wire-header contract; PRIVATE wire helpers. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/EdlsSegment.hpp). This header includes the sibling EDLG CRC helper and standard C++ headers only. It does not import EDP-Persistence, select Flash storage or perform I/O.
+**Classification:** PUBLIC C++20 versioned EDLS wire-header contract; PRIVATE wire helpers. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/d6056ed0e463e05d512f90283bc13fe405a71ec6/src/logging/EdlsSegment.hpp). This header includes the sibling EDLG CRC helper and standard C++ headers only. It does not import EDP-Persistence, select Flash storage or perform I/O.
 
 ## Public constants, enums and values
 
