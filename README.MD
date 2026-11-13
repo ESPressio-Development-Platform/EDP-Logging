@@ -178,6 +178,6 @@ Physical HIL tests require explicit appliance provisioning, actual connected har
 
 ## Compatibility and limitations
 
-EDP-Logging is at **`0.1.0`**; use the current selected branch with matching dependency contracts. The core library is C++20, with integration examples targeting Arduino-ESP32 and ESP-IDF. Optional providers may be unavailable for a particular target and must be qualified independently. The implementation intentionally does **not** promise indefinite log retention, universal 100-records/sec performance, generic power-atomic FileStorage, network clock synchronization, native-memory record dumping or Flash lifespan. Where evidence is conditional or a feature is deferred, the [acceptance matrix](./docs/ACCEPTANCE-G1-G15.MD) is authoritative.
+EDP-Logging is at **`0.1.0`** on `main`. Select the matching owner revisions from the [dependency baseline](./docs/DEPENDENCY-OWNER-BASELINE.MD) for the optional APIs you import. The core library is C++20, with integration examples targeting Arduino-ESP32 and ESP-IDF. Optional providers may be unavailable for a particular target and must be qualified independently. The implementation intentionally does **not** promise indefinite log retention, universal 100-records/sec performance, generic power-atomic FileStorage, network clock synchronization, native-memory record dumping or Flash lifespan. Where evidence is conditional or a feature is deferred, the [acceptance matrix](./docs/ACCEPTANCE-G1-G15.MD) is authoritative.
 
 Licensed under [Apache-2.0](./LICENSE).

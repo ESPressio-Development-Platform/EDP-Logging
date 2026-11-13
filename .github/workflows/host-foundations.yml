@@ -33,7 +33,7 @@ jobs:
   historical-archive-host:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout EDP-Logging feature source
+      - name: Checkout EDP-Logging source
         uses: actions/checkout@v4
         with:
           path: EDP-Logging

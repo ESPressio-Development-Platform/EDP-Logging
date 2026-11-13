@@ -1,8 +1,8 @@
 # G4 generated, schema-bound complete LogRecord Typed Envelope
 
-**Status:** optional EDP-Logging feature branch implementation; native
-GCC/Clang and ESP32-WROOM qualification as of 2026-10-22.
-Version 0.1.0 unchanged; not a finished G1–G15 Logging product.
+The optional generated envelope API is available on `main` in the 0.1.0
+development baseline. See the [qualification matrix](ACCEPTANCE-G1-G15.MD)
+for the tested host and ESP32-WROOM profiles.
 
 ## Authority, identity and wire
 
@@ -27,7 +27,7 @@ source-owned argument into finite caller-owned positional scratch;
 failure clears scratch and returns a typed result, never silently
 publishes partially converted bytes. The actual CBOR/JSON typed
 record writers/readers belong to EDP-Serialisation; tuple support is
-an additive owner capability on `EDP-Serialisation/feature/logging-v1`.
+supplied by the qualified `EDP-Serialisation/main` revision in the [owner baseline](DEPENDENCY-OWNER-BASELINE.MD).
 The optional ClockEra diagnostic argument requires explicit
 `logging/DiagnosticClockEraArguments.hpp` selection by the consumer,
 and does not automatically claim a coherent Clock.

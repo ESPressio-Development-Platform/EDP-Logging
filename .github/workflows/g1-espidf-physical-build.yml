@@ -10,7 +10,7 @@ jobs:
   espidf-wroom-compile-and-link:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Logging feature source
+      - name: Checkout Logging source
         uses: actions/checkout@v4
         with:
           path: EDP-Logging
@@ -157,3 +157,16 @@ jobs:
           EDP_LOGGING_DEPENDENCY_ROOT: ${{ github.workspace }}
           G11_REPORT_DIR: ${{ runner.temp }}/edp-logging-g11-images
         run: bash tests/run-g11-whole-firmware-comparison.sh
+
+
+      - name: Build the three public demos for both PlatformIO frameworks
+        working-directory: EDP-Logging
+        run: |
+          for target in PlatformIO_Arduino PlatformIO_ESP-IDF; do
+            pio run -d "demos/FramingAndInstrumentation/$target" -j 2
+          done
+          for demo in ConfigurableBoundedEdlsBatch TypedManagedBatchWorker; do
+            for target in platformio-arduino espidf; do
+              bash "demos/$demo/build.sh" "$target"
+            done
+          done

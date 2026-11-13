@@ -4,7 +4,7 @@ The bare ESPressio_Logging.hpp umbrella requires only the standard C++20 foundat
 
 ## Boundaries
 
-The complete and conditional dependency matrix is maintained in the [dependency graph](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/DEPENDENCY_GRAPH.MD). The opt-in owned argument arena uses stateless EDP-Memory ByteOperations with portable default.
+The complete and conditional dependency matrix is maintained in the [dependency graph](../DEPENDENCY_GRAPH.MD). The opt-in owned argument arena uses stateless EDP-Memory ByteOperations with portable default.
 
 The newest-source optional import and branch-pin review is maintained in the [G14 owner baseline](../docs/DEPENDENCY-OWNER-BASELINE.MD). The optional Serial output family is an EDP-Serial-to-Logging edge (never a mandatory Logging dependency); its Arduino concrete is not yet implemented. See the [G12 Serial integration contract](../docs/SERIAL-OUTPUT-INTEGRATION.MD) and [EDP-Serial-Arduino issue #1](https://github.com/ESPressio-Development-Platform/EDP-Serial-Arduino/issues/1).
 

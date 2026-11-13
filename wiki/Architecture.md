@@ -4,6 +4,6 @@ Logging owns source record capture, bounded queue/coordinator, sink fanout, EDLG
 
 ## Boundaries
 
-The current normative source of this design is the [architecture document](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/feature/logging-v1/docs/ARCHITECTURE.MD).
+The current normative source of this design is the [architecture document](../docs/ARCHITECTURE.MD).
 
 See [Reference Index](Reference-Index) for source-by-source declarations and [Tooling Reference](Tooling-Reference) for maintained decoder and evidence tools.

@@ -4,7 +4,7 @@ EDP-Logging's root C++20 umbrella intentionally has **no mandatory EDP dependenc
 
 ## Source-based direct dependency inventory
 
-A scan of the 42 production C++ headers of the current Logging feature branch found the following actual external imports. The empty default `library.json` dependency list is true only of the **minimal umbrella**; it is not a promise that all optional headers compile in isolation.
+The direct source imports for the current Logging profiles are listed below. The 13 November diagnostic migration removed one compatibility header and retained the same owner edges. The empty default `library.json` dependency list is true only of the **minimal umbrella**; it is not a promise that all optional headers compile in isolation.
 
 | Owner | Import conditions / examples |
 | --- | --- |
@@ -22,7 +22,7 @@ A scan of the 42 production C++ headers of the current Logging feature branch fo
 
 **EDP-Serial is NOT a direct Logging source dependency.** The optional cross-domain flow is `EDP-Serial → EDP-Logging` when the Serial caller imports its frame pump. EDP-Mesh is not needed for local Logging; qualified synchronized Clock evidence can be supplied by an application separately.
 
-## Current revision baseline of directly relevant owners
+## 2 November 2026 — original direct owner snapshot
 
 The following refs were read from GitHub branch listings and their latest commits on **2 November 2026**, selecting the branch with the latest committer timestamp among published branches for each repository. Manifest and source reads on the specified ref were used for owner and activation analysis. A branch label is not a release tag.
 
@@ -49,7 +49,7 @@ The following refs were read from GitHub branch listings and their latest commit
 | EDP-BoundedTypes | `main` | `1992b515b9a2` |
 | EDP-BoundedTopology | `main` | `362042c3916d` |
 
-## Manifest and owner conclusions
+## 2 November 2026 — original manifest and owner conclusions
 
 1. **Branch selection is observable and consequential.** EDP-Serial and EDP-Serial-ESP-IDF have their operative source on `feature/logging-v1`; their `main` branches contain only LICENSE and .gitignore. EDP-Serial-Arduino is a stub on `main`. Do not promise these capabilities from `main` or fabricate an Arduino concrete provider in Logging.
 2. **Some manifests refer to earlier `main` owners.** EDP-Serialisation's operative feature manifest lists EDP-Memory at `#main`, while Logging's native optional Memory path was validated against its newer `feature/logging-v1`. EDP-Threading's feature manifest similarly references Clock and Memory `#main`, not all branches used by the Logging test appliance. Those are actual transitive branch-selection differences; an application requiring the feature-specific contracts must explicitly pin compatible sources. Do not update cross-repository manifests without a deliberate consumer-compatibility review.
@@ -58,7 +58,7 @@ The following refs were read from GitHub branch listings and their latest commit
 5. **Concrete platform activation is app-specific.** EDP-Platform-ESP-IDF's latest `mesh_v1` manifest also imports EDP-Security and Mesh-era Clock; using it indiscriminately in a no-Mesh Logging build could pull unnecessary requirements. Application Bootstrap chooses the correct Platform and Threading provider profile rather than inheriting every latest provider feature.
 6. **Reverse dependency direction was checked.** An offline mirror-source grep across 37 EDP repositories found one non-Logging direct import of Logging: EDP-Serial's optional frame pump. The mirror inventory can lag GitHub (notably Logging and Serialisation), so this is qualified evidence only; the EDP-Serial import and its branch SHA were separately verified from current GitHub source.
 
-## Integration tests and unqualified boundaries
+## 2 November 2026 — original integration tests and boundaries
 
 The optional Serial EDLG consumer and ESP-IDF concrete provider compiled and passed **8 GCC/Clang host executions** on 2 November 2026 (`20261102T103854-7cde01e7`). Earlier Logging GCC/Clang, 30,000-record two-run WROOM and true relay PowerLoss evidence remains scoped to the exact Bootstrap/provider revisions in [Logging Qualification Status](LOGGING-QUALIFICATION-STATUS.MD). The Serial test is not a new physical TX-wire qualification and cannot be used to guarantee Arduino output.
 

@@ -1,9 +1,10 @@
-# Record production and bounded single-sink drain (partial G1/G8/G10)
+# Record production and bounded sink drain
 
-This feature-only, header-only implementation introduces RecordProduction.hpp.
-This generic producer API is NOT a governed canonical LogRecord. The permanent
-EDP-System LogRecord TypeIdentifier has not been issued and a test-only positional
-CBOR array must never be decoded as a governed production LogRecord.
+`logging/RecordProduction.hpp` composes the queue, source lease and sink
+lifecycle for a caller-supplied source record. The governed
+[typed LogRecord](G4-GENERATED-WHOLE-RECORD.MD) and its generated projection
+provide the canonical production schema. The positional array used by the
+original G1 firmware is a separate fixture payload.
 
 ## Dependency direction
 
@@ -29,9 +30,9 @@ caller-owned; Bootstrap must not tear down Memory prematurely.
 
 ## Limits and tests
 
-Full universal canonical LogRecord fields 0..14, published generated schema,
-multi-sink ownership, concrete worker, EDP-Serial/Persistence bindings, power-cut
-retention/recovery and the EDP-System governed root identity remain OPEN.
+The generic producer delegates record schema, sink transport and durability to
+the selected composition. See the [G1–G15 matrix](ACCEPTANCE-G1-G15.MD) for
+exact generated-record, multi-sink, physical Serial and EDLS PowerLoss scope.
 
 Native GCC and Clang tests reuse actual Memory ObjectPool, Threading wake,
 BoundedTopology transactional FIFO and local Clock. Target ESP32 HIL additionally
@@ -39,7 +40,7 @@ serialises a TEST-ONLY positional array [attempt, monotonic, value] through
 EDP-Serialisation, frames with canonical EDLG/CRC, emits UART proof and confirms
 source lease reclamation. This does not imply full G1-G15 qualification.
 
-## Bounded synchronous multi-sink submission (partial G1/G10)
+## Bounded synchronous multi-sink submission
 
 DrainOneRecordToSinks reuses the existing one-and-only-one source claim
 and native EDP-Memory reclamation through DrainOneRecord. It invokes two

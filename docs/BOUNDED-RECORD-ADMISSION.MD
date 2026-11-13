@@ -1,6 +1,6 @@
 # Composed bounded record admission — opt-in G1
 
-**Branch:** feature/logging-v1. **Package:** 0.1.0. **Status:** tested partial admission composition, not a complete Logging producer or runtime.
+This optional admission composition is available on `main` in the 0.1.0 development baseline. Its scope is queue and source lease acquisition.
 
 ## Purpose and ownership
 
@@ -18,7 +18,13 @@ RecordAdmissionOutcome contains Status, Queue, Memory, Release, MemoryAttempted,
 
 ## Resource and safety limits
 
-No dynamic allocation is introduced by this optional composition. The queue, producers, Threading wake slots and Memory pool remain statically bounded by Bootstrap profiles. Native finite EDP-Memory ObjectPool waiter safety is still an independent defect (EDP-Memory#16); this composition ONLY calls EDP-Memory NoWait. No ISR safety guarantee. Direct producer-to-LogRecord capture, stable governed root TypeIdentifier, cross-revision coherent Clock/Mesh, downstream sinks and physical concurrency/HIL qualification are not yet implemented. These semantics should not be presented as production-ready or full G1 closure.
+Bootstrap fixes the queue, producer, Threading wake-slot and Memory pool
+bounds. This ordinary-context path uses the Memory NoWait acquisition contract.
+Direct native blocked-waiter relock behaviour is tracked separately in
+[Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16).
+The [record producer](RECORD-PRODUCTION-OWNERSHIP.MD) composes this path with
+source capture, commit and sink service. Physical results below apply to
+the named concurrency and deadline profiles.
 
 ## Tests
 
@@ -26,7 +32,7 @@ From EDP-Logging, with six exact pinned abstract EDP siblings: CXX=g++ bash test
 
 ## Producer-slot authority and independent publication health
 
-The lifecycle coordinator's new IsValidProducerSlot(slot) checks the exclusive producer range and rejects the dedicated shutdown drainer slot (or any out-of-range value) **before** a queue slot is claimed or a Threading WaitUntil is attempted. InvalidProducerSlot (strong enum value 11) leaves all caller-owned Queue and Memory state unchanged. RecordAdmissionOutcome also includes the independent WakePublication status: the original AdmissionWakePublicationResult produced on an actual Memory grant is retained even if the returned RecordAdmissionStatus is Admitted. A successful reservation with a failed producer wake is not a silently healthy operation; Bootstrap must respond to that provider failure. When both a native Memory release and Queue abort fail, ReleaseUnconfirmed remains the top-level ownership-uncertainty status and Queue carries the second failure. Tests include genuine Memory grants with an injected Threading wake failure and invalid use of the reserved shutdown slot. This remains incomplete G1, not finished physical qualification.
+The lifecycle coordinator's new IsValidProducerSlot(slot) checks the exclusive producer range and rejects the dedicated shutdown drainer slot (or any out-of-range value) **before** a queue slot is claimed or a Threading WaitUntil is attempted. InvalidProducerSlot (strong enum value 11) leaves all caller-owned Queue and Memory state unchanged. RecordAdmissionOutcome also includes the independent WakePublication status: the original AdmissionWakePublicationResult produced on an actual Memory grant is retained even if the returned RecordAdmissionStatus is Admitted. A successful reservation with a failed producer wake is not a silently healthy operation; Bootstrap must respond to that provider failure. When both a native Memory release and Queue abort fail, ReleaseUnconfirmed remains the top-level ownership-uncertainty status and Queue carries the second failure. Tests include genuine Memory grants with an injected Threading wake failure and invalid use of the reserved shutdown slot.
 
 
 ## 2026-10-19 — physical full-queue deadline evidence
