@@ -368,7 +368,10 @@ namespace ESPressio::Logging {
         header.Generation = result.Generation;
         header.DeviceIdentifier = deviceIdentifier;
         header.RuntimeIncarnation = runtimeIncarnation;
-        if (WriteEdlsHeader(header, expected) != EdlsHeaderStatus::Succeeded) {
+        if (WriteEdlsHeader(
+            header,
+            expected
+        ) != EdlsHeaderStatus::Succeeded) {
             result.Status = EdlsRollingStatus::InvalidIdentityOrFrame;
             return result;
         }
@@ -830,7 +833,10 @@ namespace ESPressio::Logging {
         static_assert(ESPressio::Persistence::Detail::HasMandatoryFileStorageOperations<TStorage>);
 
         EdlsProtectedRollingOutcome<TPhysicalSlots> result{};
-        if (Detail::DoEdlgByteRangesOverlap(completeEdlg, scratch)) {
+        if (Detail::DoEdlgByteRangesOverlap(
+            completeEdlg,
+            scratch
+        )) {
             result.Status = EdlsProtectedRollingStatus::InvalidFrame;
             return result;
         }

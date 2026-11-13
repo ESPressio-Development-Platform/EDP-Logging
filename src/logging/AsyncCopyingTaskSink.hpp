@@ -93,7 +93,10 @@ namespace ESPressio::Logging {
             const auto bytes = std::span<const std::byte>(
                 Payload->Bytes.data(),
                 Payload->Used);
-            return (*Sink)(TCodec, bytes);
+            return (*Sink)(
+                TCodec,
+                bytes
+            );
         }
     };
 
@@ -264,7 +267,10 @@ namespace ESPressio::Logging {
         RecordSinkSubmission operator()(
             EdlgCodec codec,
             std::span<const std::byte> source) noexcept {
-            const auto result = Submit(codec, source);
+            const auto result = Submit(
+                codec,
+                source
+            );
             if (result == AsyncSinkAdmissionStatus::Queued) {
                 return RecordSinkSubmission::Accepted;
             }

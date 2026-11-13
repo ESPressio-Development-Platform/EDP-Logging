@@ -151,7 +151,10 @@ namespace ESPressio::Logging {
             return {EdlsSlotCondition::ProviderFailure};
         }
         EdlsHeader header{};
-        if (ReadEdlsHeader(headerBytes, header) != EdlsHeaderStatus::Succeeded) {
+        if (ReadEdlsHeader(
+            headerBytes,
+            header
+        ) != EdlsHeaderStatus::Succeeded) {
             return {EdlsSlotCondition::InvalidHeader};
         }
         if (header.Slot != expectedSlot) {

@@ -92,7 +92,10 @@ namespace ESPressio::Logging {
             if constexpr (HasOwnerCanonicalRepresentation<TValue>) {
                 using Wire = GeneratedPositionalWireTypeOf<TValue>;
                 const auto status =
-                    Bounded::TypeConversionAdapter<TValue, Wire>::Convert(semantic, wire);
+                    Bounded::TypeConversionAdapter<TValue, Wire>::Convert(
+                        semantic,
+                        wire
+                    );
                 return Bounded::IsTypeConversionSuccessful<TValue, Wire>(status)
                            ? GeneratedValueConversionResult::Succeeded
                            : GeneratedValueConversionResult::OwnerRejected;

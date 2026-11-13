@@ -307,7 +307,10 @@ namespace ESPressio::Logging {
 
             const auto data =
                 std::bit_cast<std::array<std::byte, sizeof(Value)>>(value);
-            return Store(kind, data);
+            return Store(
+                kind,
+                data
+            );
         }
 
         /// Validates strict canonical UTF-8 (including rejection of embedded NUL)

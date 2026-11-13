@@ -70,7 +70,12 @@ namespace ESPressio::Logging {
         /// Selects application-owned independent PowerLoss-atomic key slots.
         explicit PowerLossEdlsJournal(
             TStorage &storage,
-            const std::array<ESPressio::Persistence::KeyView, TSlots> &keys) noexcept : snapshots_(storage, keys) {}
+            const std::array<ESPressio::Persistence::KeyView, TSlots> &keys
+        ) noexcept :
+            snapshots_(
+                storage,
+                keys
+            ) {}
 
         /// Inspects the bounded retention window without mutating storage.
         /// Discontinuous generations or malformed physical ordering fail

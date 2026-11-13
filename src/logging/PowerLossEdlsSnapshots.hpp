@@ -191,7 +191,10 @@ namespace ESPressio::Logging {
             std::array<std::byte, TMaximumValueBytes> buffer{};
             bool degraded = false;
             for (std::size_t i = 0U; i < TSlots; ++i) {
-                const auto slot = ReadSlot(i, buffer);
+                const auto slot = ReadSlot(
+                    i,
+                    buffer
+                );
                 result.SlotStatus[i] = slot.Status;
                 if (slot.Status == DurableEdlsStatus::ProviderFailure) {
                     result.Status = DurableEdlsStatus::ProviderFailure;
@@ -376,7 +379,10 @@ namespace ESPressio::Logging {
             result.Slot = target;
             result.Generation = header.Generation;
             std::array<std::byte, TMaximumValueBytes> bytes{};
-            if (WriteEdlsHeader(header, bytes) != EdlsHeaderStatus::Succeeded) {
+            if (WriteEdlsHeader(
+                header,
+                bytes
+            ) != EdlsHeaderStatus::Succeeded) {
                 result.Status = DurableEdlsStatus::InvalidRecord;
                 return result;
             }
@@ -390,7 +396,10 @@ namespace ESPressio::Logging {
                 return result;
             }
             std::array<std::byte, TMaximumValueBytes> reread{};
-            const auto stored = ReadSlot(target, reread);
+            const auto stored = ReadSlot(
+                target,
+                reread
+            );
             if (stored.Status != DurableEdlsStatus::Clean ||
                 stored.Header.Generation != header.Generation ||
                 stored.Header.DeviceIdentifier != identity ||

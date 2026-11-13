@@ -118,7 +118,10 @@ namespace ESPressio::Logging {
         }
         // Archive inspection reuses caller scratch before successor assembly.
         // A frame that overlaps any part of that workspace cannot be preserved.
-        if (Detail::DoEdlgByteRangesOverlap(completeEdlg, callerScratch)) {
+        if (Detail::DoEdlgByteRangesOverlap(
+            completeEdlg,
+            callerScratch
+        )) {
             outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }
@@ -208,7 +211,10 @@ namespace ESPressio::Logging {
         // The checked archive scan is complete before this scratch is
         // reused for immutable successor assembly; there is NO live borrow.
         auto buffer = callerScratch.first(EdlsHeaderBytes + completeEdlg.size() + sealBytes);
-        if (WriteEdlsHeader(header, buffer) != EdlsHeaderStatus::Succeeded) {
+        if (WriteEdlsHeader(
+            header,
+            buffer
+        ) != EdlsHeaderStatus::Succeeded) {
             outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }

@@ -54,7 +54,10 @@ namespace ESPressio::Logging {
             return EdlgFrameWriteResult::InsufficientCapacity;
         }
 
-        if (Detail::DoEdlgByteRangesOverlap(payload, output)) {
+        if (Detail::DoEdlgByteRangesOverlap(
+            payload,
+            output
+        )) {
             return EdlgFrameWriteResult::InvalidPayload;
         }
 

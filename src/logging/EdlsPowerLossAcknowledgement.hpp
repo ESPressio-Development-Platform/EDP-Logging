@@ -196,7 +196,10 @@ namespace ESPressio::Logging {
         [[nodiscard]] EdlsAcknowledgedObservation PublishFrameSequence(
             std::span<const std::byte> completeEdlg,
             std::span<std::byte> scratch) noexcept {
-            if (Detail::DoEdlgByteRangesOverlap(completeEdlg, scratch)) {
+            if (Detail::DoEdlgByteRangesOverlap(
+                completeEdlg,
+                scratch
+            )) {
                 return {EdlsAcknowledgedStatus::AliasedFrameWorkspace};
             }
             // Refuse before recovery or any provider mutation. This bound

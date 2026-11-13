@@ -214,7 +214,10 @@ namespace ESPressio::Logging::Detail {
         }
         static constexpr ResultType Convert(
             const TSemantic &source, TWire &wire) noexcept {
-            return LogRecordScalarRepresentation<TSemantic, TWire>::To(source, wire);
+            return LogRecordScalarRepresentation<TSemantic, TWire>::To(
+                source,
+                wire
+            );
         }
     };
     /// Adapts the wire-to-semantic mapping to the BoundedTypes conversion protocol.
@@ -230,7 +233,10 @@ namespace ESPressio::Logging::Detail {
         }
         static constexpr ResultType Convert(
             const TWire &wire, TSemantic &source) noexcept {
-            return LogRecordScalarRepresentation<TSemantic, TWire>::From(wire, source);
+            return LogRecordScalarRepresentation<TSemantic, TWire>::From(
+                wire,
+                source
+            );
         }
     };
 } // namespace ESPressio::Logging::Detail

@@ -183,15 +183,26 @@ namespace ESPressio::Logging {
             payload->Used = encoded.Written;
             outcome.EncodedBytes = encoded.Written;
             const auto view = std::span<const std::byte>(
-                payload->Bytes.data(), payload->Used
+                payload->Bytes.data(),
+                payload->Used
             );
             std::size_t index = 0U;
             const auto submit = [&](auto& sink) noexcept {
-                static_assert(noexcept(sink(TCodec, view)));
+                static_assert(noexcept(sink(
+                    TCodec,
+                    view
+                )));
                 static_assert(std::is_same_v<
-                    decltype(sink(TCodec, view)), RecordSinkSubmission
+                    decltype(sink(
+                        TCodec,
+                        view
+                    )),
+                    RecordSinkSubmission
                 >);
-                const auto status = sink(TCodec, view);
+                const auto status = sink(
+                    TCodec,
+                    view
+                );
                 outcome.Submissions[index++] = status;
                 ++outcome.SinkInvocations;
                 outcome.Accepted += status == RecordSinkSubmission::Accepted ? 1U : 0U;

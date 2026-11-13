@@ -89,8 +89,14 @@ namespace ESPressio::Logging {
             using Value = std::remove_cv_t<TValue>;
             OwnedArgumentDescriptor descriptor{};
             std::span<const std::byte> bytes{};
-            if (source.GetDescriptor(index, descriptor) != OwnedArgumentAccessResult::Available ||
-                source.GetArgumentBytes(index, bytes) != OwnedArgumentAccessResult::Available) {
+            if (source.GetDescriptor(
+                index,
+                descriptor
+            ) != OwnedArgumentAccessResult::Available ||
+                source.GetArgumentBytes(
+                    index,
+                    bytes
+                ) != OwnedArgumentAccessResult::Available) {
                 return OwnedPositionalReencodingStatus::SourceUnavailable;
             }
             if (descriptor.Kind != DiagnosticArgumentKindFor<OwnedArgumentKind, Value>()) {
