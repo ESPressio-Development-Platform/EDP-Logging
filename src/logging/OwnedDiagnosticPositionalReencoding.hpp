@@ -16,33 +16,55 @@
 
 namespace ESPressio::Logging {
 
+    /// Reports the first source or encoder stage that declined the value.
     enum class OwnedPositionalReencodingStatus : std::uint8_t {
+        /// All arguments were reconstructed and the owner encoder succeeded.
         Succeeded = 0U,
+        /// Source count differs from the generated signature.
         CountMismatch = 1U,
+        /// The source descriptor kind differs from the generated position kind.
         KindMismatch = 2U,
+        /// The descriptor or its bounded byte view could not be obtained.
         SourceUnavailable = 3U,
+        /// The source byte extent differs from the descriptor or exact type width.
         ValueWidthMismatch = 4U,
+        /// The source bytes do not form a valid owner value.
         OwnerValueRejected = 5U,
+        /// The owner encoder declined the fully reconstructed positional value.
         EncoderRejected = 6U
     };
 
+    /// Preserves the result from each applicable stage of positional encoding.
     struct OwnedPositionalReencodingOutcome final {
+        // Source reconstruction and owner encoding evidence.
+
+        /// Overall disposition of the source-to-encoding operation.
         OwnedPositionalReencodingStatus Status{
             OwnedPositionalReencodingStatus::CountMismatch};
+        /// Actual count on CountMismatch, otherwise the first refused source index.
         std::size_t FirstFailedArgument{0U};
+        /// Owner result, meaningful only when the encoder was invoked.
         ESPressio::Serialisation::SerialisationResult Encoding{};
+
+        // Result inspection.
+
+        /// Confirms that source reconstruction and owner encoding succeeded.
         [[nodiscard]] bool IsSuccessful() const noexcept {
             return Status == OwnedPositionalReencodingStatus::Succeeded &&
                    Encoding.IsSuccessful();
         }
     };
 
-    // Bootstrap supplies the complete fixed storage, rather than letting
-    // Logging allocate a hidden stack/heap tuple of heterogeneous values.
+    /// Caller-owned fixed workspace with an optional value per schema position.
+    /// @tparam TValues Exact ordered owner value types that determine storage size.
     template <class... TValues>
     using OwnedPositionalScratch = std::tuple<std::optional<TValues>...>;
 
     namespace Detail {
+
+        /// Reconstruct a native scalar from a width-validated source span.
+        /// @tparam TValue Exact scalar target type used to interpret the native bits.
+        /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
         template <class TValue, class TByteOperationsProvider>
         [[nodiscard]] TValue LoadOwnedNativeScalar(
             std::span<const std::byte> bytes) noexcept {
@@ -54,6 +76,11 @@ namespace ESPressio::Logging {
             return std::bit_cast<TValue>(storage);
         }
 
+        /// Validate one source descriptor and construct the corresponding scratch value.
+        /// @tparam TValue Exact type required at the generated position.
+        /// @tparam N Number of argument descriptors the source can hold.
+        /// @tparam B Byte capacity of the source arena.
+        /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
         template <class TValue, std::size_t N, std::size_t B, class TByteOperationsProvider>
         [[nodiscard]] OwnedPositionalReencodingStatus LoadOwnedPosition(
             const OwnedDiagnosticArguments<N, B, TByteOperationsProvider> &source,
@@ -131,9 +158,15 @@ namespace ESPressio::Logging {
             }
             return OwnedPositionalReencodingStatus::Succeeded;
         }
-    } // namespace Detail
 
-    namespace Detail {
+        /// Reconstruct all source positions, encode once and clear caller scratch.
+        /// @tparam TJson True selects JSON and false selects CBOR.
+        /// @tparam TGeneratedSchema Generated message schema governing the signature.
+        /// @tparam TValues Exact ordered owner value types.
+        /// @tparam N Number of argument descriptors the source can hold.
+        /// @tparam B Byte capacity of the source arena.
+        /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
+        /// @tparam TIndices Compile-time sequence of generated positional indices.
         template <
             bool TJson,
             class TGeneratedSchema,
@@ -192,12 +225,21 @@ namespace ESPressio::Logging {
                 outcome.Status = OwnedPositionalReencodingStatus::EncoderRejected;
             return outcome;
         }
-    } // namespace Detail
+
+    } // ESPressio::Logging::Detail
 
     /// Rehydrate a private source arena through its exact GENERATED message
     /// signature, then emit canonical CBOR via EDP-Serialisation. The caller
     /// owns all bounded rehydration scratch and destination storage.
-    /// The scratch is cleared on EVERY path, including an encode refusal.
+    /// The scratch is cleared on every path, including an encoder refusal.
+    /// @tparam TGeneratedSchema Generated message schema governing the signature.
+    /// @tparam TValues Exact ordered owner value types.
+    /// @tparam N Number of argument descriptors the source can hold.
+    /// @tparam B Byte capacity of the source arena.
+    /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
+    /// @param source Immutable owned argument arena.
+    /// @param destination Caller-owned output span.
+    /// @param scratch Exclusive caller-owned workspace cleared on return.
     template <
         class TGeneratedSchema,
         class... TValues,
@@ -210,11 +252,23 @@ namespace ESPressio::Logging {
         std::span<std::byte> destination,
         OwnedPositionalScratch<TValues...> &scratch) noexcept {
         return Detail::EncodeOwnedImpl<false, TGeneratedSchema, TValues...>(
-            source, destination, scratch, std::index_sequence_for<TValues...>{});
+            source,
+            destination,
+            scratch,
+            std::index_sequence_for<TValues...>{}
+        );
     }
 
     /// The same ownership/reconstruction contract using the existing
     /// EDP-Serialisation canonical positional JSON encoder.
+    /// @tparam TGeneratedSchema Generated message schema governing the signature.
+    /// @tparam TValues Exact ordered owner value types.
+    /// @tparam N Number of argument descriptors the source can hold.
+    /// @tparam B Byte capacity of the source arena.
+    /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
+    /// @param source Immutable owned argument arena.
+    /// @param destination Caller-owned output span.
+    /// @param scratch Exclusive caller-owned workspace cleared on return.
     template <
         class TGeneratedSchema,
         class... TValues,
@@ -227,7 +281,11 @@ namespace ESPressio::Logging {
         std::span<std::byte> destination,
         OwnedPositionalScratch<TValues...> &scratch) noexcept {
         return Detail::EncodeOwnedImpl<true, TGeneratedSchema, TValues...>(
-            source, destination, scratch, std::index_sequence_for<TValues...>{});
+            source,
+            destination,
+            scratch,
+            std::index_sequence_for<TValues...>{}
+        );
     }
 
 } // namespace ESPressio::Logging

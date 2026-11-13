@@ -12,13 +12,13 @@
 
 **Tests:** `DiagnosticOwnedStrongGeneratedTests.cpp`, `DiagnosticBoundedGeneratedContractTests.cpp`, `DiagnosticOwnedMixedGeneratedTests.cpp`, executed by their owner generated-schema runners with GCC, Clang and UBSan. Do not infer completed canonical fifteen-field LogRecord root emission, historical decoder, asynchronous sink fork/join or genuine physical PowerLoss from this helper.
 
-## G3/G5 replay runner coverage correction (2026-10-23)
+## Historical G3/G5 replay runner coverage correction (2026-10-23)
 
-The generated-contract runner now builds **and executes** both the
+At this checkpoint the generated-contract runner built **and executes** both the
 owner scalar replay compatibility facade test and the heterogeneous
 generated-schema rehydration test; previously the scalar test source
-was absent and the mixed-type test was only compiled. The new facade
-fixture validates direct CBOR/JSON equivalence and typed negative
+was absent and the mixed-type test was only compiled. The facade
+fixture validated direct CBOR/JSON equivalence and typed negative
 outcomes without any external argument borrowing or new wire tags.
 See the normative owned-positional-reencoding document.
 
@@ -28,11 +28,11 @@ Source-side positional rehydration now receives the compile-time `TByteOperation
 
 ## 12 November 2026 — complete source-led declaration, typed results and rehydration
 
-[Exact reviewed C++ header](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/OwnedDiagnosticPositionalReencoding.hpp). This is a **PUBLIC opt-in canonical Field13 encoder** plus explicitly **INTERNAL `Detail` conversion helpers**. It imports the existing source-owned `OwnedDiagnosticArguments` and the exact EDP-Localisation/EDP-Serialisation owner contract. Its native source descriptors and scratch do not become portable CBOR/JSON tags or a second codec.
+[Current C++ header](../src/logging/OwnedDiagnosticPositionalReencoding.hpp). This is a **PUBLIC opt-in canonical Field13 encoder** plus explicitly **INTERNAL `Detail` conversion helpers**. It imports the existing source-owned `OwnedDiagnosticArguments` and the exact EDP-Localisation/EDP-Serialisation owner contract. Its native source descriptors and scratch do not become portable CBOR/JSON tags or a second codec.
 
 **`OwnedPositionalReencodingStatus : uint8_t`:** **Succeeded (0)**, every declared source value was reconstructed and the existing encoder accepted it; **CountMismatch (1)**, actual source argument count differs from generated positional template arity; **KindMismatch (2)**, stored private `OwnedArgumentKind` conflicts with the owner-qualified generated C++ `TValue`; **SourceUnavailable (3)**, requested `GetDescriptor`/`GetArgumentBytes` cannot present a complete, still-owned source position; **ValueWidthMismatch (4)**, copied source bytes do not match descriptor size or the exact fixed-width Type; **OwnerValueRejected (5)**, copied bool outside 0/1, invalid issued System identity or invalid bounded String/Bytes reconstruction; **EncoderRejected (6)**, all input positions reconstructed but the canonical EDP-Serialisation encoder declined the requested output. These are typed *source and serialization* statuses, not native durability or UART receipts.
 
-`OwnedPositionalReencodingOutcome` has **`Status : OwnedPositionalReencodingStatus`** (default CountMismatch), **`FirstFailedArgument : size_t`** (zero-based source parameter index for first known refusal, default zero) and **`Encoding : ESPressio::Serialisation::SerialisationResult`** (the native owner result, meaningful after actually attempting output). **`IsSuccessful() const noexcept`** returns true only when high-level Status is Succeeded **and** the native Encoding result confirms success. A source count/kind error must not be reported as valid because output happened to contain old bytes.
+`OwnedPositionalReencodingOutcome` has **`Status : OwnedPositionalReencodingStatus`** (default CountMismatch), **`FirstFailedArgument : size_t`** (actual source count on CountMismatch, zero-based source index on per-position refusal, default zero) and **`Encoding : ESPressio::Serialisation::SerialisationResult`** (the native owner result, meaningful after actually attempting output). **`IsSuccessful() const noexcept`** returns true only when high-level Status is Succeeded **and** the native Encoding result confirms success. A source count/kind error must not be reported as valid because output happened to contain old bytes.
 
 **`OwnedPositionalScratch<TValues...>`** is the PUBLIC caller-owned alias `tuple<optional<TValues>...>` with exactly one finite optional slot per generated parameter. Bootstrap provides and budgets this storage. It is explicitly **cleared at entry and on every exit path**, including source mismatch and native encoder rejection, so no constructed strong Type or transient borrowed span leaks between records. Its capacity/size are determined entirely by the exact template C++ Types, never by an unbounded runtime registry.
 
@@ -45,3 +45,9 @@ Source-side positional rehydration now receives the compile-time `TByteOperation
 **Public `EncodeOwnedDiagnosticArgumentsCbor<TGeneratedSchema,TValues...,N,B,TByteOperationsProvider>(source,destination,scratch) noexcept`** is the explicit canonical CBOR Field13 writer; **public `EncodeOwnedDiagnosticArgumentsJson<TGeneratedSchema,TValues...,N,B,TByteOperationsProvider>(source,destination,scratch) noexcept`** is the explicit canonical JSON Field13 writer. `TGeneratedSchema` is the actual generated declared message and source diagnostic fingerprint owner, `TValues...` the exact governing ordered Types, `N,B` the source arena's immutable record argument-count/byte capacities, and `TByteOperationsProvider` the already selected Memory copy owner. Both borrow source, output span and caller scratch only for their synchronous call, select the same typed reconstruction algorithm with a compile-time codec flag, and return `OwnedPositionalReencodingOutcome`. Neither writes a full LogRecord TypedEnvelope, publishes a durable EDLS generation, chooses storage or creates a Task/sink. Its destination bytes' partial-mutation rules remain those of EDP-Serialisation's actual canonical owner; callers must check the complete typed result and never treat a rejected buffer as valid.
 
 This helper's current opt-in Full G3/5 replay and generated-schema/strong owner checks have GCC/Clang/UBSan test receipts. Actual full 15-field record and strict NVS-ACK delivery are owned by later `GeneratedLogRecordWireProjection` and `GeneratedEdlsTaskAdapters` composition and tested separately under the finite WROOM profile; see [owned representation](../docs/OWNED-DIAGNOSTIC-POSITIONAL-REENCODING.MD), [diagnostic schema](Reference-logging-DiagnosticArgumentEncoding), [typed projection](Reference-logging-GeneratedLogRecordWireProjection) and [G1–G15](../docs/ACCEPTANCE-G1-G15.MD). The older text above that described this helper as insufficient evidence for a *then-future* full pipeline is historical, not current release capability.
+
+
+The current runner exercises the same scalar CBOR and JSON values through
+the explicit caller-scratch API in `OwnedDiagnosticPositionalReencodingTests.cpp`.
+It checks successful output, count and kind refusal, insufficient destination
+capacity and empty scratch on return.

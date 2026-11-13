@@ -28,7 +28,7 @@ surface failed before exercising the source-compatible
 but did not execute, its heterogeneous generated DeviceIdentifier /
 bool / u16 / f32 / f64 source-to-CBOR/JSON rehydration test.
 
-The newly checked-in `OwnedDiagnosticReplayTests.cpp` uses the real
+The original `OwnedDiagnosticReplayTests.cpp` uses the real
 EDP-Localisation fixture's generated message schema (1/0/3), stores
 owned u16/bool arguments, and verifies canonical CBOR and JSON
 positional output, count mismatch, descriptor-kind mismatch and
@@ -42,3 +42,13 @@ These tests verify owner-qualified source rehydration and canonical
 representation only. They do **not** issue new wire field identities,
 change D1–D13, establish historical schema authenticity, or prove
 product Persistence durability. All versions stay 0.1.0.
+
+## 2026-11-13 — caller-owned scratch migration
+
+Use `EncodeOwnedDiagnosticArgumentsCbor<Schema>(source, destination, scratch)`
+or the equivalent JSON entry point. The caller supplies a typed
+`OwnedPositionalScratch<TValues...>`. Read the encoder's byte count from
+`result.Encoding.BytesWritten` after a successful call. The legacy
+scalar-replay header and its status mapping were removed. The renamed
+generated positional test exercises the original wire and refusal cases
+through the current typed result and checks that scratch is cleared.

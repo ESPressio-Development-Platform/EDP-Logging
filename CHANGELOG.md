@@ -17,6 +17,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Corrected and clarified
 
+- Diagnostic source migration: use `IsDiagnosticSchemaMatching` for all generated argument signatures. For owned diagnostic values, call `EncodeOwnedDiagnosticArgumentsCbor` or `EncodeOwnedDiagnosticArgumentsJson` with an explicit `OwnedPositionalScratch`. Inspect the typed outcome and its `Encoding` member. The scalar-named predicate alias and stack-scratch replay facade were removed.
+
 - Source compatibility: `TransactionalRecordQueue::Borrow(Ticket)` now returns `BorrowResult`. Check `Status()` and use `Lease()` on success. This exposes contention, invalid tickets, incompatible slot phases and integrity failures individually.
 
 - Canonical owner-boundary and dependency pins: generated Localisation and Serialisation contracts, Clock main, Memory NoWait, Threading ordinary-context bounded coordination, Portable narrow byte/resource providers and Persistence abstract FileStorage/KeyValueStorage remain in their respective owning repositories rather than being duplicated inside Logging.
@@ -42,4 +44,4 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 - Optional **Serial frame pumping and ESP-IDF UART concretization** have separately versioned source branches in their owning EDP-Serial repositories. They are not dependencies of Logging's default or strict-ACK local profile. EDP-Serial-Arduino remains a deferred independent provider feature.
 - Network clock synchronization, arbitrary external historical text reconstruction, every MCU/profile or ISR logging sink, automatic filesystem repair and complete end-to-end application shutdown deadlines are not asserted.
 
-See the [current README](./README.MD), [dependency graph](./DEPENDENCY_GRAPH.MD) and [V2 qualification matrix](./docs/ACCEPTANCE-G1-G15.MD) for current implementation and limits. The published `main` was reconciled on 12 November 2026 with 83/83 host/native/downstream checks and 40 final Python tests. Re-review this changelog **before any future release tag**.
+See the [current README](./README.MD), [dependency graph](./DEPENDENCY_GRAPH.MD) and [V2 qualification matrix](./docs/ACCEPTANCE-G1-G15.MD) for current implementation and limits. The 13 November baseline `c80a80a` passed 68 GCC/Clang host runners and 40 Python tests. Separate receipts cover the nine demo builds and scoped physical WROOM checks. Re-review this changelog **before any future release tag**.

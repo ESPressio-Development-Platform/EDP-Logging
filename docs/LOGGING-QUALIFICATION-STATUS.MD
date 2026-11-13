@@ -160,3 +160,8 @@ admission shutdown and producer coordination. These are host checks. The
 strict LittleFS/NVS, GPIO17 PowerLoss and UART receipts above govern the
 physical scope. The complete V2 reference review remains tracked in
 [Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).
+
+The full host matrix on exact baseline `c80a80aae52362c79af1443bdf68897fca590d6c`
+completed in RPI400 run `20261113T110345-92db528b`. All 34 GCC and 34 Clang
+test runners passed, along with all 40 Python tests. The later diagnostic
+API migration has its own focused qualification receipt in the handoff.

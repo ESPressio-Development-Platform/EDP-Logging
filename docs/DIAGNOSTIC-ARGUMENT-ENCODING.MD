@@ -1,16 +1,25 @@
-# G3 governed scalar diagnostic argument adaptation (partial)
+# G3 governed diagnostic argument encoding
 
-**Source:** opt-in `logging/DiagnosticArgumentEncoding.hpp` on `feature/logging-v1`. EDP package versions remain `0.1.0`. This does NOT implement the governed full LogRecord Typed Envelope or its root TypeIdentifier.
+The optional [diagnostic argument adapter](../src/logging/DiagnosticArgumentEncoding.hpp)
+uses the EDP-Localisation-generated `DiagnosticMessageSchema<D,S,I>`.
+`IsDiagnosticSchemaMatching<Schema, Types...>()` checks declaration, argument
+count and exact kind order. A C++ type outside the supported set fails at
+compile time. The supported set includes fixed-width scalars, [bounded strings,
+bytes and strong identifiers](DIAGNOSTIC-BOUNDED-ARGUMENTS.MD), and ClockEra
+when the caller imports the optional ClockEra adapter.
 
-The helper accepts the **EDP-Localisation-generated** `DiagnosticMessageSchema<D,S,I>` descriptor as its template Type. It inspects the authoritative generated `Declared`, `ArgumentCount`, and ordered `ArgumentKinds` against C++ argument Types and performs a compile-time `static_assert` before invoking the **EDP-Serialisation owner** `SerialisePositionalCbor/Json` methods. The result is always the standard `SerialisationResult` and exact canonical positional array; it never invents its own CBOR/JSON encoder, runtime Type registry, clock or dynamic allocation.
+`EncodeDiagnosticArgumentsCbor<Schema>` and `EncodeDiagnosticArgumentsJson<Schema>`
+require a matching schema and owner-certified EDP-Serialisation support for
+every value. They encode the Field13 positional value into a caller-owned
+span and return the owner result. The [generated wire projection](../wiki/Reference-logging-GeneratedLogRecordWireProjection.md)
+covers the full typed LogRecord. The optional argument adapter adds an
+EDP-Serialisation dependency.
 
-`IsScalarDiagnosticSchemaMatching<TGeneratedMessageSchema,TValues...>()` is a constexpr compile-time matcher for **only** the initial native scalar Types: `bool`, fixed-width signed and unsigned 8/16/32/64 integers, IEEE `float` and `double`. It refuses undeclared diagnostics, incorrect argument count and mismatched order/width (e.g. `uint32_t` cannot satisfy generated `Unsigned16`). The source uses the **generated** `DiagnosticParameterKind` enum type from `decltype(Schema::ArgumentKinds)::value_type` rather than copying the enum to Logging. The initial scalar host test has a descriptor-shape fixture mirroring EDP-Localisation output. A **separate checked-in integration test** (`tests/run-diagnostic-generated-contract-tests.sh`) invokes EDP-Localisation's **actual** generated-set compiler on its owner-maintained fixture, includes the real `GeneratedLocalisationContract.hpp`, instantiates `Fixture::Diagnostic::DiagnosticMessageSchema<1,0,3>`, checks positive and negative signatures at C++ compile time, and verifies exact CBOR/JSON output. This is genuine cross-repository generated-fixture interoperability, but the generated fixture remains a test catalogue, not a production-governed diagnostic catalogue.
-
-`EncodeDiagnosticArgumentsCbor<Schema>` and `EncodeDiagnosticArgumentsJson<Schema>` forward to EDP-Serialisation's newly introduced exact two-pass bounded positional codec, preserving caller-owned output no-partial-on-preflight-failure semantics, 64-bit exactness and f32/f64 distinctions. No default Logging umbrella import; this explicit feature adds a direct abstract dependency on `EDP-Serialisation` (and its pre-existing transitive owner graph) to the optional Logging profile. No Serialisation→Logging back-edge.
-
-**Deliberate gaps:** generated string/bytes and strong-Type parameters are not yet mapped or qualified; no runtime variable-argument variant; no generated profile-specific contract for EDP-System-governed LogRecord root, no ID/value Field alignment, no G2 real coherent timestamp provider, no FIFO/coordinator/sink/archive or physical HIL. A build using the helper with an unsupported C++ Type fails to compile, never silently coerces it.
-
-**Host evidence:** `tests/run-diagnostic-argument-tests.sh` reuses sibling EDP-Serialisation code pinned to `14861400aab862a828bdf20913c094ba7e1c7c4f`, with exact JSON/CBOR golden and schema compile-time assertions. RPI400 strict GCC/Clang PASS detached `20261016T075420-4cf97c7e`. An actual generated EDP-Localisation fixture and target-architecture smoke are still required before this adapter can be called fully qualified.
+`tests/run-diagnostic-argument-tests.sh` covers a generated-descriptor-shaped
+fixture and golden codec output. `tests/run-diagnostic-generated-contract-tests.sh`
+uses the actual EDP-Localisation generator and covers successful and
+compile-time-rejected signatures, both codecs and rehydration from owned
+source arguments. These tests use fixture catalogues.
 
 ## 2026-10-22 — re-encoding already-owned heterogeneous source values
 

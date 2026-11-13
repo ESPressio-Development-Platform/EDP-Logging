@@ -56,8 +56,8 @@ PY
     -o "$TEMP/contract"
 "$TEMP/contract"
 
-# Legacy scalar-replay entrypoint is now a facade over the one typed
-# source-rehydration owner; preserve original API and failure outcomes.
+# Rehydrate generated scalar arguments through caller-owned scratch and
+# exercise both owner codecs and their refusal paths.
 "${CXX:-c++}" -std=c++20 -Wall -Wextra -Wpedantic -Werror \
     -I"$ROOT/src" \
     -I"$TEMP/generated" \
@@ -70,7 +70,7 @@ PY
     -I"$WORKSPACE/EDP-Memory/src" \
     -I"$WORKSPACE/EDP-Platform/src" \
     -I"$WORKSPACE/EDP-Platform-Portable/src" \
-    "$ROOT/tests/OwnedDiagnosticReplayTests.cpp" \
+    "$ROOT/tests/OwnedDiagnosticPositionalReencodingTests.cpp" \
     -o "$TEMP/replay"
 "$TEMP/replay"
 

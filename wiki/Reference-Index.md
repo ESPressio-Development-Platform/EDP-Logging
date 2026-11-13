@@ -35,7 +35,6 @@ This repository-local Wiki index covers each maintained C++20 production header,
 - [logging/LogTemporalEvidence.hpp](Reference-logging-LogTemporalEvidence): owning declaration/source reference
 - [logging/OwnedDiagnosticArguments.hpp](Reference-logging-OwnedDiagnosticArguments): owning declaration/source reference
 - [logging/OwnedDiagnosticPositionalReencoding.hpp](Reference-logging-OwnedDiagnosticPositionalReencoding): owning declaration/source reference
-- [logging/OwnedDiagnosticReplay.hpp](Reference-logging-OwnedDiagnosticReplay): owning declaration/source reference
 - [logging/OwnedRepresentationFanout.hpp](Reference-logging-OwnedRepresentationFanout): owning declaration/source reference
 - [logging/PowerLossEdlsJournal.hpp](Reference-logging-PowerLossEdlsJournal): owning declaration/source reference
 - [logging/PowerLossEdlsSnapshots.hpp](Reference-logging-PowerLossEdlsSnapshots): owning declaration/source reference
