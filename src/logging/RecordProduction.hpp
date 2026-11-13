@@ -32,31 +32,50 @@ namespace ESPressio::Logging {
         CommitFailed = 9U
     };
 
+    /// Evidence for one attempt, bounded admission and queue publication.
+    /// @tparam TWidth Compile-time width of the allocated attempt ticket.
     template <AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
     struct RecordProductionOutcome final {
+        /// Overall disposition of the producer call.
         RecordProductionStatus Status{RecordProductionStatus::AdmissionFailed};
+        /// Ticket consumed for the attempt, if issuance occurred.
         AttemptSequence<TWidth> Attempt{};
+        /// Queue and Memory evidence from the admission stage.
         RecordAdmissionOutcome Admission{};
+        /// Commit disposition if queue publication was attempted.
         RecordQueueResult Commit{RecordQueueResult::Empty};
+        /// Indicates that the caller’s coherent occurrence sample was captured.
         bool TimeCaptured{false};
     };
 
-    // Bootstrap supplies a dedicated EDP-Threading ordinary-context mutex for
-    // the incarnation-wide attempt counter. Coherent time and all caller values
-    // are captured ONCE at producer entry, before sequencer mutex contention,
-    // Queue or Memory waits. Only the ticket must be issued under the mutex.
-    // Source records are constructed by EDP-Memory using
-    // (AttemptSequence, captured QualifiedLogTime, owned snapshot values...).
-    // This generic entry supports finite scalar/enum values, not pointer-bearing
-    // aggregate wrappers or spans that may retain a dangling external buffer.
-    // Richer diagnostic arguments require the generated owned LogRecord assembler
-    // before admission and must never be forwarded as live borrowed storage.
-    //
-    // On a failed Commit, the move-only Reservation remains with the caller; failed
-    // native releases are never silently treated as reclaimed. Caller must retain
-    // both scratch lease and Reservation until their ownership is resolved.
-    // This is a generic producer envelope, NOT the canonical governed LogRecord
-    // (which requires EDP-System's permanent TypeIdentifier).
+    /// Bootstrap supplies a dedicated EDP-Threading ordinary-context mutex for
+    /// the incarnation-wide attempt counter. Coherent time and all caller values
+    /// are captured ONCE at producer entry, before sequencer mutex contention,
+    /// Queue or Memory waits. Only the ticket must be issued under the mutex.
+    /// Source records are constructed by EDP-Memory using
+    /// (AttemptSequence, captured QualifiedLogTime, owned snapshot values...).
+    /// This generic entry supports finite scalar/enum values, not pointer-bearing
+    /// aggregate wrappers or spans that may retain a dangling external buffer.
+    /// Richer diagnostic arguments require the generated owned LogRecord assembler
+    /// before admission and must never be forwarded as live borrowed storage.
+    ///
+    /// On a failed Commit, the move-only Reservation remains with the caller; failed
+    /// native releases are never silently treated as reclaimed. Caller must retain
+    /// both scratch lease and Reservation until their ownership is resolved.
+    /// This is a generic producer envelope, NOT the canonical governed LogRecord
+    /// (which requires EDP-System's permanent TypeIdentifier).
+    /// @tparam TWidth Compile-time attempt-ticket width.
+    /// @tparam TMaximumQueueWakes Maximum queue wake retries within the caller deadline.
+    /// @tparam TMaximumMemoryWakes Maximum Memory wake retries within that deadline.
+    /// @tparam TSequencerMutex Ordinary Threading mutex that serializes ticket issuance.
+    /// @tparam TTemporalProvider Bootstrap-owned coherent occurrence-time provider.
+    /// @tparam TQueue Transactional queue that owns the stable source reservation.
+    /// @tparam TAdmissionCoordinator Owner of bounded Memory admission and release.
+    /// @tparam TWaitWakeProvider Threading provider for the producer's exclusive wait slot.
+    /// @tparam TObjectPool Existing Memory pool supplying source records.
+    /// @tparam TLease Move-only Memory source lease.
+    /// @tparam TStopPredicate Caller-provided cooperative stop predicate.
+    /// @tparam TArguments Source values captured before the first wait.
     template <AttemptSequenceWidth TWidth,
               std::size_t TMaximumQueueWakes,
               std::size_t TMaximumMemoryWakes,

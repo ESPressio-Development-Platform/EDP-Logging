@@ -28,22 +28,36 @@ namespace ESPressio::Logging {
         Committed = 10U
     };
 
+    /// Readback evidence for all slots of one bounded key-value journal.
+    /// @tparam TSlots Number of physical keys in the selected journal.
     template <std::size_t TSlots>
     struct DurableEdlsObservation final {
+        /// Disposition of the journal scan.
         DurableEdlsStatus Status{DurableEdlsStatus::ProviderFailure};
+        /// Index of the greatest verified generation or the slot-count sentinel.
         std::size_t NewestSlot{TSlots};
+        /// Newest verified generation or zero for an empty history.
         std::uint64_t Generation{0U};
+        /// Verified device identity of the journal.
         std::array<std::byte, 16U> Identity{};
+        /// Per-slot key read and validation result.
         std::array<DurableEdlsStatus, TSlots> SlotStatus{};
+        /// Per-slot generation observed after valid decoding.
         std::array<std::uint64_t, TSlots> SlotGenerations{};
     };
 
+    /// Native key store disposition and verified publication coordinates.
+    /// @tparam TSlots Number of physical keys and the unselected-slot sentinel.
     template <std::size_t TSlots>
     struct DurableEdlsCommitOutcome final {
+        /// Overall commit and readback result.
         DurableEdlsStatus Status{DurableEdlsStatus::StorageRejected};
+        /// Native KeyValueStorage result when invoked.
         ESPressio::Persistence::KeyValueStoreStatus Native{
             ESPressio::Persistence::KeyValueStoreStatus::NotReady};
+        /// Selected physical key or the slot-count sentinel.
         std::size_t Slot{TSlots};
+        /// Proposed generation or zero before selection.
         std::uint64_t Generation{0U};
     };
 
