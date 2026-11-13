@@ -92,17 +92,23 @@ namespace {
         TestQueue::Ticket a, b, consumed;
         assert(queue.Begin(first, a) == Result::Succeeded && first.IsEmpty());
         assert(queue.Begin(second, b) == Result::Succeeded && second.IsEmpty());
-        assert(queue.Borrow(a) && queue.Borrow(a)->Value == 11);
+        const auto reserved = queue.Borrow(a);
+        assert(reserved.Status() == Result::Succeeded && reserved.Lease()->Value == 11);
         assert(queue.Commit(b) == Result::Succeeded);
         assert(queue.Commit(a) == Result::Succeeded);
         assert(queue.Commit(a) == Result::WrongPhase);
+        const auto queued = queue.Borrow(a);
+        assert(queued.Status() == Result::WrongPhase && queued.Lease() == nullptr);
         assert(queue.Pop(consumed) == Result::Succeeded);
         assert(consumed.Slot == b.Slot && consumed.Generation == b.Generation);
-        assert(queue.Borrow(consumed)->Value == 22);
+        const auto firstClaim = queue.Borrow(consumed);
+        assert(firstClaim.Status() == Result::Succeeded && firstClaim.Lease()->Value == 22);
         assert(queue.Complete(consumed) == Result::Succeeded);
         assert(callbacks.Releases == 1 && callbacks.Publications == 2);
         assert(queue.Pop(consumed) == Result::Succeeded);
-        assert(consumed.Slot == a.Slot && queue.Borrow(consumed)->Value == 11);
+        assert(consumed.Slot == a.Slot);
+        const auto secondClaim = queue.Borrow(consumed);
+        assert(secondClaim.Status() == Result::Succeeded && secondClaim.Lease()->Value == 11);
         assert(queue.Complete(consumed) == Result::Succeeded);
         assert(callbacks.Releases == 2 && callbacks.Publications == 4);
         assert(queue.Pop(consumed) == Result::Empty);
@@ -123,6 +129,8 @@ namespace {
         assert(queue.Begin(third, later) == Result::Succeeded);
         assert(later.Slot == original.Slot);
         assert(later.Generation != original.Generation);
+        const auto stale = queue.Borrow(original);
+        assert(stale.Status() == Result::InvalidTicket && stale.Lease() == nullptr);
         assert(queue.Commit(original) == Result::InvalidTicket);
         assert(queue.Commit(later) == Result::Succeeded);
         assert(queue.Pop(out) == Result::Succeeded && out.Generation == later.Generation);
@@ -140,7 +148,8 @@ namespace {
         callbacks.FailRelease = true;
         assert(queue.Abort(ticket) == Result::ReleaseUnconfirmed);
         assert(callbacks.Releases == 1);
-        assert(queue.Borrow(ticket) == nullptr); // quarantined Retiring
+        const auto retiring = queue.Borrow(ticket);
+        assert(retiring.Status() == Result::WrongPhase && retiring.Lease() == nullptr);
         callbacks.FailRelease = false;
         callbacks.FailWake = true;
         assert(queue.Abort(ticket) == Result::ReleasedNotificationFailed);
@@ -161,12 +170,16 @@ namespace {
         assert(queue.Begin(lease, ticket) == Result::Succeeded);
         mutex.Busy = true;
         assert(queue.Commit(ticket) == Result::Busy);
+        const auto contended = queue.Borrow(ticket);
+        assert(contended.Status() == Result::Busy && contended.Lease() == nullptr);
         mutex.Busy = false;
         assert(queue.Commit(ticket) == Result::Succeeded);
         TestQueue::Ticket out;
         assert(queue.Pop(out) == Result::Succeeded);
         assert(queue.Complete(out) == Result::Succeeded);
         mutex.FailAcquire = true;
+        const auto failedAcquire = queue.Borrow(out);
+        assert(failedAcquire.Status() == Result::IntegrityFailure && failedAcquire.Lease() == nullptr);
         assert(queue.Pop(out) == Result::IntegrityFailure);
         assert(queue.IsIntegrityFailed());
     }
@@ -177,6 +190,8 @@ namespace {
         TestQueue queue(mutex, callbacks);
         TestQueue::Ticket empty;
         mutex.FailRelease = true;
+        const auto failedRelease = queue.Borrow(empty);
+        assert(failedRelease.Status() == Result::IntegrityFailure && failedRelease.Lease() == nullptr);
         assert(queue.Pop(empty) == Result::IntegrityFailure);
         assert(queue.IsIntegrityFailed());
     }

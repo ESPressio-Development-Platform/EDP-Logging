@@ -111,6 +111,35 @@ namespace ESPressio::Logging {
             }
         };
 
+
+        /// Outcome of a ticket-based borrow with a lease view on success.
+        class BorrowResult final {
+            friend class TransactionalRecordQueue;
+
+            /// Confirmed queue operation status.
+            RecordQueueResult _status;
+            /// Borrowed lease for a successful operation.
+            TLease *_lease{nullptr};
+
+            /// Constructs a failure without a lease view.
+            explicit BorrowResult(RecordQueueResult failure) noexcept : _status(failure) {}
+
+            /// Constructs a confirmed success from a live lease.
+            explicit BorrowResult(TLease &lease) noexcept
+                : _status(RecordQueueResult::Succeeded), _lease(&lease) {}
+
+          public:
+            /// Returns the queue operation status.
+            [[nodiscard]] RecordQueueResult Status() const noexcept {
+                return _status;
+            }
+
+            /// Returns the borrowed lease on success or null on failure.
+            [[nodiscard]] TLease *Lease() const noexcept {
+                return _lease;
+            }
+        };
+
         /// Move-only owner of an unpublished reservation. Its destructor
         /// aborts the Memory lease unless Commit disarms this handle.
         class Reservation final {
@@ -874,21 +903,25 @@ namespace ESPressio::Logging {
             return result;
         }
 
-        /// Borrow the source's Memory lease while holding the exclusive
-        /// Reserved or InFlight ticket. Never transfer this reference to a
-        /// concurrent actor without an explicit ownership transfer protocol.
-        [[nodiscard]] TLease *Borrow(Ticket ticket) noexcept {
-            if (Lock() != RecordQueueResult::Succeeded) {
-                return nullptr;
+        /// Borrows the Memory lease of an exclusive Reserved or InFlight ticket.
+        /// The caller keeps that claim live and serializes access to the lease.
+        /// A failed native unlock quarantines the queue and withholds the view.
+        [[nodiscard]] BorrowResult Borrow(Ticket ticket) noexcept {
+            const auto acquired = Lock();
+            if (acquired != RecordQueueResult::Succeeded) {
+                return BorrowResult(acquired);
             }
-            TLease *borrowed = nullptr;
-            if (IsMatchingTicket(ticket)) {
-                auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
-                if (record.State == Phase::Reserved || record.State == Phase::InFlight) {
-                    borrowed = &record.Lease;
-                }
+            if (!IsMatchingTicket(ticket)) {
+                return BorrowResult(UnlockWith(RecordQueueResult::InvalidTicket));
             }
-            return Unlock() == UnlockStatus::Released ? borrowed : nullptr;
+            auto &record = _records[static_cast<std::size_t>(ticket.Slot.Value())];
+            if (record.State != Phase::Reserved && record.State != Phase::InFlight) {
+                return BorrowResult(UnlockWith(RecordQueueResult::WrongPhase));
+            }
+            if (Unlock() != UnlockStatus::Released) {
+                return BorrowResult(RecordQueueResult::IntegrityFailure);
+            }
+            return BorrowResult(record.Lease);
         }
 
         /// Completes consumption after the last source-record reader is done.

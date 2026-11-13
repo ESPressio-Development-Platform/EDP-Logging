@@ -57,13 +57,17 @@ namespace {
 
             assert(queue.Pop(current) == L::RecordQueueResult::Succeeded);
             assert(current.Slot == ticketTwo.Slot);
-            assert(queue.Borrow(current)->Get()->Value() == 22);
+            const auto firstClaim = queue.Borrow(current);
+            assert(firstClaim.Status() == L::RecordQueueResult::Succeeded &&
+                   firstClaim.Lease()->Get()->Value() == 22);
             assert(queue.Complete(current) == L::RecordQueueResult::Succeeded);
             assert(TestSupport::PooledObject::LiveCount.load() == 1);
 
             assert(queue.Pop(current) == L::RecordQueueResult::Succeeded);
             assert(current.Slot == ticketOne.Slot);
-            assert(queue.Borrow(current)->Get()->Value() == 11);
+            const auto secondClaim = queue.Borrow(current);
+            assert(secondClaim.Status() == L::RecordQueueResult::Succeeded &&
+                   secondClaim.Lease()->Get()->Value() == 11);
             assert(queue.Complete(current) == L::RecordQueueResult::Succeeded);
             assert(queue.Pop(current) == L::RecordQueueResult::Empty);
 

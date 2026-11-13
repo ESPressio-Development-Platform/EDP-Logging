@@ -18,7 +18,7 @@ The record queue does **not** replace the upstream Logging `AcquirePoolUntil`/Tr
 
 1. A producer obtains one valid EDP-Memory lease through the existing bounded admission mechanism.
 2. `Begin(lease,ticket)` claims one stable slot, transfers lease ownership, and publishes its generation-bearing ticket; if no slot is available, the original lease remains with the caller and must be returned via the existing release coordinator.
-3. `Borrow(ticket)` is valid only while the producer has an **exclusive Reserved** ticket (caller must not share this borrowed reference concurrently).
+3. A producer with an exclusive Reserved ticket can call `Borrow(ticket)`. Its `BorrowResult::Status()` reports `Succeeded`, `Busy`, `InvalidTicket`, `WrongPhase` or `IntegrityFailure`. `Lease()` returns the non-owning view on success. Keep the claim live and serialize access to the borrowed lease.
 4. `Commit(ticket)` appends exactly once to `IntrusiveQueue` and changes the slot to Queued, or `Abort(ticket)` retires an unpublished reservation with a confirmed Memory lease release.
 5. A consumer `Pop(ticket)` claims the *oldest committed* record and transitions it to InFlight. The consuming ticket alone may `Borrow` the object until the final source reader finishes.
 6. `Complete(ticket)` returns the native Memory lease through the existing coordinator, retires the stable slot, then publishes a separate capacity wake **after** that slot becomes reusable. `ReleasedNotificationFailed` means the lease/slot were returned but a required notification failed.

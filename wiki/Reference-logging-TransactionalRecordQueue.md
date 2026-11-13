@@ -167,9 +167,12 @@ later continuation; no duplicate release is authorised.
   **`Pop(ConsumerClaim&)`** and
   **`PopUntil(ConsumerClaim&,deadline)`** overloads create
   exclusive move-only consumer handles with scope cleanup.
-- **`Borrow(ticket)`** returns the lease pointer only under
-  an exact-generation ticket in `Reserved` or `InFlight`;
-  callers own its exclusive lifetime discipline.
+- **`Borrow(ticket)`** returns `BorrowResult`. `Status()` reports
+  `Succeeded`, `Busy`, `InvalidTicket`, `WrongPhase` or `IntegrityFailure`.
+  `Lease()` exposes a non-owning pointer only for a confirmed success.
+  The matching ticket must be `Reserved` or `InFlight`. The caller keeps
+  the claim live and serializes access to the lease. An unconfirmed mutex
+  release overrides the lookup outcome with `IntegrityFailure`.
   **`Complete(ticket)`** and
   **`CompleteUntil(ticket,deadline)`** finalize the last
   consumer and preserve retirement correctness if lock acquisition

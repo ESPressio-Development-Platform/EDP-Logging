@@ -17,6 +17,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Corrected and clarified
 
+- Source compatibility: `TransactionalRecordQueue::Borrow(Ticket)` now returns `BorrowResult`. Check `Status()` and use `Lease()` on success. This exposes contention, invalid tickets, incompatible slot phases and integrity failures individually.
+
 - Canonical owner-boundary and dependency pins: generated Localisation and Serialisation contracts, Clock main, Memory NoWait, Threading ordinary-context bounded coordination, Portable narrow byte/resource providers and Persistence abstract FileStorage/KeyValueStorage remain in their respective owning repositories rather than being duplicated inside Logging.
 - Optimized bounded immutable EDLS/strict ACK workflows through exact scanned-plan reuse and one necessary post-retirement inspection, without weakening prior CRC, generation, protected history or acknowledgement checks.
 - Protected EDLS predecessor revalidation now preserves distinct internal outcomes for an invalid baseline, provider failure, an unclean readback, a changed header and a changed verified prefix. The public rolling and acknowledgement APIs retain their fail-closed outcomes and retirement order.
