@@ -22,6 +22,21 @@ namespace ESPressio::Logging {
 
     namespace Detail {
 
+        /// Detects overlapping nonempty byte spans on the supported linear address model.
+        [[nodiscard]] inline bool DoEdlgByteRangesOverlap(
+            std::span<const std::byte> source,
+            std::span<const std::byte> destination
+        ) noexcept {
+            if (source.empty() || destination.empty()) {
+                return false;
+            }
+            const auto sourceAddress = reinterpret_cast<std::uintptr_t>(source.data());
+            const auto destinationAddress = reinterpret_cast<std::uintptr_t>(destination.data());
+            return sourceAddress >= destinationAddress
+                ? sourceAddress - destinationAddress < destination.size()
+                : destinationAddress - sourceAddress < source.size();
+        }
+
         /// CRC32C (reflected Castagnoli) over a sequence of already encoded bytes.
         ///
         /// The initial parameter is the finalized result for the previous block, which

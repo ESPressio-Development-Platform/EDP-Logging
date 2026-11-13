@@ -54,18 +54,8 @@ namespace ESPressio::Logging {
             return EdlgFrameWriteResult::InsufficientCapacity;
         }
 
-        const auto outputBegin = reinterpret_cast<std::uintptr_t>(output.data());
-        const auto payloadBegin = reinterpret_cast<std::uintptr_t>(payload.data());
-        if (!payload.empty() && !output.empty()) {
-            // Avoid address arithmetic overflow while checking supported linear
-            // pointer-address models. Nonlinear targets must still honour the
-            // public no-alias precondition.
-            const bool overlaps = payloadBegin >= outputBegin
-                ? (payloadBegin - outputBegin) < output.size()
-                : (outputBegin - payloadBegin) < payload.size();
-            if (overlaps) {
-                return EdlgFrameWriteResult::InvalidPayload;
-            }
+        if (Detail::DoEdlgByteRangesOverlap(payload, output)) {
+            return EdlgFrameWriteResult::InvalidPayload;
         }
 
         constexpr std::byte magic[4U] = {

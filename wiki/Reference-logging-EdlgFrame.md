@@ -9,3 +9,8 @@
 The [frame writer](Reference-logging-EdlgFrameWriter) is an opt-in header.
 The codec tags, write status vocabulary and CRC/wire utilities reside here
 so the frame reader and umbrella can be used without EDP-Memory.
+
+`Detail::DoEdlgByteRangesOverlap(source, destination)` is the internal
+predicate used before framing or archive scratch reuse. It checks the two
+nonempty spans with address subtraction on the supported linear address
+model and reads no bytes from either range.

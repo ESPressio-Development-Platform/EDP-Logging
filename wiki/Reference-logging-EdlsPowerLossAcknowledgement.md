@@ -72,3 +72,7 @@ Bulk framed bytes are copied through the EDP-Memory ByteOperations
 contract. The supported archive composition uses the existing Portable
 provider by default. The successor rejects a frame span overlapping the
 caller’s archive workspace before inspecting or writing the archive.
+
+`AliasedFrameWorkspace` (18) rejects a publication when its input
+overlaps scratch that recovery or archive inspection could write.
+The rejection occurs before recovery, provider I/O or ACK changes.

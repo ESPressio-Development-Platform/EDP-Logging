@@ -830,6 +830,11 @@ namespace ESPressio::Logging {
         static_assert(ESPressio::Persistence::Detail::HasMandatoryFileStorageOperations<TStorage>);
 
         EdlsProtectedRollingOutcome<TPhysicalSlots> result{};
+        if (Detail::DoEdlgByteRangesOverlap(completeEdlg, scratch)) {
+            result.Status = EdlsProtectedRollingStatus::InvalidFrame;
+            return result;
+        }
+
         const auto before = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,
             TProtectedSlots,

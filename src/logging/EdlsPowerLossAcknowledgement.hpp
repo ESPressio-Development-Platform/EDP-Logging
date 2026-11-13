@@ -33,6 +33,8 @@ namespace ESPressio::Logging {
         AcknowledgedPendingRetirement = 15,
         InvalidByteCapacity = 16,
         ByteCapacityExceeded = 17,
+        /// The proposed frame bytes alias scratch used by inspection and recovery.
+        AliasedFrameWorkspace = 18,
     };
 
     /// Observed watermark generation and candidate location for one archive operation.
@@ -194,6 +196,9 @@ namespace ESPressio::Logging {
         [[nodiscard]] EdlsAcknowledgedObservation PublishFrameSequence(
             std::span<const std::byte> completeEdlg,
             std::span<std::byte> scratch) noexcept {
+            if (Detail::DoEdlgByteRangesOverlap(completeEdlg, scratch)) {
+                return {EdlsAcknowledgedStatus::AliasedFrameWorkspace};
+            }
             // Refuse before recovery or any provider mutation. This bound
             // includes EDLS framing/seal and reserves every physical slot,
             // including the unacknowledged successor, plus the ACK value.

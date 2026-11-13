@@ -118,13 +118,7 @@ namespace ESPressio::Logging {
         }
         // Archive inspection reuses caller scratch before successor assembly.
         // A frame that overlaps any part of that workspace cannot be preserved.
-        const auto inputAddress = reinterpret_cast<std::uintptr_t>(completeEdlg.data());
-        const auto scratchAddress = reinterpret_cast<std::uintptr_t>(callerScratch.data());
-        const bool overlaps = !callerScratch.empty() &&
-            (inputAddress >= scratchAddress
-                ? inputAddress - scratchAddress < callerScratch.size()
-                : scratchAddress - inputAddress < completeEdlg.size());
-        if (overlaps) {
+        if (Detail::DoEdlgByteRangesOverlap(completeEdlg, callerScratch)) {
             outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }
