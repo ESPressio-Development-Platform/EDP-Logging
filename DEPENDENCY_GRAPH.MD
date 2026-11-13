@@ -10,6 +10,16 @@ The **current** implementation's application-selected optional owner source cont
 
 The **default C++20 `ESPressio_Logging.hpp` remains dependency-free**; all owner imports above are conditional upon explicit opt-in headers and must be selected by the application and its real provider graph. `EDP-Serial` and `EDP-Serial-ESP-IDF` are published on their respective `main` branches. They participate in the optional application output and test fixtures described below. The Logging umbrella and package manifest have no Serial edge. The native G1 fixture pins `EDP-Platform-ESP-IDF` to `adc4164031016c200ad88d742fc4f05c86d66833` from the `mesh_v1` lineage. The managed batch demos use that snapshot for the native monotonic timebase and AtomicWord32 provider, which are absent from the audited Platform-ESP-IDF main. These are concrete application and fixture dependencies. The direct native EDP-Memory finite/Forever blocked waiter is still **not** certified under failed native relock ([Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16)); the selected producer uses `NoWait` and Threading/Clock owned bounded coordination, not that unsafe waiting path. Historical feature-branch references and 2 November failed older-main profiles elsewhere in this graph retain only their dated provenance.
 
+## Release-validation owner revisions — 13 November 2026
+
+The [qualified dependency set](docs/DEPENDENCY-OWNER-BASELINE.MD#13-november-2026--qualified-release-validation-dependency-set)
+records the exact RPI400 owner revisions for host, native and downstream
+checks. Eleven conditional production owner edges matched the source
+imports. The selected abstract package manifests had no cycle. Clock
+and Serialisation now use their subsequent ignore-file-only main commits.
+The G1 and managed demo application compositions retain the exact native
+Platform ESP-IDF provider pin above.
+
 ## Current conditional dependency activation
 
 The root [README Dependencies tree](README.MD#dependencies) is the consuming-developer overview. The manifest has no mandatory EDP library dependencies; the default C++20 umbrella contains severity, attempt sequences, EDLG frame/reader, EDLS segment and instrumentation.

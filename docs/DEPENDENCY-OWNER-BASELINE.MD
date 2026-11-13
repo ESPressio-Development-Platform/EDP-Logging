@@ -234,3 +234,38 @@ EDP-Serial's default package selects EDP-System main. The ESP-IDF concrete packa
 ## 13 November 2026 — qualified Serial predicate migration
 
 EDP-Serial main and feature/logging-v1 now point to `707455b5a5771c681a1d91039a16899945fd1412`. The 37-repository scan found the four renamed predicates only in Serial-owned callers. The UART provider remains at `11bca276fa6a851bd475cd373a4ffbcc1b15a287`; its host and native consumers passed with the new Serial main. The Logging G1 workflow pins EDP-Platform-ESP-IDF to `adc4164031016c200ad88d742fc4f05c86d66833`. The Platform-ESP-IDF main snapshot lacks the native monotonic timebase and atomic word headers used by the managed Logging demos. See the [living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-13/2026-11-13-08-38-EDP-Logging-Serial-Qualification.MD) for exact run IDs and the qualified owner topology.
+
+## 13 November 2026 — qualified release-validation dependency set
+
+The RPI400 host, native and downstream validation selected these exact
+working-copy revisions. The production include audit found eleven direct
+conditional owners and an acyclic selected abstract manifest closure.
+The default umbrella uses the C++20 standard library.
+
+| Owner | Qualified revision | Selection |
+| --- | --- | --- |
+| EDP-BoundedTopology | `362042c3916d9649759bbe69bf53c920999cdcf8` | Conditional source owner on main |
+| EDP-BoundedTypes | `1992b515b9a246477f56eb488ee482b9b6e75fe2` | Conditional source owner on main |
+| EDP-Clock | `0d799aa88e623c5dae87c866e442b69068ee5a54` | Conditional source owner on main |
+| EDP-Localisation | `8b826f4c9becfa34eb3a885361f70033f8ff3f22` | Conditional source owner on main |
+| EDP-Memory | `9c5a994eb1e101b80a6fb0e1357c0add0e3a38c4` | Conditional source owner on main |
+| EDP-Persistence | `6f7134bb945f3f36d59a222cab4dc757c00cc14a` | Conditional source owner on main |
+| EDP-Persistence-ESP-IDF | `d3e1febe6565ec59ca3f23324719e1a3279ac09d` | Native FileStorage and NVS provider on main |
+| EDP-Platform | `ee325662404576ab8251b035d78a67abdca21610` | Conditional source owner on main |
+| EDP-Platform-ESP-IDF | `adc4164031016c200ad88d742fc4f05c86d66833` | Exact native provider pin from mesh_v1 lineage |
+| EDP-Platform-FreeRTOS | `2a52ba81e8509673981dd342173b3a9fb986b770` | Native Bootstrap provider on main |
+| EDP-Platform-Portable | `267411bf319a269883d2273928ad19fc05e2f324` | Conditional source owner on main |
+| EDP-Serial | `707455b5a5771c681a1d91039a16899945fd1412` | Optional downstream EDLG/FIFO integration on main |
+| EDP-Serial-ESP-IDF | `11bca276fa6a851bd475cd373a4ffbcc1b15a287` | Optional native UART provider on main |
+| EDP-Serialisation | `f7c99b20578188636743120fcbc49e69f5021a2c` | Conditional source owner on main |
+| EDP-System | `c69d4b082db5dc5227cd332f4578a067ad64f662` | Conditional source owner on main |
+| EDP-Threading | `1c5ff530c7051d0ccb9480c9a46fbb3cd9424750` | Conditional source owner on main |
+
+
+Clock and Serialisation have later ignore-file-only commits than the
+12 November owner snapshot. The native Platform ESP-IDF pin provides the
+monotonic timebase and atomic-word provider consumed by the qualified
+fixtures. The provider's main lacks both headers. Application Bootstrap
+selects the concrete dependency and must reproduce its chosen provider
+closure. The pin does not merge the provider's separate Mesh and Security
+feature history into main.
