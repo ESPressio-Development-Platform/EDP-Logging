@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -40,7 +43,8 @@ void Run() {
  constexpr std::array<std::byte,4U> cbor{std::byte{0x83U},
      std::byte{0x01U},std::byte{0x02U},std::byte{0x03U}};
  std::size_t length=0U;
- assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,cbor,wire,length,32U)==
+ assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,cbor,wire,length,32U,
+ ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==
   L::EdlgFrameWriteResult::Succeeded);
  auto encoded=std::span<const std::byte>(wire.data(),length);
 

@@ -7,6 +7,9 @@
 #include <span>
 #include <utility>
 
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
+#include "EdlgFrameWriter.hpp"
 #include "BoundedEdlsBatch.hpp"
 #include "CoordinatorSinkService.hpp"
 #include "EdlsPowerLossAcknowledgement.hpp"
@@ -319,7 +322,9 @@ namespace ESPressio::Logging {
                     encoded,
                     _framingScratch,
                     framed,
-                    TMaximumPayload) != EdlgFrameWriteResult::Succeeded) {
+                    TMaximumPayload,
+                    ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
+                ) != EdlgFrameWriteResult::Succeeded) {
                 LastCompletion = TypedEdlsTaskCompletion::FramingFailure;
                 return RecordSinkSubmission::Rejected;
             }

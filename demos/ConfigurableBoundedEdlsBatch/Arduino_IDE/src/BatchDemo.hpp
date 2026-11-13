@@ -1,5 +1,8 @@
 #pragma once
 
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -220,7 +223,8 @@ namespace ESPressio::Demos::ConfigurableBoundedEdlsBatch {
                 ),
                 frame,
                 framed,
-                payload.size()
+                payload.size(),
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             ) != L::EdlgFrameWriteResult::Succeeded) {
             return Result::EncodingFailed;
         }

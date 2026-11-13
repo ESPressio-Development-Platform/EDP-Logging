@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -221,7 +224,8 @@ bool TestNvsCheckpointAcrossReboot() noexcept {
         std::array<std::byte,64U> frame{};
         std::size_t written{0U};
         if(!Check(Logging::WriteEdlgFrame(
-            Logging::EdlgCodec::Cbor,cbor,frame,written,32U
+            Logging::EdlgCodec::Cbor,cbor,frame,written,32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         )==Logging::EdlgFrameWriteResult::Succeeded,"nvs-frame"))
             return false;
         const auto stored=Logging::WriteEdlgCheckpoint(
@@ -288,7 +292,8 @@ bool TestConcreteEdlsVfsSuccessor() noexcept {
   std::byte{0x01U},std::byte{0x02U},std::byte{0x03U}};
  std::array<std::byte,48U> serialized{};
  std::size_t size=0U;
- if(!Check(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,payload,serialized,size,32U)==
+ if(!Check(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,payload,serialized,size,32U,
+ ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==
            Logging::EdlgFrameWriteResult::Succeeded,"edls-successor-source-frame"))
     return false;
  const auto frame=std::span<const std::byte>(serialized.data(),size);
@@ -775,7 +780,8 @@ bool Run() {
             std::size_t written=0U;
             if(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,
                 std::span<const std::byte>(payload.data(),encoded.BytesWritten),
-                frame,written,payload.size())!=Logging::EdlgFrameWriteResult::Succeeded)
+                frame,written,payload.size(),
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})!=Logging::EdlgFrameWriteResult::Succeeded)
                 return Logging::RecordSinkSubmission::Rejected;
             Logging::EdlgFrameView view{};
             if(Logging::ReadEdlgFrame(

@@ -1,6 +1,9 @@
 // Dedicated adversarial G7 FileStorage / EDLS retention fixture.
 // Never formats SPIFFS, never modifies another application's EDLS paths.
 // Its VFS FileStorage capability is Restart-only, NOT PowerLoss-atomic.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -154,7 +157,8 @@ extern "C" void app_main() {
         std::array<std::byte, 64U> frameBytes{};
         std::size_t used{};
         Require(L::WriteEdlgFrame(
-            L::EdlgCodec::Cbor, payload, frameBytes, used, 32U
+            L::EdlgCodec::Cbor, payload, frameBytes, used, 32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == L::EdlgFrameWriteResult::Succeeded, "EDLG_SOURCE");
 
         const auto frame = std::span<const std::byte>(frameBytes.data(), used);

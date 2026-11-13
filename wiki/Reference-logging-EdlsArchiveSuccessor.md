@@ -31,3 +31,8 @@ This helper intentionally **never reclaims an occupied physical path**. Once ful
 `PublishedAndVerified` is **contemporary readback**, not proof that an interrupted raw ReplaceFile could not damage the target or that any future erase/GC will preserve bytes. The underlying concrete provider must publish its true retention/interruption profile. An interrupted write into an empty target can leave damaged bytes that force later archive inspection to reject mutation until an independently approved recovery. The application chooses storage placement and finite archive capacity; no Flash service-life promise follows.
 
 Owner GCC/Clang host corruption, no-overwrite, multi-frame sealed, scan reuse and real native VFS tests are recorded in [bounded batching](../docs/BOUNDED-EDLS-BATCHING.MD), [safe successor contract](../docs/EDLS-SAFE-SUCCESSOR.MD), [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD) and the Policy/main run receipts. Actual physical GPIO17 relay PowerLoss evidence qualifies only the separately specified protected and acknowledged implementation, not generic FileStorage append/replace.
+
+Bulk framed bytes are copied through the EDP-Memory ByteOperations
+contract. The supported archive composition uses the existing Portable
+provider by default. The successor rejects a frame span overlapping the
+caller’s archive workspace before inspecting or writing the archive.

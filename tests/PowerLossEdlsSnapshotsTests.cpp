@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -110,7 +113,8 @@ namespace {
             std::byte{0xA1},std::byte{0x01},std::byte{0x02}
         };
         std::size_t len{};
-        assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,encoded,len,64U)
+        assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,encoded,len,64U,
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})
             ==L::EdlgFrameWriteResult::Succeeded);
         const auto frame=std::span<const std::byte>(encoded.data(),len);
         auto outcome=archive.Commit(id,1U,frame);
@@ -189,7 +193,8 @@ namespace {
                 payload,
                 framed,
                 used,
-                64U
+                64U,
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             )==L::EdlgFrameWriteResult::Succeeded);
             const auto committed=journal.Append(
                 identity,
@@ -316,7 +321,8 @@ namespace {
             };
             std::size_t len{};
             assert(L::WriteEdlgFrame(
-                L::EdlgCodec::Cbor,payload,framed,len,64U
+                L::EdlgCodec::Cbor,payload,framed,len,64U,
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             )==L::EdlgFrameWriteResult::Succeeded);
             assert(larger.Append(
                 identity,gen,

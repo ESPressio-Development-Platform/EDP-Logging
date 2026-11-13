@@ -24,11 +24,42 @@ jobs:
   cpp-foundations:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout Logging
         uses: actions/checkout@v4
-      - name: Compile and run C++20 sequence foundation tests
-        run: bash tests/run-host-tests.sh
-
+        with:
+          path: EDP-Logging
+      - name: Checkout EDP-Memory
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Memory
+          ref: main
+          path: EDP-Memory
+      - name: Checkout EDP-Platform
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform
+          ref: main
+          path: EDP-Platform
+      - name: Checkout EDP-Platform-Portable
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-Platform-Portable
+          ref: main
+          path: EDP-Platform-Portable
+      - name: Checkout EDP-System
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-System
+          ref: main
+          path: EDP-System
+      - name: Checkout EDP-BoundedTopology
+        uses: actions/checkout@v4
+        with:
+          repository: ESPressio-Development-Platform/EDP-BoundedTopology
+          ref: main
+          path: EDP-BoundedTopology
+      - name: Compile and run C++20 foundations and framing
+        run: bash EDP-Logging/tests/run-host-tests.sh
 
   historical-archive-host:
     runs-on: ubuntu-latest

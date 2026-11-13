@@ -3,6 +3,9 @@
 // field canonical CBOR -> existing EDLG -> existing strict immutable EDLS,
 // with actual NVS PowerLoss-atomic KeyValueStorage ledger. The GPIO17 host
 // controller, never ESP32 firmware, is the electrical VDD-cut witness.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <NvsKeyValueStorage.hpp>
 #include <logging/EdlsPowerLossAcknowledgement.hpp>
 
@@ -32,7 +35,8 @@ namespace {
         Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,
             std::span<const std::byte>(TypedCbor.data(),
                 encoded.BytesWritten),
-            TypedEdlg,framed,1024U)==L::EdlgFrameWriteResult::Succeeded,
+            TypedEdlg,framed,1024U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==L::EdlgFrameWriteResult::Succeeded,
             "TYPED_STRICT_OWNER_EDLG_FRAME");
         return archive.Publish(
             std::span<const std::byte>(TypedEdlg.data(),framed),

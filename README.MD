@@ -47,7 +47,7 @@ shows the qualified PIOArduino revision and the C++20 flags. Copy the
 `platform`, `build_flags` and `build_unflags` settings into your ESP32
 environment, then run `pio run -e esp32dev` with the demo's board environment.
 
-The default `library.json` deliberately declares no mandatory EDP library dependencies. Additional dependencies are activated by selecting individual Logging facilities; see [Dependencies](#dependencies) before importing opt-in headers.
+The default `library.json` declares no mandatory EDP library dependencies. Frame writing imports `logging/EdlgFrameWriter.hpp` and takes the application-selected EDP-Memory ByteOperations provider. The umbrella includes the reader and wire vocabulary. Additional dependencies are activated by selecting individual Logging facilities; see [Dependencies](#dependencies) before importing opt-in headers.
 
 ### 2. Include the core header
 
@@ -66,7 +66,7 @@ This is a minimal **compile-time threshold example**, not a complete persistent 
 
 Use the [complete demo index](./demos/README.MD) and choose a maintained, target-specific example rather than guessing provider wiring:
 
-- [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) — provider-free core: compile-time severity gate, attempt identity, bounded EDLG frame, strict validation and corruption rejection (not a complete generated LogRecord).
+- [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) — bounded framing: compile-time severity gate, attempt identity, bounded EDLG frame, strict validation and corruption rejection (not a complete generated LogRecord).
 - [Typed Managed Batch Worker](./demos/TypedManagedBatchWorker/README.MD) — original 15-field records, bounded source queue, generated CBOR, sealed EDLS batching, strict LittleFS/NVS acknowledgement and replay.
 - [Configurable Bounded EDLS Batch](./demos/ConfigurableBoundedEdlsBatch/README.MD) — finite batch sizing and dwell configuration.
 
@@ -173,7 +173,7 @@ See also [Dependency Graph](./DEPENDENCY_GRAPH.MD) and the [internal developer W
 
 ## Examples and testing
 
-Buildable applications are indexed in [demos/README.MD](./demos/README.MD), with all three target source layouts documented in their own READMEs. The provider-free [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) core example has independently passed GCC/Clang execution and both PlatformIO Arduino-ESP32 and ESP-IDF compile/link builds on the approved RPI400; it does not constitute generated-record or persistence qualification. The repository's `tests/` tree contains GCC/Clang host validations, generated-schema and CBOR tests, bounded queue and recovery negatives, and separate physical ESP32 HIL fixtures.
+Buildable applications are indexed in [demos/README.MD](./demos/README.MD), with all three target source layouts documented in their own READMEs. The [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) core example has independently passed GCC/Clang execution and both PlatformIO Arduino-ESP32 and ESP-IDF compile/link builds on the approved RPI400; it does not constitute generated-record or persistence qualification. The repository's `tests/` tree contains GCC/Clang host validations, generated-schema and CBOR tests, bounded queue and recovery negatives, and separate physical ESP32 HIL fixtures.
 
 A typical host prerequisite is to provide a **pinned sibling source dependency root** for the opt-in tests:
 

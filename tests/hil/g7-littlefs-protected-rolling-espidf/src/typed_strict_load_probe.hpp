@@ -1,6 +1,9 @@
 #pragma once
 // Test-only bounded on-target retention, NVS flash update and latency load.
 // Does not create a production worker/provider or claim flash wear lifetime.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -50,7 +53,8 @@ static std::array<std::uint32_t,TypedLoadGenerations> TypedLoadDurations{};
         std::size_t framed=0U;
         Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,
             std::span<const std::byte>(TypedCbor.data(),result.BytesWritten),
-            TypedEdlg,framed,1024U)==L::EdlgFrameWriteResult::Succeeded,
+            TypedEdlg,framed,1024U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==L::EdlgFrameWriteResult::Succeeded,
             "LOAD_OWNER_EDLG_CRC");
 
         const auto started=esp_timer_get_time();

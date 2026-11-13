@@ -4,9 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <type_traits>
 #include <limits>
 
 #include <ESPressio_Persistence.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+#include <memory/ByteOperationsContract.hpp>
 
 #include "EdlgFrameReader.hpp"
 #include "EdlsArchiveInspection.hpp"
@@ -72,13 +75,15 @@ namespace ESPressio::Logging {
     /// @tparam TSlotMaximum Hard upper byte count for one physical slot.
     /// @tparam TStorage Application-composed abstract FileStorage provider.
     /// @tparam TMaximumFrames Explicit opt-in maximum frames per segment; default one.
-    /// Multi-frame callers supply non-aliased scratch sufficient for the whole segment.
+    /// Caller scratch must be disjoint from the input frames and hold the complete segment.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
     template <
         std::size_t TSlots,
         std::size_t TPayloadMaximum,
         std::size_t TSlotMaximum,
         class TStorage,
-        std::size_t TMaximumFrames = 1U>
+        std::size_t TMaximumFrames = 1U,
+        class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlotWithScratch(
         TStorage &storage,
         const std::array<ESPressio::Persistence::FilePathView, TSlots> &paths,
@@ -88,6 +93,9 @@ namespace ESPressio::Logging {
         std::span<std::byte> callerScratch,
         const EdlsArchiveInspection<TSlots> *alreadyVerifiedInThisTransaction = nullptr) noexcept {
         using namespace ESPressio::Persistence;
+        using ByteOperations = ESPressio::Memory::Detail::ByteOperationsProviderTraits<TByteOperationsProvider>;
+        static_assert(sizeof(ByteOperations) > 0U);
+        static_assert(std::is_nothrow_default_constructible_v<TByteOperationsProvider>);
         static_assert(TSlots >= 2U && TSlots <= 64U);
         static_assert(TMaximumFrames >= 1U && TMaximumFrames <= 64U);
         static_assert(TPayloadMaximum >= 1U && TPayloadMaximum <= 4096U);
@@ -108,6 +116,19 @@ namespace ESPressio::Logging {
             outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }
+        // Archive inspection reuses caller scratch before successor assembly.
+        // A frame that overlaps any part of that workspace cannot be preserved.
+        const auto inputAddress = reinterpret_cast<std::uintptr_t>(completeEdlg.data());
+        const auto scratchAddress = reinterpret_cast<std::uintptr_t>(callerScratch.data());
+        const bool overlaps = !callerScratch.empty() &&
+            (inputAddress >= scratchAddress
+                ? inputAddress - scratchAddress < callerScratch.size()
+                : scratchAddress - inputAddress < completeEdlg.size());
+        if (overlaps) {
+            outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
+            return outcome;
+        }
+
         // The SAME canonical reader validates every record before any file
         // mutation. Default callers still require exactly one complete frame.
         std::size_t frameCount = 0U;
@@ -197,9 +218,11 @@ namespace ESPressio::Logging {
             outcome.Status = EdlsSuccessorStatus::InvalidIdentityOrFrame;
             return outcome;
         }
-        for (std::size_t i = 0U; i < completeEdlg.size(); ++i) {
-            buffer[EdlsHeaderBytes + i] = completeEdlg[i];
-        }
+        TByteOperationsProvider{}.CopyBytes(
+            buffer.data() + EdlsHeaderBytes,
+            completeEdlg.data(),
+            completeEdlg.size()
+        );
         const auto sealOffset = EdlsHeaderBytes + completeEdlg.size();
         if constexpr (TMaximumFrames > 1U) {
             buffer[sealOffset] = std::byte{'E'};
@@ -272,7 +295,9 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum EDLG payload temporarily retained.
     /// @tparam TSlotMaximum Maximum bytes permitted in one physical slot.
     /// @tparam TStorage Application-composed FileStorage owner.
-    template <std::size_t TSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage>
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    template <std::size_t TSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum,
+              class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlot(
         TStorage &storage,
         const std::array<ESPressio::Persistence::FilePathView, TSlots> &paths,
@@ -284,7 +309,10 @@ namespace ESPressio::Logging {
         return PublishEdlsSuccessorIntoEmptySlotWithScratch<
             TSlots,
             TPayloadMaximum,
-            TSlotMaximum>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TSlotMaximum,
+            TStorage,
+            1U,
+            TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
     }
 
 } // namespace ESPressio::Logging

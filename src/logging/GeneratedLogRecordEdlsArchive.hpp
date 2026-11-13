@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <span>
 #include <ESPressio_Serialisation.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include "GeneratedLogRecordWireProjection.hpp"
 #include "EdlsArchiveRotation.hpp"
-#include "EdlgFrame.hpp"
+#include "EdlgFrameWriter.hpp"
 
 namespace ESPressio::Logging {
 
@@ -62,6 +64,7 @@ namespace ESPressio::Logging {
     /// @tparam TArgumentBytes Byte capacity of the source arena.
     /// @tparam TPhysicalSlots Configured physical paths including the successor reserve.
     /// @tparam TStorage Bootstrap-selected FileStorage owner.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner for frame and segment assembly.
     template <
         class TMessageSchema,
         std::size_t TProtectedSlots,
@@ -72,7 +75,8 @@ namespace ESPressio::Logging {
         std::size_t TMaximumArguments,
         std::size_t TArgumentBytes,
         std::size_t TPhysicalSlots,
-        class TStorage>
+        class TStorage,
+        class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] GeneratedEdlsPublishOutcome<TPhysicalSlots>
     PublishGeneratedLogRecordToProtectedEdlsWithScratch(
         const BasicLogRecord<TWidth, TMaximumArguments, TArgumentBytes> &record,
@@ -86,7 +90,8 @@ namespace ESPressio::Logging {
             TPhysicalSlots> &paths,
         const std::array<std::byte, 16U> &deviceIdentifier,
         std::uint32_t runtimeIncarnation,
-        std::span<std::byte> archiveScratch) noexcept {
+        std::span<std::byte> archiveScratch,
+        const TByteOperationsProvider& byteOperations = {}) noexcept {
         static_assert(TPhysicalSlots == TProtectedSlots + 1U);
         static_assert(TMaximumPayload >= 1U && TMaximumPayload <= 4096U);
         static_assert(TMaximumSegment >= EdlsHeaderBytes + TMaximumPayload + 20U);
@@ -140,7 +145,9 @@ namespace ESPressio::Logging {
                 std::span<const std::byte>(cborScratch.data(), result.CborBytes),
                 edlgScratch,
                 framed,
-                TMaximumPayload) != EdlgFrameWriteResult::Succeeded) {
+                TMaximumPayload,
+                byteOperations
+            ) != EdlgFrameWriteResult::Succeeded) {
             result.Status = GeneratedEdlsPublishStatus::FramingRejected;
             return result;
         }
@@ -149,7 +156,7 @@ namespace ESPressio::Logging {
             TPhysicalSlots,
             TProtectedSlots,
             TMaximumPayload,
-            TMaximumSegment>(storage, paths, deviceIdentifier, runtimeIncarnation, std::span<const std::byte>(edlgScratch.data(), framed), archiveScratch);
+            TMaximumSegment, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, std::span<const std::byte>(edlgScratch.data(), framed), archiveScratch);
         result.Status = (result.Archive.Status == EdlsProtectedRollingStatus::PublishedWithinCapacity ||
                          result.Archive.Status == EdlsProtectedRollingStatus::PublishedAndRetired)
                             ? GeneratedEdlsPublishStatus::Published
@@ -172,6 +179,7 @@ namespace ESPressio::Logging {
     /// @tparam TArgumentBytes Byte capacity of the source arena.
     /// @tparam TPhysicalSlots Configured physical paths including the successor reserve.
     /// @tparam TStorage Bootstrap-selected FileStorage owner.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner for frame and segment assembly.
     template <
         class TMessageSchema,
         std::size_t TProtectedSlots,
@@ -182,7 +190,8 @@ namespace ESPressio::Logging {
         std::size_t TMaximumArguments,
         std::size_t TArgumentBytes,
         std::size_t TPhysicalSlots,
-        class TStorage>
+        class TStorage,
+        class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] GeneratedEdlsPublishOutcome<TPhysicalSlots>
     PublishGeneratedLogRecordToProtectedEdls(
         const BasicLogRecord<TWidth, TMaximumArguments, TArgumentBytes> &record,
@@ -200,7 +209,7 @@ namespace ESPressio::Logging {
             TMessageSchema,
             TProtectedSlots,
             TMaximumPayload,
-            TMaximumSegment>(record, projection, positionalScratch, cborScratch, edlgScratch, storage, paths, deviceIdentifier, runtimeIncarnation, archiveScratch);
+            TMaximumSegment>(record, projection, positionalScratch, cborScratch, edlgScratch, storage, paths, deviceIdentifier, runtimeIncarnation, archiveScratch, TByteOperationsProvider{});
     }
 
 } // namespace ESPressio::Logging

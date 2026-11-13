@@ -2,6 +2,9 @@
 // Native HIL of owner-generated all-fifteen-field TypedEnvelope CBOR,
 // real canonical EDLS, and explicit latest-N durability after GPIO17 cut.
 // Composition ONLY: production library code remains portable.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <GeneratedLocalisationContract.hpp>
 #include <logging/DiagnosticClockEraArguments.hpp>
 #include <logging/LogRecordSourceAssembly.hpp>
@@ -134,7 +137,8 @@ static void PreparePendingTypedSuccessor(Store& store) {
     Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,
         std::span<const std::byte>(TypedCbor.data(),
             serialized.BytesWritten),
-        TypedEdlg,framed,1024U)==L::EdlgFrameWriteResult::Succeeded,
+        TypedEdlg,framed,1024U,
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==L::EdlgFrameWriteResult::Succeeded,
         "TYPED_FRAME_G3");
     const auto candidate=L::PublishEdlsSuccessorIntoEmptySlotWithScratch<
         3U,1024U,1200U>(

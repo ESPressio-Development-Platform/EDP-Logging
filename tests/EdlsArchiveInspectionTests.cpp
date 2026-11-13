@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -95,7 +98,8 @@ struct Storage {
   const std::array<std::byte,3U> msg{std::byte{1},std::byte{2},std::byte{3}};
   std::size_t n=0;
   assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,msg,
-    std::span<std::byte>(bytes[i]).subspan(length[i]),n,16U)==
+    std::span<std::byte>(bytes[i]).subspan(length[i]),n,16U,
+    ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==
     L::EdlgFrameWriteResult::Succeeded);
   length[i]+=n;
  }
@@ -120,7 +124,8 @@ struct Storage {
             assert(L::WriteEdlgFrame(
                 L::EdlgCodec::Cbor, payload,
                 std::span<std::byte>(store.bytes[0U]).subspan(store.length[0U]),
-                framed, 16U
+                framed, 16U,
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             ) == L::EdlgFrameWriteResult::Succeeded);
             store.length[0U] += framed;
         }
@@ -218,7 +223,8 @@ struct Storage {
         };
         std::size_t framed = 0U;
         assert(L::WriteEdlgFrame(
-            L::EdlgCodec::Cbor, payload, frame, framed, 16U
+            L::EdlgCodec::Cbor, payload, frame, framed, 16U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == L::EdlgFrameWriteResult::Succeeded);
         std::array<std::byte, 128U> scratch{};
         assert(archive.Publish(frame, scratch).AcknowledgedGeneration == 1U);
@@ -320,7 +326,8 @@ int main(){
  const std::array<std::byte,3U> msg{std::byte{1},std::byte{2},std::byte{3}};
  std::array<std::byte,40U> encoded{};
  std::size_t n=0;
- assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,msg,encoded,n,16U)==
+ assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,msg,encoded,n,16U,
+ ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==
         L::EdlgFrameWriteResult::Succeeded);
  auto exact=std::span<const std::byte>(encoded.data(),n);
  auto posted=L::AppendEdlgToCleanEdlsSlot<16U,80U>(journal,p0.Value,0U,exact);
@@ -351,6 +358,24 @@ int main(){
  Storage successor{};
  std::array<std::byte,16U> identity{};
  identity.fill(std::byte{1U});
+ std::array<std::byte,128U> aliasedScratch{};
+ ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}.CopyBytes(
+     aliasedScratch.data(),
+     exact.data(),
+     exact.size()
+ );
+ const auto originalScratch = aliasedScratch;
+ const auto aliased = L::PublishEdlsSuccessorIntoEmptySlotWithScratch<2U,16U,128U>(
+     successor,
+     paths,
+     identity,
+     1U,
+     std::span<const std::byte>(aliasedScratch).first(exact.size()),
+     aliasedScratch
+ );
+ assert(aliased.Status == L::EdlsSuccessorStatus::InvalidIdentityOrFrame);
+ assert(successor.replaceCount == 0U && aliasedScratch == originalScratch);
+
  auto publish=L::PublishEdlsSuccessorIntoEmptySlot<2U,16U,128U>(
   successor,paths,identity,1U,exact);
  assert(publish.Status==L::EdlsSuccessorStatus::PublishedAndVerified);

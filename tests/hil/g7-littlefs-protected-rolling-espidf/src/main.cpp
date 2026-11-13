@@ -1,6 +1,9 @@
 // Test-only native ESP32 app: real EDLG/EDLS + existing LittleFS FileStorage.
 // The approved RPI400 GPIO17 controller, never firmware, attests supply cuts.
 // Physical reserved-path lifecycle is 2 protected EDLS files + one empty spare.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -329,7 +332,8 @@ static auto Frame() {
             cbor,
             std::span<std::byte>(buffer),
             used,
-            32U
+            32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == L::EdlgFrameWriteResult::Succeeded,
         "FRAME_BUILD"
     );
@@ -534,7 +538,8 @@ static void FillUnprotectedAndRefuse(Store& storage, bool standalone = true) {
             FullCborPayload,
             FullEdlgFrame,
             fullFrameSize,
-            4096U
+            4096U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) ==
                 L::EdlgFrameWriteResult::Succeeded &&
             fullFrameSize == 4116U,

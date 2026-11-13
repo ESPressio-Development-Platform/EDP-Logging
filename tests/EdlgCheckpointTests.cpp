@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -72,7 +75,8 @@ namespace {
         std::array<std::byte, 64U> source{};
         std::size_t written{0U};
         assert(Logging::WriteEdlgFrame(
-            Logging::EdlgCodec::Cbor, payload, source, written, 32U
+            Logging::EdlgCodec::Cbor, payload, source, written, 32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == Logging::EdlgFrameWriteResult::Succeeded);
         const auto good = std::span<const std::byte>(source.data(), written);
         std::array<std::byte, 64U> recovery{};

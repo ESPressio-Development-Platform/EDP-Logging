@@ -12,10 +12,12 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 - Portable CRC32C-checked **EDLG frames and EDLS headers**, complete immutable segment inspection, optional multi-frame EDLC sealing, bounded archive publication, strict invalid-tail rejection, guarded physical empty-slot successor and explicit protected N+1 finite rolling lifecycle.
 - Application-chosen finite persisted log capacity, configured before initialization; oldest **eligible** entries are retired only after safe successor verification and required durable **KeyValueStorage/NVS acknowledgement**. Durable diagnostics retain explicit failure/uncertainty states for Flash/KeyValueStorage provider faults. A separate NVS key/value history adapter is available for its narrowly qualified atomic-key profile.
 - Host tooling for bounded decode, corruption validation, historical schema provenance and forensic CSV output. Archived wording is not fabricated from a schema fingerprint.
-- **Three focused demonstration families**, each containing Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source surfaces: `FramingAndInstrumentation` (provider-free, in-memory only), `TypedManagedBatchWorker` (generated-record/worker/strict ACK) and `ConfigurableBoundedEdlsBatch` (application-selected finite batch sizing and dwell). Each demo distinguishes source availability, compile success and actual physical execution.
+- **Three focused demonstration families**, each containing Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source surfaces: `FramingAndInstrumentation` (in-memory only), `TypedManagedBatchWorker` (generated-record/worker/strict ACK) and `ConfigurableBoundedEdlsBatch` (application-selected finite batch sizing and dwell). Each demo distinguishes source availability, compile success and actual physical execution.
 - Maintained V2 normative `docs/`, comprehensive repository-local source/reference `wiki/` and a conditional, transitive library dependency graph.
 
 ### Corrected and clarified
+
+- EDLG writer migration: include `logging/EdlgFrameWriter.hpp` and pass the application-selected ByteOperations provider as the last argument to `WriteEdlgFrame`. EDLS bulk workspace copies now use EDP-Memory. The default umbrella and reader still use the C++20 standard library.
 
 - Diagnostic source migration: use `IsDiagnosticSchemaMatching` for all generated argument signatures. For owned diagnostic values, call `EncodeOwnedDiagnosticArgumentsCbor` or `EncodeOwnedDiagnosticArgumentsJson` with an explicit `OwnedPositionalScratch`. Inspect the typed outcome and its `Encoding` member. The scalar-named predicate alias and stack-scratch replay facade were removed.
 

@@ -1,5 +1,8 @@
 // Dedicated real NVS PowerLoss historical EDLS journal HIL.
 // ESP32 VDD relay is controlled ONLY by the Policy-approved RPI400 host.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -58,7 +61,8 @@ void Require(bool ok,const char* reason) {
         payload,
         buffer,
         used,
-        64U
+        64U,
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
     )==L::EdlgFrameWriteResult::Succeeded;
 }
 

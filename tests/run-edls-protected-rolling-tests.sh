@@ -10,7 +10,7 @@ FLAGS=()
 if test "$(printenv EDP_EDLS_UBSAN || true)" = 1; then FLAGS=(-fsanitize=undefined -fno-sanitize-recover=all); fi
 trap 'rm -f "$EXE"' EXIT
 "$CC" "${FLAGS[@]}" -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
-  -I"$ROOT/src" -I"$DEPS/EDP-Persistence/src" \
+  -I"$ROOT/src" -I"$DEPS/EDP-Memory/src" -I"$DEPS/EDP-Platform-Portable/src" -I"$DEPS/EDP-BoundedTopology/src" -I"$DEPS/EDP-Persistence/src" \
   -I"$DEPS/EDP-System/src" -I"$DEPS/EDP-Platform/src" \
   "$ROOT/tests/EdlsProtectedRollingTests.cpp" -o "$EXE"
 "$EXE"

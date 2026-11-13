@@ -18,6 +18,7 @@ This repository-local Wiki index covers each maintained C++20 production header,
 - [logging/EdlgCheckpoint.hpp](Reference-logging-EdlgCheckpoint): owning declaration/source reference
 - [logging/EdlgFrame.hpp](Reference-logging-EdlgFrame): owning declaration/source reference
 - [logging/EdlgFrameReader.hpp](Reference-logging-EdlgFrameReader): owning declaration/source reference
+- [logging/EdlgFrameWriter.hpp](Reference-logging-EdlgFrameWriter): owning declaration/source reference
 - [logging/EdlsArchiveAppend.hpp](Reference-logging-EdlsArchiveAppend): owning declaration/source reference
 - [logging/EdlsArchiveInspection.hpp](Reference-logging-EdlsArchiveInspection): owning declaration/source reference
 - [logging/EdlsArchiveRotation.hpp](Reference-logging-EdlsArchiveRotation): owning declaration/source reference

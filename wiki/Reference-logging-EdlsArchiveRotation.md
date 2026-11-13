@@ -178,3 +178,8 @@ publication, predecessor revalidation and eligible retirement.
 | `ProtectedHistoryChanged` | 13 | A preceding protected generation failed revalidation. |
 | `RetirementRejected` | 14 | The provider declined removal of the eligible oldest slot. |
 | `RetirementUnconfirmed` | 15 | Independent readback could not confirm retirement. |
+
+Bulk framed bytes are copied through the EDP-Memory ByteOperations
+contract. The supported archive composition uses the existing Portable
+provider by default. The successor rejects a frame span overlapping the
+caller’s archive workspace before inspecting or writing the archive.

@@ -20,6 +20,17 @@ and Serialisation now use their subsequent ignore-file-only main commits.
 The G1 and managed demo application compositions retain the exact native
 Platform ESP-IDF provider pin above.
 
+## EDLG and EDLS byte operations
+
+The default umbrella contains the wire vocabulary and borrowed reader.
+Including `logging/EdlgFrameWriter.hpp` directly consumes EDP-Memory
+ByteOperations. The application supplies the provider to `WriteEdlgFrame`.
+The optional EDLS successor, rotation and strict acknowledgement headers
+use the same contract for bulk copy and offer the existing Portable
+provider as their compile-time default. The application demo declares
+Portable and the Memory owner closure explicitly. The Serial frame
+pump activates the same optional writer contract in the downstream direction.
+
 ## Current conditional dependency activation
 
 The root [README Dependencies tree](README.MD#dependencies) is the consuming-developer overview. The manifest has no mandatory EDP library dependencies; the default C++20 umbrella contains severity, attempt sequences, EDLG frame/reader, EDLS segment and instrumentation.

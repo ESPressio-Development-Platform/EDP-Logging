@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -39,7 +42,8 @@ namespace Demo {
                 payload,
                 frame,
                 written,
-                payload.size()
+                payload.size(),
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             ) != EdlgFrameWriteResult::Succeeded
         ) {
             return 5;

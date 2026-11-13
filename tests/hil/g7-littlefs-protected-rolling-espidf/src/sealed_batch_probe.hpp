@@ -1,5 +1,8 @@
 #pragma once
 // Test-only native Bootstrap. Production batching remains SDK-neutral.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <NvsKeyValueStorage.hpp>
 #include <algorithm>
 #include <bounded/Bytes.hpp>
@@ -76,7 +79,8 @@ namespace {
                     ),
                 TypedEdlg,
                 framed,
-                1024U
+                1024U,
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
             ) == L::EdlgFrameWriteResult::Succeeded,
             "BATCH_EDLG_FRAME"
         );

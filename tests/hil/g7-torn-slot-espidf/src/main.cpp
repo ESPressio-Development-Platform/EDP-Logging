@@ -1,4 +1,7 @@
 // Physical G7 crash-window fixture: torn oldest slot, protected newest.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -118,7 +121,8 @@ extern "C" void app_main() {
         std::array<std::byte, 64U> encoded{};
         std::size_t encodedSize{};
         Require(L::WriteEdlgFrame(
-            L::EdlgCodec::Cbor, payload, encoded, encodedSize, 32U
+            L::EdlgCodec::Cbor, payload, encoded, encodedSize, 32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == L::EdlgFrameWriteResult::Succeeded, "REPLAY_FRAME");
         // Application must never automatically destroy a damaged generation,
         // even though the older valid physical file remains available.

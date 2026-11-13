@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -26,7 +29,8 @@ namespace Test {
         std::array<std::byte, 23U> output{};
         std::size_t written = 0U;
         assert(
-            WriteEdlgFrame(EdlgCodec::Cbor, payload, output, written, 16U)
+            WriteEdlgFrame(EdlgCodec::Cbor, payload, output, written, 16U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})
                 == EdlgFrameWriteResult::Succeeded
         );
         assert(written == golden.size());
@@ -43,7 +47,8 @@ namespace Test {
         std::array<std::byte, 23U> wire{};
         std::size_t written = 0U;
         assert(
-            WriteEdlgFrame(EdlgCodec::Cbor, payload, wire, written, payload.size()) ==
+            WriteEdlgFrame(EdlgCodec::Cbor, payload, wire, written, payload.size(),
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}) ==
             EdlgFrameWriteResult::Succeeded
         );
         EdlgFrameView view{};
@@ -97,7 +102,8 @@ namespace Test {
         output.fill(std::byte{0xAAU});
         std::size_t written = 99U;
         assert(
-            WriteEdlgFrame(EdlgCodec::Cbor, payload, output, written, 16U)
+            WriteEdlgFrame(EdlgCodec::Cbor, payload, output, written, 16U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})
                 == EdlgFrameWriteResult::InsufficientCapacity
         );
         assert(written == 99U);
@@ -107,7 +113,8 @@ namespace Test {
 
         std::array<std::byte, 23U> sufficient{};
         assert(
-            WriteEdlgFrame(EdlgCodec::Cbor, payload, sufficient, written, 2U)
+            WriteEdlgFrame(EdlgCodec::Cbor, payload, sufficient, written, 2U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})
                 == EdlgFrameWriteResult::InvalidPayload
         );
     }

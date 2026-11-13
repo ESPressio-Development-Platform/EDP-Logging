@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -121,7 +124,8 @@ namespace {
             payload,
             frame,
             used,
-            32U
+            32U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         ) == L::EdlgFrameWriteResult::Succeeded);
         assert(used == frame.size());
     }

@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cerrno>
@@ -54,7 +57,8 @@ namespace {
         };
         std::size_t used=0U;
         assert(L::WriteEdlgFrame(
-            L::EdlgCodec::Cbor,payload,encoded,used,16U
+            L::EdlgCodec::Cbor,payload,encoded,used,16U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
         )==L::EdlgFrameWriteResult::Succeeded);
         const auto frame=std::span<const std::byte>(encoded.data(),used);
 
@@ -170,7 +174,8 @@ namespace {
         cbor[2U]=std::byte{0xFDU};
         std::size_t length=0U;
         assert(L::WriteEdlgFrame(
-            L::EdlgCodec::Cbor,cbor,frame,length,4096U)==
+            L::EdlgCodec::Cbor,cbor,frame,length,4096U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==
             L::EdlgFrameWriteResult::Succeeded);
         assert(length==4116U);
         for(std::uint32_t generation=1U;generation<=5U;++generation) {

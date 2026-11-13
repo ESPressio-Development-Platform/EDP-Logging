@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -81,7 +84,8 @@ namespace {
             constexpr std::array<std::byte,3U> payload{std::byte{0x82U},std::byte{1U},std::byte{2U}};
             std::size_t written=0U;
             assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,
-                std::span<std::byte>(bytes[slot]).subspan(length[slot]),written,16U)==L::EdlgFrameWriteResult::Succeeded);
+                std::span<std::byte>(bytes[slot]).subspan(length[slot]),written,16U,
+                ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==L::EdlgFrameWriteResult::Succeeded);
             length[slot]+=written;
         }
     };
@@ -146,7 +150,8 @@ namespace {
         std::array<std::byte,48U> b{};
         constexpr std::array<std::byte,3U> payload{std::byte{0x82U},std::byte{1U},std::byte{2U}};
         std::size_t n=0U;
-        assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,b,n,16U)==L::EdlgFrameWriteResult::Succeeded);
+        assert(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,b,n,16U,
+        ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==L::EdlgFrameWriteResult::Succeeded);
         return L::PublishEdlsProtectedRollingSuccessor<3U,2U,16U,128U>(
             s,paths,id,incarnation,std::span<const std::byte>(b.data(),n));
     }

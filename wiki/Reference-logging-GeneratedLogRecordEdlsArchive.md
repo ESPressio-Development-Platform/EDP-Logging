@@ -30,3 +30,8 @@ This adapter uses the [generated wire projection](Reference-logging-GeneratedLog
 The function checks source identity, projects the record, measures and encodes CBOR, frames the exact bytes and calls the rolling successor owner. Refusals before the archive stage leave FileStorage untouched. The provider and all borrowed buffers must remain live for the ordinary-context synchronous call. Bootstrap serializes writers, establishes paths and selects retention. Publication does not provide the separate KeyValueStorage watermark of the [strict acknowledged archive](../docs/EDLS-ACKNOWLEDGED-RECOVERY.MD).
 
 `PublishGeneratedLogRecordToProtectedEdls` uses the same algorithm and template constraints with local archive scratch of `EdlsHeaderBytes + TMaximumPayload + 20` bytes. Use WithScratch to place this bounded buffer in application-owned storage on constrained workers.
+
+Bulk framed bytes are copied through the EDP-Memory ByteOperations
+contract. The supported archive composition uses the existing Portable
+provider by default. The successor rejects a frame span overlapping the
+caller’s archive workspace before inspecting or writing the archive.

@@ -1,6 +1,6 @@
 # Framing and Instrumentation — minimal Logging core demo
 
-This is a **buildable, provider-free C++20** EDP-Logging exercise. It demonstrates compile-time severity gates (including provably disabled argument evaluation), a single-context nonwrapping attempt ticket, a complete bounded EDLG frame for a two-byte illustrative JSON payload, strict borrowed frame inspection, and fail-closed CRC rejection after payload corruption.
+This is a **buildable, C++20** EDP-Logging exercise. It demonstrates compile-time severity gates (including provably disabled argument evaluation), a single-context nonwrapping attempt ticket, a complete bounded EDLG frame for a two-byte illustrative JSON payload, strict borrowed frame inspection, and fail-closed CRC rejection after payload corruption.
 
 The tiny JSON payload `{}` is only an illustrative *already-encoded payload* used to exercise framing. **It is not an EDP-Localisation-generated, System-governed, 15-field LogRecord.** Do not use this simple framing example as evidence of schema validity, durable archive acknowledgement, filesystem PowerLoss guarantees, multi-producer concurrency or clock synchronization. Those capabilities are demonstrated and qualified separately by [Typed Managed Batch Worker](../TypedManagedBatchWorker/README.MD) and [Configurable Bounded EDLS Batch](../ConfigurableBoundedEdlsBatch/README.MD).
 
@@ -13,3 +13,10 @@ All storage is stack/static, with a 64-byte frame array and no runtime heap, tas
 - `PlatformIO_ESP-IDF` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_ESP-IDF`. `app_main` stores the check outcome in the externally debugger-visible `EdpLoggingFramingDemoResult` for debugging.
 
 **Build success does not prove the application executed on hardware.** The examples have deliberately no serial transport or persistent output; the higher-level full Logger demos own those facilities. The selected `EDP-Logging` package is the relative sibling source of each PlatformIO application. C++20 and zero mandatory EDP library dependencies apply to this minimal umbrella. All package versions remain 0.1.0.
+
+
+Frame writing uses the explicitly selected EDP-Platform-Portable
+ByteOperations provider. Put EDP-Memory, EDP-Platform-Portable,
+EDP-Platform, EDP-System and EDP-BoundedTopology alongside EDP-Logging for
+the PlatformIO manifests. Arduino IDE builds need the same libraries
+available in the library search path.

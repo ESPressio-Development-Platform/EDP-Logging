@@ -219,11 +219,12 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Finite EDLG payload maximum, 1..4096 bytes.
     /// @tparam TSlotMaximum Hard physical segment byte capacity.
     /// @tparam TStorage Bootstrap-selected EDP-Persistence FileStorage owner.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
     template <
         std::size_t TSlots,
         std::size_t TPayloadMaximum,
         std::size_t TSlotMaximum,
-        class TStorage>
+        class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsRollingOutcome<TSlots> PublishEdlsOldestEligibleSuccessor(
         TStorage &storage,
         const std::array<ESPressio::Persistence::FilePathView, TSlots> &paths,
@@ -231,6 +232,9 @@ namespace ESPressio::Logging {
         std::uint32_t runtimeIncarnation,
         std::span<const std::byte> completeEdlg) noexcept {
         using namespace ESPressio::Persistence;
+        using ByteOperations = ESPressio::Memory::Detail::ByteOperationsProviderTraits<TByteOperationsProvider>;
+        static_assert(sizeof(ByteOperations) > 0U);
+        static_assert(std::is_nothrow_default_constructible_v<TByteOperationsProvider>);
 
         static_assert(TSlots >= 2U && TSlots <= 64U);
         static_assert(TPayloadMaximum >= 1U && TPayloadMaximum <= 4096U);
@@ -277,7 +281,7 @@ namespace ESPressio::Logging {
                 const auto appended = PublishEdlsSuccessorIntoEmptySlot<
                     TSlots,
                     TPayloadMaximum,
-                    TSlotMaximum>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg);
+                    TSlotMaximum, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg);
                 result.Native = appended.Native;
                 result.Slot = appended.Slot;
                 result.Generation = appended.Generation;
@@ -368,9 +372,11 @@ namespace ESPressio::Logging {
             result.Status = EdlsRollingStatus::InvalidIdentityOrFrame;
             return result;
         }
-        for (std::size_t i = 0U; i < completeEdlg.size(); ++i) {
-            expected[EdlsHeaderBytes + i] = completeEdlg[i];
-        }
+        TByteOperationsProvider{}.CopyBytes(
+            expected.data() + EdlsHeaderBytes,
+            completeEdlg.data(),
+            completeEdlg.size()
+        );
         const auto used = EdlsHeaderBytes + completeEdlg.size();
         result.Native = storage.ReplaceFile(
             paths[oldest], SourceBufferView{expected.data(), used});
@@ -799,12 +805,13 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
     /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
     /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
         std::size_t TPayloadMaximum,
         std::size_t TSlotMaximum,
-        class TStorage>
+        class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
     PublishEdlsProtectedRollingSuccessorWithScratch(
         TStorage &storage,
@@ -848,7 +855,7 @@ namespace ESPressio::Logging {
         const auto posted = PublishEdlsSuccessorIntoEmptySlotWithScratch<
             TPhysicalSlots,
             TPayloadMaximum,
-            TSlotMaximum>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TSlotMaximum, TStorage, 1U, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
         result.NativeWrite = posted.Native;
         result.PublishedSlot = posted.Slot;
         result.Generation = posted.Generation;
@@ -912,7 +919,8 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
     /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
     /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
-    template <std::size_t TPhysicalSlots, std::size_t TProtectedSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage>
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    template <std::size_t TPhysicalSlots, std::size_t TProtectedSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
     PublishEdlsProtectedRollingSuccessor(
         TStorage &storage,
@@ -926,7 +934,7 @@ namespace ESPressio::Logging {
             TPhysicalSlots,
             TProtectedSlots,
             TPayloadMaximum,
-            TSlotMaximum>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TSlotMaximum, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
     }
 
 } // namespace ESPressio::Logging

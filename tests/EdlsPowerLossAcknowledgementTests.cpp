@@ -1,3 +1,6 @@
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -59,7 +62,8 @@ namespace {
             std::byte{0x82U},std::byte{0x01U},std::byte{0x02U}};
         std::size_t used=0U;
         assert(Logging::WriteEdlgFrame(Logging::EdlgCodec::Cbor,
-            payload,buffer,used,16U)==Logging::EdlgFrameWriteResult::Succeeded);
+            payload,buffer,used,16U,
+            ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})==Logging::EdlgFrameWriteResult::Succeeded);
         const auto frame=std::span<const std::byte>(buffer.data(),used);
 
         assert(writer.Read().Status==S::MissingWatermark);

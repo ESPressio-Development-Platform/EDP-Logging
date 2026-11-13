@@ -67,13 +67,15 @@ namespace ESPressio::Logging {
     /// @tparam TSegmentMaximum Upper bound on bytes per immutable EDLS segment.
     /// @tparam TFileStorage Exclusive caller-owned FileStorage provider for segment paths.
     /// @tparam TKeyValueStorage Independent PowerLoss-atomic read/write provider for the watermark.
+    /// @tparam TByteOperationsProvider Stateless Memory copy owner for successor assembly.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
         std::size_t TPayloadMaximum,
         std::size_t TSegmentMaximum,
         class TFileStorage,
-        class TKeyValueStorage>
+        class TKeyValueStorage,
+        class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     class PowerLossAcknowledgedEdls final {
 
         // Composition contract for the independent acknowledgement provider.
@@ -257,7 +259,8 @@ namespace ESPressio::Logging {
                 TPayloadMaximum,
                 TSegmentMaximum,
                 TFileStorage,
-                TMaximumFrames>(
+                TMaximumFrames,
+                TByteOperationsProvider>(
                 *files_,
                 paths_,
                 identity_,

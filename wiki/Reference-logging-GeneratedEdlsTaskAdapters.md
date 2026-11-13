@@ -55,3 +55,8 @@ For **direct strict archive target** exposing `Publish(...)->EdlsAcknowledgedObs
 Bootstrap holds the source identity and canonical generated message contract, allocates decode/scratch/EDLS slots within exact fixed capacities, serializes entire ordinary callback + service with one existing EDP-Threading worker/coordinator, and must not destroy borrowed resources while any Task or outstanding sink completion is live. A failed KeyValueStorage commit leaves source archival truth uncertain and requires explicit recovery; a Task admission Accepted is **not** a durable ACK; a batched worker can retire a source before its record is persisted. Generation retention counts **segments** with bounded frames, not unlimited records. Synchronous callbacks cannot be preempted if a selected provider blocks; ISR and arbitrary target guarantees are not claimed.
 
 See [generated typed CBOR contract](../docs/TYPED-EDLS-CBOR-ARCHIVE.MD), [bounded EDLS batching](../docs/BOUNDED-EDLS-BATCHING.MD), [strict ACK](Reference-logging-EdlsPowerLossAcknowledgement), [coordinator service](Reference-logging-CoordinatorSinkService), [three-target managed worker demo](../demos/TypedManagedBatchWorker/README.MD) and [G1–G15 evidence](../docs/ACCEPTANCE-G1-G15.MD). GCC/Clang and real selected WROOM worker/strict-NVS-ACK receipts exist; they do not certify every concrete physical provider or indefinite sustained throughput.
+
+Bulk framed bytes are copied through the EDP-Memory ByteOperations
+contract. The supported archive composition uses the existing Portable
+provider by default. The successor rejects a frame span overlapping the
+caller’s archive workspace before inspecting or writing the archive.

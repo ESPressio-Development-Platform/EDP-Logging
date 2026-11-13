@@ -1,6 +1,9 @@
 // Real ESP32 PowerLoss-atomic KeyValueStorage qualification.
 // The user-verified GPIO17 switched supply is controlled ONLY by the host
 // Policy-approved esp32-integrated daemon. This firmware owns no GPIO relay.
+#include <logging/EdlgFrameWriter.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -97,7 +100,8 @@ extern "C" void app_main() {
         std::byte{0x84U},std::byte{0x01U},std::byte{0x02U},std::byte{0x03U}
     };
     std::size_t used{};
-    Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,encoded,used,64U)
+    Require(L::WriteEdlgFrame(L::EdlgCodec::Cbor,payload,encoded,used,64U,
+    ESPressio::Platform::Portable::Memory::ByteOperationsProvider{})
         ==L::EdlgFrameWriteResult::Succeeded,"FRAME_INIT");
     auto frame=std::span<const std::byte>(encoded.data(),used);
     if(existing.Status==L::DurableEdlsStatus::Empty) {
