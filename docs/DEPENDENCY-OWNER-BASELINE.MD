@@ -221,7 +221,7 @@ The old 2 November Localisation generator/ClockEra main failures are dated to *t
 
 Both `EDP-Logging/main` and the retained `feature/logging-v1` source baseline were independently verified at `9fea51b0bdebcd8a4206628b1e1def81ff620381`. The previously stubbed `main` revision `bbd0c1b53de347057d9573c6f324871bbf483012` remains available as a rollback point. Required selected owner main revisions remain the ones listed above. After Logging/main promotion, RPI400 `20261112T092223-3f2f828e` achieved 83/83 PASS, comprising 68 Logging GCC/Clang, eight downstream Serial feature/Serial-ESP-IDF feature host checks, six full native PIO demo builds and one Python suite. The final Python-only descriptions changes passed 40 tests; hardware stayed OFF and the lock was released. At that checkpoint the Serial feature branches were still the selected optional downstream refs. This is selected-configuration qualification, not an assertion about unrelated provider combinations, Memory #16, global Wiki V2 completeness or release tag.
 
-## 12 November 2026 — current Serial companion topology
+## 12 November 2026 — Serial companion topology at initial main promotion
 
 | Owner | Verified main | Qualification |
 | --- | --- | --- |
@@ -230,3 +230,7 @@ Both `EDP-Logging/main` and the retained `feature/logging-v1` source baseline we
 | EDP-Logging fixture | `2623d2d2f96fc6ec1f0e1966a1a62bbd040131e7` | RPI400 `20261112T120312-447090b1`, 20/20 physical WROOM UART checks |
 
 EDP-Serial's default package selects EDP-System main. The ESP-IDF concrete package selects EDP-Serial main. The Logging host and native integration workflows select the promoted companion refs. Serial is activated by the application and its test fixtures. The Logging production graph remains unchanged. The RPI400 test-local Git mirror verified the private package's resolved content. GitHub ref verification and package resolution are recorded independently in the [current handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-12/2026-11-12-11-28-EDP-Logging-Serial-Release-Recovery.MD).
+
+## 13 November 2026 — qualified Serial predicate migration
+
+EDP-Serial main and feature/logging-v1 now point to `707455b5a5771c681a1d91039a16899945fd1412`. The 37-repository scan found the four renamed predicates only in Serial-owned callers. The UART provider remains at `11bca276fa6a851bd475cd373a4ffbcc1b15a287`; its host and native consumers passed with the new Serial main. The Logging G1 workflow pins EDP-Platform-ESP-IDF to `adc4164031016c200ad88d742fc4f05c86d66833`. The Platform-ESP-IDF main snapshot lacks the native monotonic timebase and atomic word headers used by the managed Logging demos. See the [living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-13/2026-11-13-08-38-EDP-Logging-Serial-Qualification.MD) for exact run IDs and the qualified owner topology.

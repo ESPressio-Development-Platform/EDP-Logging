@@ -23,6 +23,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 - Moved large EDLS scan/publish scratch to caller-owned, application-budgeted storage for constrained ESP32 WROOM tasks. Stack-backed helper overloads remain and require their own measured stack budget.
 - Removed transient implementation/agent history from the repository README, which now serves as the public discovery/navigation entry point. Current durable architecture and failure contracts reside in focused `docs/` pages; internal/public/private member reference belongs in `wiki/`.
 
+- The native G1 schema fixture can be generated repeatedly in the same project. Its input workspace is temporary, and generated outputs were verified byte-for-byte against the previous clean generation.
+
 ### Validation and qualifications
 
 - Real **GCC/Clang host** test suites cover framed wire, metadata, generated schema, malformed input, bounded admission, queue transitions, producer ownership, sinks, strict ACK, protected rolling and non-destructive read-only scan/failure negatives; relevant UBSan and owner tests are maintained and run against selected exact source revisions.
