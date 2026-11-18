@@ -209,3 +209,39 @@ NVS readback verified page, entry and blob CRCs, ACK4 and incarnation 7.
 The raw read used fixed-size chunks and baud-rate fallback.
 The original full 4 MiB image was restored and verified. The target was
 powered off before the job completed with exit 0.
+
+
+## 18 November 2026 — EDLS readback and declaration verification
+
+Logging 8d5474d499a0ba00a1fcdd1b88175560a59454da routes oldest-eligible
+rotation and sealed successor readback through the existing stateless
+EDP-Memory ByteOperations provider. It preserves the two readback
+statuses and the predecessor's typed header and prefix checks. The new
+negative fixtures store a different but CRC-valid frame after native write
+acceptance. Both publication paths return ReadbackUnconfirmed, and
+oldest-eligible rotation independently revalidates the protected newest
+slot. The exact source passed 34 GCC runners, 34 Clang runners, and
+40 Python tests in RPI400 runs 20261118T112133-adf36814 and
+20261118T112133-1e85e5c4.
+
+The selected 11 EDP domain manifests form a closed, acyclic dependency
+graph. The default Logging umbrella and package manifest have no
+mandatory EDP library imports. For the optional native scopes,
+EDP-Platform-ESP-IDF remains pinned to
+adc4164031016c200ad88d742fc4f05c86d66833 for the qualified Clock and atomic
+provider. The other 15 selected owner revisions match their refreshed
+main refs. The direct native EDP-Memory blocked-waiter failure case
+continues under Memory #16. Logging admission uses the NoWait and
+Threading/Clock bounded coordination profile.
+
+The latest declaration review corrected the severity predicate,
+generated archive adapters, and selected bounded admission, queue,
+snapshot and wire conversion descriptions. All 42 production headers
+have indexed branch-local source links in the 62-page repository Wiki.
+The documentation pass resolved all 558 local links in the Wiki, README,
+dependency graph and focused docs. The per-declaration semantic review
+of the remaining Logging and affected owner surfaces is tracked in
+[Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).
+The exact Xtensa syntax and compile-out checks passed in
+20261118T113942-907bb482. The prior named physical results above apply to
+their recorded source and configuration.
