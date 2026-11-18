@@ -67,7 +67,7 @@ def main(folder):
                             cut=True
                             command("power-off")
                             then=time.monotonic()
-                            time.sleep(1.6)
+                            time.sleep(8.0)
                             command("status")
                             command("power-on")
                             print(f"HOST|OFF_DURATION_S={time.monotonic()-then:.3f}",flush=True)

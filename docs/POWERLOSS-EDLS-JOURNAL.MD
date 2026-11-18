@@ -119,3 +119,14 @@ under /srv/espressio/scratch/gpt6-logging-journal-20261023-1240/
 private-hil-journal-powerloss-20261023/ and durable run
 /srv/espressio/runs/20261023T125615-eded7957/. No private
 binary image or raw serial evidence is uploaded to GitHub.
+
+## 18 November ByteOperations requalification
+
+The journal inherited the existing EDP-Memory byte operations from the
+snapshot owner in Logging `45497eac6a125fd92e62cc7d5be1b9acab96a475`.
+RPI400 run `20261118T093743-52145af8` cut during attempt 8 after
+host-observed ACK7. With the configured eight-second hold, the host
+observed an 8.971 s off/on command interval. Firmware confirmed a
+power-on reset and recovered the bounded window of generations 18 and 19.
+Both frames passed CRC and payload replay. This qualifies the configured
+NVS journal campaign.

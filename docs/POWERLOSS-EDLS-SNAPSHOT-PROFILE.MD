@@ -101,3 +101,20 @@ checkpoint from the initial profile commit.
 **Release boundary unchanged:** latest acknowledged generation only,
 <=512 bytes per key. Full historical EDLS records and production wear
 budget require separately qualified transactional storage and tests.
+
+## 18 November ByteOperations requalification
+
+Logging production source `45497eac6a125fd92e62cc7d5be1b9acab96a475`
+uses the existing EDP-Memory provider for complete frame copies, duplicate
+key comparison and exact stored byte verification. GCC and Clang host
+tests passed, including a provider that returns a different CRC-valid
+header after accepting a write.
+
+RPI400 relay run `20261118T093743-52145af8` cut during attempt 6 after
+host-observed ACK5. With the configured eight-second hold, the host
+observed 8.970 s between the completed power-off call and completed
+power-on call. Firmware confirmed power-on reset and recovered verified
+generation 27. Earlier run `20261118T093230-499fb4ea` correctly refused
+qualification when the shorter hold produced a different reset reason.
+The successful evidence concerns interruption during a repeated commit
+campaign, without identifying an exact native commit instruction.
