@@ -38,9 +38,19 @@ using NativeStore = E::LittleFsConservativeFileStorage<TestOnlyLittleFsBinding, 
 // A finite test-only per-provider-operation timing probe. The canonical
 // monotonic origin must be bound by worker Bootstrap before arming; never
 // introduce a second operational Clock, scheduler, queue, or storage owner.
-#if defined(EDP_WORKER_WIDE_QUEUE_PROFILE) && defined(EDP_TEST_BATCH_WORKER)
+#if defined(EDP_TEST_BATCH_WORKER) && \
+    (defined(EDP_WORKER_WIDE_QUEUE_PROFILE) || defined(EDP_WORKER_DUAL_POOL_PROFILE))
 #define EDP_TEST_STORAGE_IO_PROFILE 1
+struct NativeStorageTailSample final {
+    const char* Stage{nullptr};
+    std::uint64_t BeganNs{0U};
+    std::uint64_t ElapsedNs{0U};
+};
+static std::array<NativeStorageTailSample, 16U> NativeStorageTail{};
+static std::uint64_t NativeStorageTailCount{0U};
+
 struct NativeStorageIoObservation final {
+    const char* Stage;
     std::uint64_t Calls{0U};
     std::uint64_t WallNs{0U};
     std::uint64_t MaximumNs{0U};
@@ -49,16 +59,24 @@ struct NativeStorageIoObservation final {
         ++Calls;
         WallNs+=elapsed;
         MaximumNs=elapsed>MaximumNs?elapsed:MaximumNs;
+        if (elapsed >= 100000000U) {
+            NativeStorageTail[NativeStorageTailCount % NativeStorageTail.size()] = {Stage, begun, elapsed};
+            ++NativeStorageTailCount;
+        }
     }
 };
 static bool NativeStorageIoActive=false;
-static NativeStorageIoObservation NativeIoSizes{}, NativeIoReads{}, NativeIoWrites{}, NativeIoRemoves{};
+static NativeStorageIoObservation NativeIoSizes{"size"}, NativeIoReads{"read"},
+    NativeIoWrites{"successor_write"}, NativeIoRemoves{"retire"},
+    NativeIoNvsReads{"watermark_read"}, NativeIoNvsStores{"watermark_store_commit"};
 static void PrintNativeStorageIoProfile() {
     std::printf(
         "EDP_WORKER|NATIVE_STORAGE_IO|size_calls=%llu|size_us=%llu|size_max_us=%llu"
         "|read_calls=%llu|read_us=%llu|read_max_us=%llu"
         "|write_calls=%llu|write_us=%llu|write_max_us=%llu"
-        "|remove_calls=%llu|remove_us=%llu|remove_max_us=%llu\n",
+        "|remove_calls=%llu|remove_us=%llu|remove_max_us=%llu"
+        "|nvs_read_calls=%llu|nvs_read_us=%llu|nvs_read_max_us=%llu"
+        "|nvs_store_calls=%llu|nvs_store_us=%llu|nvs_store_max_us=%llu\n",
         static_cast<unsigned long long>(NativeIoSizes.Calls),
         static_cast<unsigned long long>(NativeIoSizes.WallNs/1000U),
         static_cast<unsigned long long>(NativeIoSizes.MaximumNs/1000U),
@@ -70,8 +88,24 @@ static void PrintNativeStorageIoProfile() {
         static_cast<unsigned long long>(NativeIoWrites.MaximumNs/1000U),
         static_cast<unsigned long long>(NativeIoRemoves.Calls),
         static_cast<unsigned long long>(NativeIoRemoves.WallNs/1000U),
-        static_cast<unsigned long long>(NativeIoRemoves.MaximumNs/1000U)
+        static_cast<unsigned long long>(NativeIoRemoves.MaximumNs/1000U),
+        static_cast<unsigned long long>(NativeIoNvsReads.Calls),
+        static_cast<unsigned long long>(NativeIoNvsReads.WallNs / 1000U),
+        static_cast<unsigned long long>(NativeIoNvsReads.MaximumNs / 1000U),
+        static_cast<unsigned long long>(NativeIoNvsStores.Calls),
+        static_cast<unsigned long long>(NativeIoNvsStores.WallNs / 1000U),
+        static_cast<unsigned long long>(NativeIoNvsStores.MaximumNs / 1000U)
     );
+    const auto count = std::min<std::uint64_t>(NativeStorageTailCount, NativeStorageTail.size());
+    for (auto index = NativeStorageTailCount - count; index < NativeStorageTailCount; ++index) {
+        const auto& sample = NativeStorageTail[index % NativeStorageTail.size()];
+        std::printf(
+            "EDP_WORKER|NATIVE_TAIL|stage=%s|began_us=%llu|elapsed_us=%llu\n",
+            sample.Stage,
+            static_cast<unsigned long long>(sample.BeganNs / 1000U),
+            static_cast<unsigned long long>(sample.ElapsedNs / 1000U)
+        );
+    }
     std::fflush(stdout);
 }
 #endif

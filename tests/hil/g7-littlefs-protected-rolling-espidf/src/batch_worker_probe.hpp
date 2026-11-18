@@ -326,6 +326,9 @@ namespace {
                     return;
                 }
                 ProfilePhase = phase;
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+                NativeStorageIoActive = phase == 3U;
+#endif
                 EncoderCalls = 0U;
                 EncoderWallNs = 0U;
                 DeliveryNoFlushCalls = 0U;
@@ -1020,9 +1023,6 @@ namespace {
                 C::BindMonotonicClock(clock),
                 "WORKER_ONE_CANONICAL_ORIGIN"
             );
-#if defined(EDP_TEST_STORAGE_IO_PROFILE)
-            NativeStorageIoActive=true;
-#endif
             static Resource resource{};
             static Mutex native{};
             static Allocator allocator{};
@@ -1342,6 +1342,7 @@ namespace {
             (void)first.Wake();
             (void)second.Wake();
             unsigned minimumHeap = esp_get_free_heap_size();
+            std::uint64_t maximumSampledBacklog = 0U;
             const auto end = started + RecordsPerProducer * SourcePeriodNs + 70000000000ULL;
             auto nextProgress = started + 10000000000ULL;
             while ((CompletedPhase[0U].load() != 3U || CompletedPhase[1U].load() != 3U ||
@@ -1352,16 +1353,25 @@ namespace {
                         minimumHeap,
                         static_cast<unsigned>(esp_get_free_heap_size())
                     );
+                const auto retired = report.RecordsRetired.load();
+                const auto published = static_cast<std::uint64_t>(Published.load());
+                const auto backlog = published > retired ? published - retired : 0U;
+                maximumSampledBacklog = std::max(maximumSampledBacklog, backlog);
                 if constexpr (ScheduledRecords > 6000U) {
-                    if (C::MonotonicNow().Nanoseconds() >= nextProgress) {
+                    const auto now = C::MonotonicNow().Nanoseconds();
+                    if (now >= nextProgress) {
                         std::printf(
-                            "EDP_WORKER|PROGRESS|scheduled_records=%u|published=%u|retired=%llu|durable=%llu|failures=%u|min_heap=%u\n",
+                            "EDP_WORKER|PROGRESS|scheduled_records=%u|published=%u|retired=%llu|durable=%llu|failures=%u|min_heap=%u"
+                            "|time_us=%llu|sampled_backlog=%llu|max_sampled_backlog=%llu\n",
                             ScheduledRecords,
                             Published.load(),
                             static_cast<unsigned long long>(report.RecordsRetired.load()),
                             static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
                             Failures.load(),
-                            minimumHeap
+                            minimumHeap,
+                            static_cast<unsigned long long>(now / 1000U),
+                            static_cast<unsigned long long>(backlog),
+                            static_cast<unsigned long long>(maximumSampledBacklog)
                         );
                         std::fflush(stdout);
                         nextProgress += 10000000000ULL;
@@ -1370,6 +1380,12 @@ namespace {
                 vTaskDelay(pdMS_TO_TICKS(10U));
             }
             const auto elapsedUs = (LastAckTime.load() - started) / 1000U;
+            std::printf(
+                "EDP_WORKER|QUEUE_SAMPLE|max_published_minus_retired=%llu|capacity=%zu|min_heap=%u\n",
+                static_cast<unsigned long long>(maximumSampledBacklog),
+                WorkerSourceQueueSlots,
+                minimumHeap
+            );
 
             const bool isFullyCompleted = Failures.load() == 0U && Published.load() == TotalAccepted &&
                                           report.DurableSinkCompletions.load() == TotalAccepted &&

@@ -25,7 +25,88 @@ namespace {
     constexpr std::uint32_t SealedSegments = 256U / SealedRecords;
 
     struct SealedNvsBinding final {};
-    using SealedNvs = E::NvsKeyValueStorage<SealedNvsBinding, Bytes>;
+    using NativeSealedNvs = E::NvsKeyValueStorage<SealedNvsBinding, Bytes>;
+#if defined(EDP_TEST_STORAGE_IO_PROFILE)
+    /// Test adapter timing the selected native watermark provider after scheduling starts.
+    class SealedNvs final {
+        NativeSealedNvs _native;
+
+    public:
+        using ProviderDeclarationTag = NativeSealedNvs::ProviderDeclarationTag;
+        using CompositionDomain = NativeSealedNvs::CompositionDomain;
+        using CompositionOffers = NativeSealedNvs::CompositionOffers;
+
+        /// Borrows the existing fixture byte operations provider.
+        explicit SealedNvs(const Bytes& bytes) noexcept : _native(bytes) {}
+
+        /// Opens the fixture's native watermark namespace.
+        [[nodiscard]] E::NvsOpenStatus Open(const char* name) noexcept {
+            return _native.Open(name);
+        }
+
+        /// Reports whether Bootstrap opened the native provider.
+        [[nodiscard]] bool IsKeyValueStorageReady() const noexcept {
+            return _native.IsKeyValueStorageReady();
+        }
+
+        /// Returns the watermark's storage extent from the native provider.
+        [[nodiscard]] P::KeyValueSizeResult GetValueSize(P::KeyView key) const noexcept {
+            return _native.GetValueSize(key);
+        }
+
+        /// Observes the wall time of a native watermark read.
+        [[nodiscard]] P::KeyValueReadResult ReadValue(
+            P::KeyView key,
+            P::DestinationBufferView destination
+        ) const noexcept {
+            if (!NativeStorageIoActive) {
+                return _native.ReadValue(
+                    key,
+                    destination
+                );
+            }
+            const auto started = C::MonotonicNow().Nanoseconds();
+            const auto result = _native.ReadValue(
+                key,
+                destination
+            );
+            NativeIoNvsReads.Observe(started);
+            return result;
+        }
+
+        /// Observes the native watermark store including its NVS commit.
+        [[nodiscard]] P::KeyValueStoreStatus StoreValue(
+            P::KeyView key,
+            P::SourceBufferView source
+        ) noexcept {
+            if (!NativeStorageIoActive) {
+                return _native.StoreValue(
+                    key,
+                    source
+                );
+            }
+            const auto started = C::MonotonicNow().Nanoseconds();
+            const auto result = _native.StoreValue(
+                key,
+                source
+            );
+            NativeIoNvsStores.Observe(started);
+            return result;
+        }
+
+        /// Forwards the provider's mandatory removal operation.
+        [[nodiscard]] P::KeyValueRemoveStatus RemoveKey(P::KeyView key) noexcept {
+            return _native.RemoveKey(key);
+        }
+
+        /// Forwards the provider's advertised namespace clear operation.
+        [[nodiscard]] P::KeyValueClearStatus ClearAllKeys() noexcept {
+            return _native.ClearAllKeys();
+        }
+    };
+#else
+    using SealedNvs = NativeSealedNvs;
+#endif
     using SealedArchive = L::PowerLossAcknowledgedEdls<
         3U,
         2U,
