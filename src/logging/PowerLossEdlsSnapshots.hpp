@@ -87,9 +87,20 @@ namespace ESPressio::Logging {
     /// exclusive access to them and admission serialization. Do not share
     /// the namespace/keys with unrelated writers. No new flash driver,
     /// lock, allocator, worker, clock, or storage implementation is created.
+    ///
+    /// @tparam TSlots Number of fixed physical keys, between 2 and 8.
+    /// @tparam TMaximumValueBytes Maximum complete snapshot bytes, including the header.
+    /// @tparam TMaximumFramePayloadBytes Maximum EDLG payload bytes allowed in a snapshot.
+    /// @tparam TStorage Application-owned KeyValueStorage with PowerLoss retention and atomicity.
     template <std::size_t TSlots, std::size_t TMaximumValueBytes, std::size_t TMaximumFramePayloadBytes, class TStorage>
     class PowerLossEdlsSnapshots final {
+
+        // Select the existing provider capability and its publication guarantees.
+
+        /// Key-value capability required by the immutable snapshot.
         using Capability = ESPressio::Persistence::KeyValueStorage;
+
+        /// Compile-time retention, atomicity and size guarantees of the chosen owner.
         using Properties = typename TStorage::CompositionOffers::template PropertiesFor<Capability>;
         /// Existing stateless provider for bounded snapshot memory operations.
         using ByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
