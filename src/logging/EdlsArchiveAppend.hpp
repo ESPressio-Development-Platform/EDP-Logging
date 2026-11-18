@@ -69,13 +69,19 @@ namespace ESPressio::Logging {
             return {EdlsAppendStatus::InvalidFrame};
         }
         EdlgFrameView frame{};
-        if (ReadEdlgFrame(framedBytes,frame,TMaximumPayloadBytes) !=
+        if (ReadEdlgFrame(
+            framedBytes,
+            frame,
+            TMaximumPayloadBytes
+        ) !=
                 EdlgFrameReadResult::Succeeded ||
             frame.Consumed != framedBytes.size()) {
             return {EdlsAppendStatus::InvalidFrame};
         }
         const auto inspection = InspectEdlsSlot<TMaximumPayloadBytes>(
-            storage,path,expectedSlot
+            storage,
+            path,
+            expectedSlot
         );
         if (inspection.Condition != EdlsSlotCondition::Clean) {
             return {EdlsAppendStatus::SegmentUnclean};
@@ -93,7 +99,8 @@ namespace ESPressio::Logging {
             return {EdlsAppendStatus::ChangedDuringPreflight};
         }
         const auto native = storage.AppendFile(
-            path,SourceBufferView{framedBytes.data(),framedBytes.size()}
+            path,
+            SourceBufferView{framedBytes.data(), framedBytes.size()}
         );
         return {
             native == FileAppendStatus::Succeeded

@@ -67,13 +67,18 @@ namespace ESPressio::Logging {
             return {EdlgCheckpointWriteStatus::FrameTooLarge, KeyValueStoreStatus::NotReady};
         }
         EdlgFrameView validated{};
-        if (ReadEdlgFrame(frame, validated, maximumPayload) !=
+        if (ReadEdlgFrame(
+            frame,
+            validated,
+            maximumPayload
+        ) !=
                 EdlgFrameReadResult::Succeeded ||
             validated.Consumed != frame.size()) {
             return {EdlgCheckpointWriteStatus::InvalidFrame, KeyValueStoreStatus::NotReady};
         }
         const auto native = storage.StoreValue(
-            key, SourceBufferView{frame.data(), frame.size()}
+            key,
+            SourceBufferView{frame.data(), frame.size()}
         );
         return {
             native == KeyValueStoreStatus::Succeeded
@@ -97,7 +102,8 @@ namespace ESPressio::Logging {
     ) noexcept {
         using namespace ESPressio::Persistence;
         const auto native = storage.ReadValue(
-            key, DestinationBufferView{destination.data(), destination.size()}
+            key,
+            DestinationBufferView{destination.data(), destination.size()}
         );
         if (native.Status == KeyValueReadStatus::NotFound) {
             return {EdlgCheckpointReadStatus::NotFound, native.Status, 0U};
@@ -108,7 +114,10 @@ namespace ESPressio::Logging {
         // Without the explicit known-size fact the provider cannot prove that
         // an EDLG candidate is complete. A misreported transfer size must
         // never allow construction of an out-of-bounds borrowed span.
-        if (!HasFact(native.Facts, ReadFact::AvailableDataSizeIsKnown) ||
+        if (!HasFact(
+            native.Facts,
+            ReadFact::AvailableDataSizeIsKnown
+        ) ||
             native.BytesTransferred > destination.size()) {
             return {EdlgCheckpointReadStatus::ProviderFailure, native.Status, 0U};
         }
@@ -118,7 +127,9 @@ namespace ESPressio::Logging {
         }
         EdlgFrameView verified{};
         if (ReadEdlgFrame(
-            destination.first(native.BytesTransferred), verified, maximumPayload
+            destination.first(native.BytesTransferred),
+            verified,
+            maximumPayload
         ) != EdlgFrameReadResult::Succeeded ||
             verified.Consumed != native.BytesTransferred) {
             return {EdlgCheckpointReadStatus::CorruptFrame, native.Status, 0U};
