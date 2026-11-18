@@ -10,7 +10,9 @@ namespace ESPressio::Logging {
 
     /// Compile-time instrumentation gate result, NOT a producer-admission outcome.
     enum class SiteInvocationResult : std::uint8_t {
+        /// The compile-time threshold excluded the site and its callable was skipped.
         NotInstrumented = 0,
+        /// The site callable ran and returned.
         Invoked = 1
     };
 
@@ -33,7 +35,7 @@ namespace ESPressio::Logging {
     [[nodiscard]] constexpr SiteInvocationResult InvokeLogSite(
         TThunk&& thunk
     ) {
-        if constexpr (SeverityEnabled<TMinimum, TSeverity>) {
+        if constexpr (IsSeverityEnabled<TMinimum, TSeverity>) {
             static_cast<void>(std::forward<TThunk>(thunk)());
             return SiteInvocationResult::Invoked;
         } else {

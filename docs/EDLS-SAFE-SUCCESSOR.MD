@@ -15,10 +15,13 @@ generation, and refuses a caller DeviceIdentifier that disagrees with
 existing history. It chooses an **EMPTY** physical slot after the
 newest observed slot, never overwrites any occupied generation. It
 checks GetFileSize again before mutation, assembles the exact EDLS
-header plus EDLG frame in fixed-size on-stack storage, makes ONE
-EDP-Persistence FileStorage ReplaceFile call, then opens and checks
-the actual published bytes afresh: header CRC, slot identity,
-DeviceIdentifier, incarnation, generation, frame CRC and exact size.
+header plus EDLG frame in bounded scratch, calls EDP-Persistence
+FileStorage ReplaceFile once, then opens and checks the actual published
+bytes afresh: header CRC, slot identity, DeviceIdentifier, incarnation,
+generation, frame CRC and exact size. The caller-scratch form supports
+sealed multi-frame publication. When the configured maximum allows
+sealing, it also reads back the complete segment and compares the framed
+range to the input using the selected EDP-Memory ByteOperations provider.
 
 Statuses: PublishedAndVerified, InvalidIdentityOrFrame,
 ArchiveAmbiguous, NoEmptySlot, SlotCapacityExceeded,

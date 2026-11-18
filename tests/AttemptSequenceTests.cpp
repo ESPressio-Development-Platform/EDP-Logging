@@ -10,10 +10,10 @@ namespace Test {
     using namespace ESPressio::Logging;
 
     static_assert(DefaultSeverityThreshold == SeverityThreshold::Off);
-    static_assert(!SeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
-    static_assert(!SeverityEnabled<SeverityThreshold::Warning, Severity::Info>);
-    static_assert(SeverityEnabled<SeverityThreshold::Warning, Severity::Warning>);
-    static_assert(SeverityEnabled<SeverityThreshold::Warning, Severity::Fatal>);
+    static_assert(!IsSeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
+    static_assert(!IsSeverityEnabled<SeverityThreshold::Warning, Severity::Info>);
+    static_assert(IsSeverityEnabled<SeverityThreshold::Warning, Severity::Warning>);
+    static_assert(IsSeverityEnabled<SeverityThreshold::Warning, Severity::Fatal>);
     static_assert(AttemptSequence<>::WidthBits == 32U);
 
     /// Verifies the full 16-bit ticket space can be exhausted without silent wrap.

@@ -1,6 +1,6 @@
 # Reference — `src/logging/Severity.hpp`
 
-**Classification:** PUBLIC API; platform-neutral C++20 constants and compile-time predicates. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/Severity.hpp). Only `<cstdint>` is included: this primitive imports no EDP-Platform, Clock, Memory, Threading, Serialization, or concrete provider.
+**Classification:** PUBLIC API; platform-neutral C++20 constants and compile-time predicates. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/Severity.hpp). Only `<cstdint>` is included: this primitive imports no EDP-Platform, Clock, Memory, Threading, Serialization, or concrete provider.
 
 ## Public vocabulary and every enum value
 
@@ -10,7 +10,7 @@
 
 ## Compile-time site test
 
-`SeverityEnabled<TMinimum, TSeverity>` is an `inline constexpr bool` variable template. **`TMinimum`** is the application/Bootstrap-chosen compile-time threshold; **`TSeverity`** is the emitted site's severity. The predicate is true **only** when the selected minimum is not Off and the emitted level's ordinal is greater than or equal to it. The predicate itself performs no I/O, time reading, allocation or argument evaluation. It cannot prove record admission, sink acceptance or durable acknowledgement.
+`IsSeverityEnabled<TMinimum, TSeverity>` is an `inline constexpr bool` variable template. **`TMinimum`** is the application/Bootstrap-chosen compile-time threshold; **`TSeverity`** is the emitted site's severity. The predicate is true **only** when the selected minimum is not Off and the emitted level's ordinal is greater than or equal to it. The predicate itself performs no I/O, time reading, allocation or argument evaluation. It cannot prove record admission, sink acceptance or durable acknowledgement.
 
 The lazy `InvokeLogSite` wrapper and `EDP_LOG_WHEN_ENABLED` macro are documented separately in [Instrumentation](Reference-logging-Instrumentation). Their disabled branch avoids invoking producer/Clock/argument work when those expressions are **inside** the thunk. A conditional compile test is not a guarantee that unrelated application code, accidentally evaluated before the macro, is eliminated.
 

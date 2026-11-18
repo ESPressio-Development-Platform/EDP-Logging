@@ -16,8 +16,8 @@ namespace Demo {
     int Run() noexcept {
         using namespace ESPressio::Logging;
 
-        static_assert(SeverityEnabled<SeverityThreshold::Info, Severity::Warning>);
-        static_assert(!SeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
+        static_assert(IsSeverityEnabled<SeverityThreshold::Info, Severity::Warning>);
+        static_assert(!IsSeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
 
         int evaluated{0};
         EDP_LOG_WHEN_ENABLED(SeverityThreshold::Off, Severity::Error, ++evaluated);

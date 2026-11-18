@@ -56,8 +56,8 @@ The default `library.json` declares no mandatory EDP library dependencies. Frame
 
 using namespace ESPressio::Logging;
 
-static_assert(SeverityEnabled<SeverityThreshold::Info, Severity::Warning>);
-static_assert(!SeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
+static_assert(IsSeverityEnabled<SeverityThreshold::Info, Severity::Warning>);
+static_assert(!IsSeverityEnabled<SeverityThreshold::Off, Severity::Fatal>);
 ```
 
 This is a minimal **compile-time threshold example**, not a complete persistent logger. The default threshold is `Off`; an application must explicitly select its logging sites and construct its source/worker/sink composition.

@@ -35,9 +35,9 @@ local fixed-size scratch, and performs exactly one `ReplaceFile` call on the
 oldest slot, never on the previously newest slot. It then reopens and
 independently validates the old newest generation (header identity, version,
 CRC, frame count, entire contiguous verified extent), verifies the replaced
-slot's new generation/header/frame CRC/size and independently compares
-every newly read frame byte against the expected output, in 64-byte
-bounded read chunks. The result retains the raw EDP-Persistence
+slot's new generation, header, frame CRC and size. It independently
+compares the entire segment against the expected output in read chunks
+of up to 64 bytes using the selected EDP-Memory ByteOperations provider. The result retains the raw EDP-Persistence
 `FileReplaceStatus`, chosen and protected slots, no-wrap generation
 number, and explicit `PriorNewestVerified` fact.
 
