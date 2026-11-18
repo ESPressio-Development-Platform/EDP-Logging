@@ -37,6 +37,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Validation and qualifications
 
+- Sealed EDLS publication compares the verified whole-file capture in caller scratch. Hardware measured one fewer native read per successor, and the sealed 64-record relay fixture passed independent LittleFS and NVS verification.
+
 - Single-frame EDLS successor publication compares the exact intended frame before acknowledgement or retirement. The empty-slot path reuses its verified readback in caller scratch.
 - The 18 November WROOM strict ACK fixture passed an 8.382-second POR-confirmed power cut and independent LittleFS/NVS media audits. The separate 252-slot 100 records/s retest hit full-queue admission deadlines before completing 30,000 records. See the [qualification ledger](./docs/LOGGING-QUALIFICATION-STATUS.MD).
 

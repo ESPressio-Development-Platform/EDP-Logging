@@ -289,3 +289,9 @@ The existing 496-slot dual-pool profile also stopped at full-queue admission
 deadlines, after 21,141 publications on exact executable source `be1b2ba`.
 The [workload report](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--guarded-100-recordss-workload-repeats)
 records both trials, independent flash restoration and their distinct timing coverage.
+
+The matched 252-slot and 496-slot trials completed and independently audited the
+30,000-record workload. The later optimised 252-slot trial confirmed one fewer
+native read per sealed successor, then stopped at a full queue after the
+coordinator reported ReclaimUnconfirmed. Its exact sealed power-cut and raw
+media test passed. See the [matched timing and readback record](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--matched-timing-and-sealed-readback).

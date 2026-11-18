@@ -97,3 +97,42 @@ fixture seed, time budget and worker configuration. Use a supported
 application storage and memory configuration that completes the full
 offered workload with independent raw-media verification. See
 [Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).
+
+## 18 November 2026 — matched timing and sealed readback
+
+The two matched baseline images used executable source `99cd72d` with
+fixture probes `b83ae37`. Both native compile profiles and independent
+raw LittleFS/NVS audits passed. Both completed 30,000 scheduled records
+at 100 records/s and all 30,129 phase records durably, with no deadline
+failures. The underlying production path was unchanged between these
+two fixtures.
+
+| Receipt | Slots | Sampled backlog peak | Minimum sampled heap | Native reads | Successor writes | Write wall time | NVS store/commit wall time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `20261118T125151-58276d14` | 252 | 79 | 133,596 B | 5,159 | 469 | 102.589 s | 4.479 s |
+| `20261118T125152-6c5fd82e` | 496 | 76 | 92,448 B | 5,159 | 469 | 102.755 s | 4.567 s |
+
+The 252-slot optimised firmware `d16a4e9`, built in
+`20261118T125622-014d4a6f`, reuses the verified sealed successor capture
+for the exact Memory comparison. Its trial `20261118T125847-8545448f`
+observed **10 native reads per successor write** (2,970 reads for 297
+writes), compared with 11 in both matched baselines. It stopped after
+19,409 publications and four full-queue admission deadlines. The final
+coordinator exit was `ReclaimUnconfirmed` (3), also present in the two
+earlier failures. The queue samples reached 252. LittleFS successor
+writes still dominated the timed storage stages, but the coordinator
+exit prevents the queue from draining. The underlying retirement result
+must be observed directly before assigning the stall to a specific
+mutex or Memory failure. The run restored and verified original flash.
+
+The optimised 64-record sealed fixture passed power-cut and independent
+media run `20261118T125849-63124424` with 8.277 s OFF and confirmed POR.
+The audit verified both protected generations (128 records across all
+15 fields) and NVS ACK4/incarnation 7. The guard restored and independently
+verified the full original 4 MiB image. The optimised path also passed
+16 focused GCC/Clang checks under `20261118T125515-9468147f`.
+
+The failing fixture selects a 5 ms bounded coordinator mutex budget and
+a 100 Hz FreeRTOS tick. The producer deadlines remain 300 ms. Diagnose
+the typed retirement failure and compare the existing budget with one
+that spans the native timer granularity before qualifying the workload.
