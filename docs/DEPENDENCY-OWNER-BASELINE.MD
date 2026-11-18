@@ -10,9 +10,9 @@ The direct source imports for the current Logging profiles are listed below. The
 | --- | --- |
 | EDP-Clock | Admission deadlines, lifecycle, worker, bounded sealed batches, temporal projection and LogRecord Clock fields |
 | EDP-Threading | Source/queue admission, task ownership, synchronization and coordinator |
-| EDP-Memory | Producer pools, representation fan-out, copying sinks and opt-in owned argument `ByteOperationsContract` |
+| EDP-Memory | Producer pools, representation fan-out, copying sinks, owned arguments, framing, archive publication, typed delivery and key-value snapshots via `ByteOperationsContract` |
 | EDP-Platform | Ordinary mutex/no-wait and lifecycle atomic provider abstraction |
-| EDP-Platform-Portable | Opt-in concrete byte-copy provider for OwnedDiagnosticArguments only |
+| EDP-Platform-Portable | Stateless ByteOperations provider for opt-in owned arguments, EDLS publication, typed delivery and key-value snapshots. The standalone EDLG writer accepts a caller-selected provider. |
 | EDP-BoundedTopology | TransactionalRecordQueue finite slot occupancy |
 | EDP-BoundedTypes | Bounded EDLS payload, typed generated projection and approved fields |
 | EDP-System | Governed record Type/Field identity and generated record schema |

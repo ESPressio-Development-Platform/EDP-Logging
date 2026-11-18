@@ -18,7 +18,7 @@ This adapter uses the [generated wire projection](Reference-logging-GeneratedLog
 
 ## Operations and arguments
 
-`PublishGeneratedLogRecordToProtectedEdlsWithScratch` takes a borrowed complete source `record`, writable generated `projection`, positional scratch, CBOR and EDLG byte scratch, the selected `storage`, ordered file `paths`, the expected `deviceIdentifier` and `runtimeIncarnation`, and writable `archiveScratch`. The buffers must satisfy the underlying stage capacities. The CBOR and EDLG spans must be disjoint while framing. Once framing succeeds, the CBOR buffer may be reused as archive scratch if it has the required space and is disjoint from the live EDLG frame.
+`PublishGeneratedLogRecordToProtectedEdlsWithScratch` takes a borrowed complete source `record`, writable generated `projection`, positional scratch, CBOR and EDLG byte scratch, the selected `storage`, ordered file `paths`, the expected `deviceIdentifier` and `runtimeIncarnation`, and writable `archiveScratch`. The selected EDP-Memory ByteOperations provider compares the record’s canonical device bytes against the configured identity before projection. The buffers must satisfy the underlying stage capacities. The CBOR and EDLG spans must be disjoint while framing. Once framing succeeds, the CBOR buffer may be reused as archive scratch if it has the required space and is disjoint from the live EDLG frame.
 
 - `TMessageSchema` and `TParameters...` select the exact generated Localisation message and ordered value types.
 - `TWidth` selects the attempt ticket width. The projection and record must have the same governed root TypeIdentifier.

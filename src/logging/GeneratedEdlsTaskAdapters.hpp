@@ -294,10 +294,13 @@ namespace ESPressio::Logging {
             LastCompletion = TypedEdlsTaskCompletion::SourceIdentityMismatch;
             if (_incarnation == 0U || _decoded->Incarnation.Value() != _incarnation)
                 return RecordSinkSubmission::Rejected;
-            for (std::size_t i = 0U; i < 16U; ++i) {
-                if (_decoded->Device.Bytes()[i] != std::to_integer<std::uint8_t>(_device[i])) {
-                    return RecordSinkSubmission::Rejected;
-                }
+            const ESPressio::Platform::Portable::Memory::ByteOperationsProvider byteOperations{};
+            if (byteOperations.CompareBytes(
+                _decoded->Device.Bytes().data(),
+                _device.data(),
+                _device.size()
+            ) != ESPressio::Memory::ByteComparison::Equal) {
+                return RecordSinkSubmission::Rejected;
             }
             // Canonical-source qualification: reject trailing or alternate
             // encodings even if a permissive decoder reconstructed an equal
@@ -320,11 +323,13 @@ namespace ESPressio::Logging {
                 LastCompletion = TypedEdlsTaskCompletion::InvalidTypedRecord;
                 return RecordSinkSubmission::Rejected;
             }
-            for (std::size_t i = 0U; i < encoded.size(); ++i) {
-                if (_framingScratch[i] != encoded[i]) {
-                    LastCompletion = TypedEdlsTaskCompletion::InvalidTypedRecord;
-                    return RecordSinkSubmission::Rejected;
-                }
+            if (byteOperations.CompareBytes(
+                _framingScratch.data(),
+                encoded.data(),
+                encoded.size()
+            ) != ESPressio::Memory::ByteComparison::Equal) {
+                LastCompletion = TypedEdlsTaskCompletion::InvalidTypedRecord;
+                return RecordSinkSubmission::Rejected;
             }
             std::size_t framed = 0U;
             if (WriteEdlgFrame(
@@ -333,7 +338,7 @@ namespace ESPressio::Logging {
                     _framingScratch,
                     framed,
                     TMaximumPayload,
-                    ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
+                    byteOperations
                 ) != EdlgFrameWriteResult::Succeeded) {
                 LastCompletion = TypedEdlsTaskCompletion::FramingFailure;
                 return RecordSinkSubmission::Rejected;

@@ -103,12 +103,13 @@ namespace ESPressio::Logging {
             result.Status = GeneratedEdlsPublishStatus::SourceIdentityMismatch;
             return result;
         }
-        for (std::size_t i = 0U; i < deviceIdentifier.size(); ++i) {
-            if (record.Device.Bytes()[i] !=
-                std::to_integer<std::uint8_t>(deviceIdentifier[i])) {
-                result.Status = GeneratedEdlsPublishStatus::SourceIdentityMismatch;
-                return result;
-            }
+        if (byteOperations.CompareBytes(
+            record.Device.Bytes().data(),
+            deviceIdentifier.data(),
+            deviceIdentifier.size()
+        ) != ESPressio::Memory::ByteComparison::Equal) {
+            result.Status = GeneratedEdlsPublishStatus::SourceIdentityMismatch;
+            return result;
         }
         result.Projection = ProjectGeneratedLogRecord<
             TMessageSchema,

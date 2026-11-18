@@ -358,15 +358,9 @@ namespace ESPressio::Logging {
                 return OwnedArgumentResult::UnsupportedType;
             }
 
-            const auto& bytes = identifier.Bytes();
-            std::array<std::byte, System::TypeIdentifier::Size> copy{};
-            for (std::size_t index = 0U; index < copy.size(); ++index) {
-                copy[index] = static_cast<std::byte>(bytes[index]);
-            }
-
             return Store(
                 OwnedArgumentKind::TypeIdentifier,
-                copy
+                std::as_bytes(std::span{identifier.Bytes()})
             );
         }
 
@@ -397,15 +391,9 @@ namespace ESPressio::Logging {
                 return OwnedArgumentResult::UnsupportedType;
             }
 
-            const auto& bytes = identifier.Bytes();
-            std::array<std::byte, System::Identity::DeviceIdentifier::Size> copy{};
-            for (std::size_t index = 0U; index < copy.size(); ++index) {
-                copy[index] = static_cast<std::byte>(bytes[index]);
-            }
-
             return Store(
                 OwnedArgumentKind::DeviceIdentifier,
-                copy
+                std::as_bytes(std::span{identifier.Bytes()})
             );
         }
 
