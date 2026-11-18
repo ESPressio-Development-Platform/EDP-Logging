@@ -1,6 +1,6 @@
 # Reference — `src/logging/EdlsArchiveAppend.hpp`
 
-**Classification:** PUBLIC OPT-IN checked existing-slot append, with application-composed **EDP-Persistence FileStorage** direct contract. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/EdlsArchiveAppend.hpp). It includes the existing Logging EDLG strict reader and EDLS read-only inspector; no new FileStorage, heap, writer task, mutex or archive-retention policy is created.
+**Classification:** PUBLIC OPT-IN checked existing-slot append, with application-composed **EDP-Persistence FileStorage** direct contract. [Exact source](../src/logging/EdlsArchiveAppend.hpp). It includes the existing Logging EDLG strict reader and EDLS read-only inspector; no new FileStorage, heap, writer task, mutex or archive-retention policy is created.
 
 ## Public `EdlsAppendStatus` enum
 

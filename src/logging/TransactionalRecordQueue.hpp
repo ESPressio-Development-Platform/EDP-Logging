@@ -605,6 +605,8 @@ namespace ESPressio::Logging {
                 return outcome;
             }
 
+            /// Abort the reserved slot and invalidate the cached borrowed view.
+            /// @return The queue result. Ownership remains on unconfirmed retirement.
             [[nodiscard]] RecordQueueResult Abort() noexcept {
                 if (!_owner)
                     return RecordQueueResult::InvalidTicket;

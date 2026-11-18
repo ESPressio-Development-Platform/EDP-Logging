@@ -142,12 +142,25 @@ namespace ESPressio::Logging {
             return true;
         }
 
+        /// Evidence from a checked read of one fixed physical key.
         struct Slot final {
+
+            // Parsed outcome and bounded transfer evidence.
+
+            /// Storage or validation result for this read.
             DurableEdlsStatus Status{DurableEdlsStatus::ProviderFailure};
+
+            /// Parsed segment header, meaningful for a clean slot.
             EdlsHeader Header{};
+
+            /// Exact size of the complete checked value, zero until verified.
             std::size_t TotalBytes{0U};
         };
 
+        /// Read and validate the complete snapshot at a fixed physical key.
+        /// @param slot Index of the configured physical key to inspect.
+        /// @param buffer Writable bounded scratch for the complete native value.
+        /// @return Parsed result that distinguishes absence, provider failure and corrupt data.
         [[nodiscard]] Slot ReadSlot(
             std::size_t slot,
             std::array<std::byte, TMaximumValueBytes> &buffer) const noexcept {

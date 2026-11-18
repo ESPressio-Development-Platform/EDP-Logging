@@ -1,5 +1,7 @@
 # TransactionalRecordQueue (G1 partial)
 
+**Current source** [`src/logging/TransactionalRecordQueue.hpp`](../src/logging/TransactionalRecordQueue.hpp)
+
 **Header:** `<logging/TransactionalRecordQueue.hpp>`
 **Namespace:** `ESPressio::Logging`
 **Branch:** `feature/logging-v1`

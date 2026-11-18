@@ -1,5 +1,7 @@
 # Reference — EDLS oldest-eligible rotation (G6/G7)
 
+**Current source** [`src/logging/EdlsArchiveRotation.hpp`](../src/logging/EdlsArchiveRotation.hpp)
+
 The optional, application-selected
 `logging/EdlsArchiveRotation.hpp` implements
 `PublishEdlsOldestEligibleSuccessor<Slots,PayloadMaximum,SlotMaximum>()`.

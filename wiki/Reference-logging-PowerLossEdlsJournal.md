@@ -1,6 +1,6 @@
 # Reference — `src/logging/PowerLossEdlsJournal.hpp`
 
-**Classification:** PUBLIC OPT-IN finite history wrapper around the existing `PowerLossEdlsSnapshots` archive owner and the application's independently PowerLoss-qualified EDP-Persistence **KeyValueStorage** provider. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/PowerLossEdlsJournal.hpp). This is one N+1 **key/value generation** profile, not a second filesystem or default unbounded logging sink.
+**Classification:** PUBLIC OPT-IN finite history wrapper around the existing `PowerLossEdlsSnapshots` archive owner and the application's independently PowerLoss-qualified EDP-Persistence **KeyValueStorage** provider. [Exact source](../src/logging/PowerLossEdlsJournal.hpp). This is one N+1 **key/value generation** profile, not a second filesystem or default unbounded logging sink.
 
 ## Public value `DurableEdlsHistoryObservation`
 

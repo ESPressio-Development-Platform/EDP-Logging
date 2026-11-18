@@ -1,6 +1,6 @@
 # Reference — `src/ESPressio_Logging.hpp`
 
-**Classification:** public C++20 entry point. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/ESPressio_Logging.hpp).
+**Classification:** public C++20 entry point. [Reviewed source](../src/ESPressio_Logging.hpp).
 
 This aggregation header makes the six dependency-free foundation headers available in one include. It introduces no declarations of its own.
 

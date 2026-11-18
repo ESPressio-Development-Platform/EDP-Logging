@@ -1,6 +1,6 @@
 # Reference — `src/logging/CoordinatorSinkService.hpp`
 
-**Classification:** PUBLIC OPTIONAL coordinator service callback contract; C++20 concept. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/CoordinatorSinkService.hpp). Direct abstract dependency is **EDP-Clock** for the shared monotonic origin. This source creates **no** new worker, task, queue, filesystem, timer, allocator or provider. The callback belongs to a sink object already owned by Bootstrap.
+**Classification:** PUBLIC OPTIONAL coordinator service callback contract; C++20 concept. [Exact source](../src/logging/CoordinatorSinkService.hpp). Direct abstract dependency is **EDP-Clock** for the shared monotonic origin. This source creates **no** new worker, task, queue, filesystem, timer, allocator or provider. The callback belongs to a sink object already owned by Bootstrap.
 
 ## Public `CoordinatorSinkServiceStatus` enum
 

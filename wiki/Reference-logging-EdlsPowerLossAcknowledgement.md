@@ -1,6 +1,6 @@
 # Source reference — PowerLossAcknowledgedEdls
 
-**Classification:** PUBLIC OPTIONAL strict two-provider EDLS durable-publishing contract, with PRIVATE exclusive-writer optimisation. **Source:** [src/logging/EdlsPowerLossAcknowledgement.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/EdlsPowerLossAcknowledgement.hpp). EDP-Logging 0.1.0. The source directly consumes **EDP-Persistence's existing FileStorage and KeyValueStorage** abstractions and Logging's EDLS rolling/seal/inspection helpers; it neither supplies a filesystem nor assumes every FileStorage is power-loss atomic.
+**Classification:** PUBLIC OPTIONAL strict two-provider EDLS durable-publishing contract, with PRIVATE exclusive-writer optimisation. **Source:** [src/logging/EdlsPowerLossAcknowledgement.hpp](../src/logging/EdlsPowerLossAcknowledgement.hpp). EDP-Logging 0.1.0. The source directly consumes **EDP-Persistence's existing FileStorage and KeyValueStorage** abstractions and Logging's EDLS rolling/seal/inspection helpers; it neither supplies a filesystem nor assumes every FileStorage is power-loss atomic.
 
 ## Essential contract and exact status values
 

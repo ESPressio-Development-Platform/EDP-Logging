@@ -50,7 +50,7 @@ existing ESP-IDF hardware word and internal-DRAM qualification.
 
 ## Full source-level state and lifetime contract (10 November 2026)
 
-**Exact reviewed source:** [`AdmissionLifecycleCoordinator.hpp`](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/AdmissionLifecycleCoordinator.hpp). The optional direct imports are existing abstract **EDP-Clock, EDP-Threading and EDP-Platform AtomicWord32**, with nested admission requiring existing Memory NoWait. No independent provider, Task, queue, heap or unbounded waiter array is created here.
+**Exact reviewed source:** [`AdmissionLifecycleCoordinator.hpp`](../src/logging/AdmissionLifecycleCoordinator.hpp). The optional direct imports are existing abstract **EDP-Clock, EDP-Threading and EDP-Platform AtomicWord32**, with nested admission requiring existing Memory NoWait. No independent provider, Task, queue, heap or unbounded waiter array is created here.
 
 **Public `AdmissionShutdownStatus` enum:** **Quiescent (0)** means zero observed active producer *operations*, **DeadlineElapsed (1)** means canonical EDP-Clock absolute deadline passed while operations remained, **WakeRetryLimitReached (2)** means the bounded number of drain wake transitions was exhausted before quiescence, **DrainWaitProviderFailure (3)** means the existing Threading drain wait returned a provider failure. `AdmissionShutdownResult` has public **Status**, separate **WakePublication : AdmissionWakePublicationResult** (truth of stop wake publication, which may fail even if operations become quiescent), and **ActiveAdmissions : uint32_t** (last observed in-flight count, **not** a number of still-owned Memory leases). These fields never certify that the application joined all tasks or flushed every sink.
 

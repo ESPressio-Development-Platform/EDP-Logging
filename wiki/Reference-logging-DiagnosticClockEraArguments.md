@@ -1,6 +1,6 @@
 # Reference — `src/logging/DiagnosticClockEraArguments.hpp`
 
-**Classification:** internal opt-in compile-time adapter for generated diagnostic arguments. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/DiagnosticClockEraArguments.hpp).
+**Classification:** internal opt-in compile-time adapter for generated diagnostic arguments. [Reviewed source](../src/logging/DiagnosticClockEraArguments.hpp).
 
 The explicit specialization of `Detail::IsCertifiedDiagnosticClockEra<ESPressio::Clock::ClockEra>` inherits `std::true_type`. It enables the [diagnostic argument dispatcher](Reference-logging-DiagnosticArgumentEncoding) to recognise exactly the EDP-Clock-owned `ClockEra` as a supported generated argument type when the consumer selects this header. The primary trait remains in `DiagnosticArgumentEncoding.hpp`. This header adds neither another trait parameter nor runtime state.
 

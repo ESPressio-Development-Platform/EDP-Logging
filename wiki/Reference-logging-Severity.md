@@ -1,6 +1,6 @@
 # Reference — `src/logging/Severity.hpp`
 
-**Classification:** PUBLIC API; platform-neutral C++20 constants and compile-time predicates. [Exact source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/Severity.hpp). Only `<cstdint>` is included: this primitive imports no EDP-Platform, Clock, Memory, Threading, Serialization, or concrete provider.
+**Classification:** PUBLIC API; platform-neutral C++20 constants and compile-time predicates. [Exact source](../src/logging/Severity.hpp). Only `<cstdint>` is included: this primitive imports no EDP-Platform, Clock, Memory, Threading, Serialization, or concrete provider.
 
 ## Public vocabulary and every enum value
 

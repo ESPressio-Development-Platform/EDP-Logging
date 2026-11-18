@@ -87,6 +87,10 @@ namespace ESPressio::Logging {
             Projection &projection, OwnedPositionalScratch<TParameters...> &scratch) noexcept
             : _projection(&projection), _scratch(&scratch) {}
 
+        /// Project the complete source and encode it as a canonical CBOR TypedEnvelope.
+        /// @param record Borrowed source whose schema and wire projection must qualify.
+        /// @param output Writable byte capacity owned by the representation sink.
+        /// @return Encode status and the exact byte count when successful.
         [[nodiscard]] RepresentationEncodeResult operator()(const Source &record,
                                                             std::span<std::byte> output) noexcept {
             if (!ProjectGeneratedLogRecord<TMessageSchema, TWidth, TParameters...>(

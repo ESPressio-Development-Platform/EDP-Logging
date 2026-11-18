@@ -86,11 +86,13 @@ namespace ESPressio::Logging {
     /// @tparam TObjectPool Application-composed EDP-Memory ObjectPool-like owner.
     /// @tparam TWaitPoint Application-composed EDP-Threading bounded wait point.
     /// @tparam TLease Empty move-only ObjectPool lease output.
+    /// @tparam TStopPredicate Callable observing the producer cancellation signal.
     /// @tparam TArguments Nothrow-constructible object constructor arguments.
     /// @param pool Exclusive application-owned Memory ObjectPool facade.
     /// @param waitPoint Exclusive stable producer wake target.
     /// @param lease Empty output lease; only populated on a successful grant.
     /// @param deadline One absolute canonical EDP-Clock monotonic deadline.
+    /// @param stopRequested Read-only cancellation observation between acquisition attempts.
     /// @param arguments Constructor arguments forwarded only when a claim succeeds.
     /// @return Explicit admission/wait/Memory outcome; never hides a late lease.
     template <std::size_t TMaximumWakeRetries,

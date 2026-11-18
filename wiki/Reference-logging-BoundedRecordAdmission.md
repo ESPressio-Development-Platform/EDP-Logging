@@ -1,6 +1,6 @@
 # logging/BoundedRecordAdmission.hpp
 
-**Classification:** PUBLIC opt-in G1 composition. Import [BoundedRecordAdmission.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/BoundedRecordAdmission.hpp) explicitly to use this contract. Canonical normative contract: [bounded record admission](../docs/BOUNDED-RECORD-ADMISSION.MD).
+**Classification:** PUBLIC opt-in G1 composition. Import [BoundedRecordAdmission.hpp](../src/logging/BoundedRecordAdmission.hpp) explicitly to use this contract. Canonical normative contract: [bounded record admission](../docs/BOUNDED-RECORD-ADMISSION.MD).
 
 ## Public result contract
 

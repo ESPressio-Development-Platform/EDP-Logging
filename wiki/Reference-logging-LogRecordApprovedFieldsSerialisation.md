@@ -1,6 +1,6 @@
 # Reference — `src/logging/LogRecordApprovedFieldsSerialisation.hpp`
 
-**Classification:** internal cross-library canonical adapters. [Reviewed source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/73e39775eb0d4bd5398e479ae931aa42c47ab22a/src/logging/LogRecordApprovedFieldsSerialisation.hpp).
+**Classification:** internal cross-library canonical adapters. [Reviewed source](../src/logging/LogRecordApprovedFieldsSerialisation.hpp).
 
 The opt-in adapters supply the issued [Field 11 and Field 14 child representations](../docs/G4-APPROVED-FIELD-WIRE.MD). EDP-Serialisation owns the canonical representation contract, EDP-BoundedTypes owns the conversion interface and EDP-Clock owns the temporal status enumerators.
 

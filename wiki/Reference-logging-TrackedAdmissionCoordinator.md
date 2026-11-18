@@ -1,6 +1,6 @@
 # Reference — `src/logging/TrackedAdmissionCoordinator.hpp`
 
-**Classification:** PUBLIC OPT-IN bounded acquisition/lease/drain ownership API, plus PRIVATE lock-free counters, lifecycle guard and destructor notifier. [Source](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/main/src/logging/TrackedAdmissionCoordinator.hpp). Importing it activates the sibling `AdmissionLifecycleCoordinator` and its abstract **EDP-Clock, Memory, Platform and Threading** owner contracts; the default Logging umbrella does not import it. No second worker, pool, clock, persistent lease registry or heap is introduced.
+**Classification:** PUBLIC OPT-IN bounded acquisition/lease/drain ownership API, plus PRIVATE lock-free counters, lifecycle guard and destructor notifier. [Source](../src/logging/TrackedAdmissionCoordinator.hpp). Importing it activates the sibling `AdmissionLifecycleCoordinator` and its abstract **EDP-Clock, Memory, Platform and Threading** owner contracts; the default Logging umbrella does not import it. No second worker, pool, clock, persistent lease registry or heap is introduced.
 
 ## Every public validation and drain result value
 

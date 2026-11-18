@@ -1,6 +1,6 @@
 # Source reference — generated-record CBOR and typed EDLS Task delivery
 
-**Classification:** PUBLIC OPTIONAL generated-record encoder and synchronous Task-delivery adapter; INTERNAL record/strict ACK/worker Composition seam. **Exact reviewed source:** [src/logging/GeneratedEdlsTaskAdapters.hpp](https://github.com/ESPressio-Development-Platform/EDP-Logging/blob/8d2b307a8a1db1aa5596abc904cd0da1f3c032cd/src/logging/GeneratedEdlsTaskAdapters.hpp). Version 0.1.0. Imports the **existing** EDP-Serialisation typed-envelope canonical CBOR, Logging's typed source/wire projection, EDLS frame and checked archive owner, strict NVS-acknowledged publisher, bounded batch and ordinary coordinator service callback. It creates no duplicate codec, task, queue, thread, timer, filesystem, platform provider or persistent allocator.
+**Classification:** PUBLIC OPTIONAL generated-record encoder and synchronous Task-delivery adapter; INTERNAL record/strict ACK/worker Composition seam. **Exact reviewed source:** [src/logging/GeneratedEdlsTaskAdapters.hpp](../src/logging/GeneratedEdlsTaskAdapters.hpp). Version 0.1.0. Imports the **existing** EDP-Serialisation typed-envelope canonical CBOR, Logging's typed source/wire projection, EDLS frame and checked archive owner, strict NVS-acknowledged publisher, bounded batch and ordinary coordinator service callback. It creates no duplicate codec, task, queue, thread, timer, filesystem, platform provider or persistent allocator.
 
 ## Internal target qualification
 
