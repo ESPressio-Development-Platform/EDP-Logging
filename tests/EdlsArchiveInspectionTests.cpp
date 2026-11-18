@@ -528,6 +528,25 @@ int main(){
  assert(replacementBytes == exact.size());
  const auto differentFrame = std::span{substituted}.first(replacementBytes);
 
+ Storage substitutedSingle{};
+ substitutedSingle.substituteFrame = differentFrame;
+ const auto single = L::PublishEdlsSuccessorIntoEmptySlot<2U, 16U, 128U>(
+  substitutedSingle,
+  paths,
+  identity,
+  1U,
+  exact
+ );
+ assert(single.Status == L::EdlsSuccessorStatus::ReadbackUnconfirmed &&
+        single.Native == P::FileReplaceStatus::Succeeded);
+ const auto singleReadback = L::InspectEdlsSlot<16U>(
+  substitutedSingle,
+  paths[0U],
+  0U
+ );
+ assert(singleReadback.Condition == L::EdlsSlotCondition::Clean &&
+        singleReadback.VerifiedFrames == 1U);
+
  Storage substitutedSuccessor{};
  substitutedSuccessor.substituteFrame = differentFrame;
  std::array<std::byte, 128U> sealedScratch{};
