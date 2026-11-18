@@ -274,6 +274,7 @@ with independent LittleFS/NVS replay and original-flash verification.
 This confirms the selected strict acknowledgement path for G6/G7/G15.
 The 252-slot managed workload under G10/G11 stopped on full-queue
 admission deadlines before completing the 30,000-record target. The
+496-slot dual-pool repeat also stopped at capacity. The
 [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) records both
 outcomes, exact evidence and scope. The previous integrated revision
 `76e6986` separately passed 34 GCC, 34 Clang and 40 Python checks.

@@ -58,3 +58,42 @@ Both independently extracted raw LittleFS and NVS partitions from actual physica
 Prior 128/252/496 queue 100rps and a second 80rps attempt failed on their original distinct images; do not erase negative evidence. The internal EdlsArchiveRotation protected-retirement optimisation removes a duplicated CRC read of immutable predecessor slots between a complete pre-removal CRC scan and the old-slot removal, under one exclusive writer. It preserves the full preflight, checked successor, protected-history validation before NVS ACK, durable NVS ACK, and full post-removal CRC scan. A test injects damage during removal and requires RetirementUnconfirmed and fail-closed recovery. The host GCC and Clang UBSan negative passed on 1 November.
 
 The physical workload has passed TWICE, but source publication, current-source full regression, a new physical PowerLoss cut after the optimisation, G1–G15 documentation reconciliation and original-chip image restoration remain release requirements. This finite test is not indefinite rate, all hardware, arbitrary FileStorage PowerLoss atomicity, or device lifetime certification.
+
+## 18 November 2026 — guarded 100 records/s workload repeats
+
+Both WROOM fixtures selected two producers scheduled at a combined 100
+records/s, 30,000 planned records, a 300 ms admission budget, 64-frame
+EDLS segments and a 500 ms dwell. Both stopped when three scheduled
+admissions exceeded their deadlines at full queue capacity. The producer
+receipts show `CapacityUnavailable` before Memory acquisition.
+
+| RPI400 run | Executable source and fixture | Published at stop | Retired and accepted | Firmware-reported durable | Minimum sampled free heap |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `20261118T121219-9a597074` | `5e6aaa2`, 252 slots and one source pool | 25,922 | 25,670 | 25,653 | 134,060 B |
+| `20261118T122356-f106fa4a` | `be1b2ba`, 496 slots and two source pools | 21,141 | 20,645 | 20,532 | 93,040 B |
+
+The exact 496-slot build `20261118T122356-91e3ea9a` passed the native
+compile profile check for O2, level-2 assertions, 160 MHz and 500 ms dwell.
+Its factory SHA-256 was
+`4ebb9c4fbc6d7eae9cfa01e22d1bd659005f7afea124dbbe9f3d587a72cb3908`.
+Both runtime runs ended FAIL, exit 1. Both guards independently
+verified and restored the original 4 MiB image and left the target OFF.
+Each firmware halted before the independent workload raw-media audit.
+
+The 252-slot timing probe observed a maximum native write of 493.639 ms
+and maximum worker service time of 707.233 ms. The 496-slot fixture
+recorded 317 flush deliveries taking 153.218 seconds in aggregate and a
+707.561 ms maximum callback. The native per-operation storage counters
+are compiled only into the 252-slot profile, and the fixtures use different
+pool topology. The timings locate long synchronous storage service in
+both runs and leave the cause of individual latency spikes unresolved.
+The tested dual-pool fixture reduced sampled free heap by 41,020 bytes
+and did not meet the workload target. The historical passing runs
+remain evidence for their recorded revisions, fixtures and initial state.
+
+Next compare queue depth and the timing of successor write, NVS commit
+and retirement on repeated runs with the same provider instrumentation,
+fixture seed, time budget and worker configuration. Use a supported
+application storage and memory configuration that completes the full
+offered workload with independent raw-media verification. See
+[Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).

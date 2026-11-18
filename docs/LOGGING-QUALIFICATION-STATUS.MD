@@ -284,3 +284,8 @@ Historical 100 records/s passes and the separately qualified strict
 power-cut result retain their exact source and configuration scope. This
 fixture selects 160 MHz, O2, assertion level 2 and a 500 ms batch dwell.
 Current release tracking remains in [Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).
+
+The existing 496-slot dual-pool profile also stopped at full-queue admission
+deadlines, after 21,141 publications on exact executable source `be1b2ba`.
+The [workload report](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--guarded-100-recordss-workload-repeats)
+records both trials, independent flash restoration and their distinct timing coverage.
