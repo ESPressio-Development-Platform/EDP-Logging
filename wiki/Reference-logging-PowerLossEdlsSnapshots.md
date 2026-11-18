@@ -87,7 +87,11 @@ declared maximum value is too small. Selecting a provider is
 the **application's** responsibility, not a hidden Logging default.
 
 The private `Capability` and `Properties` aliases express those
-existing owner contracts. `storage_` is a nonowning pointer to the
+existing owner contracts. The private `ByteOperationsProvider` alias selects
+the stateless Portable implementation of the EDP-Memory ByteOperations
+contract. It compares equally sized physical key names and verifies the
+exact value read back after commit. It copies complete frames between caller
+spans and disjoint operation-local snapshots. `storage_` is a nonowning pointer to the
 caller-owned provider, and `keys_` is a fixed-size collection of
 nonowning key views; the caller must maintain both for the complete
 adapter lifetime. The private `Slot` value groups its parsed

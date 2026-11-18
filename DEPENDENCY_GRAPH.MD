@@ -396,9 +396,9 @@ Logging. Rotation cannot strengthen a provider's weak PowerLoss guarantees.
 
 ## 2026-10-23 — optional PowerLoss EDLS snapshots
 
-`logging/PowerLossEdlsSnapshots.hpp` consumes ONLY the existing
-abstract `EDP-Persistence::KeyValueStorage` and canonical existing
-Logging EDLG/EDLS formatters. A compile-time guarantee gate prevents
+`logging/PowerLossEdlsSnapshots.hpp` consumes the abstract `EDP-Persistence::KeyValueStorage`, canonical
+Logging EDLG/EDLS formatters, and the existing EDP-Memory ByteOperations
+contract with its stateless EDP-Platform-Portable provider. A compile-time guarantee gate prevents
 instantiation with Restart-only/None-interruption-atomic providers.
 The application Bootstrap chooses EDP-Persistence-ESP-IDF NVS or
 another qualified provider; no concrete SDK import, second allocator,
@@ -409,7 +409,7 @@ archive; the non-atomic VFS profile remains unchanged.
 
 ## 2026-10-23 — optional strict historical EDLS journal
 
-Optional logging/PowerLossEdlsJournal.hpp adds **no new repository dependency**: it composes the existing PowerLossEdlsSnapshots owner and the same optional abstract EDP-Persistence::KeyValueStorage contract, EDP-System composition requirements and existing EDLG/EDLS encoding. Application Bootstrap selects the already-existing PowerLoss-atomic ESP-IDF NVS provider. No new raw flash driver, worker, queue, mutex, allocator, Clock, Mesh or reverse dependency. No change to SPIFFS FileStorage guarantees or versions 0.1.0.
+Optional logging/PowerLossEdlsJournal.hpp adds **no new repository dependency**: it composes the existing PowerLossEdlsSnapshots owner and the same optional abstract EDP-Persistence::KeyValueStorage and EDP-Memory ByteOperations contracts, EDP-System composition requirements and existing EDLG/EDLS encoding. Application Bootstrap selects the already-existing PowerLoss-atomic ESP-IDF NVS provider. No new raw flash driver, worker, queue, mutex, allocator, Clock, Mesh or reverse dependency. No change to SPIFFS FileStorage guarantees or versions 0.1.0.
 
 
 ## 2026-10-26 — immutable EDLS protected N+1 rolling dependency revalidation

@@ -6,6 +6,8 @@
 #include <limits>
 #include <span>
 #include <ESPressio_Persistence.hpp>
+#include <ESPressio_Platform_Portable_ByteOperations.hpp>
+#include <memory/ByteOperationsContract.hpp>
 
 #include "EdlgFrameReader.hpp"
 #include "EdlsSegment.hpp"
@@ -89,6 +91,10 @@ namespace ESPressio::Logging {
     class PowerLossEdlsSnapshots final {
         using Capability = ESPressio::Persistence::KeyValueStorage;
         using Properties = typename TStorage::CompositionOffers::template PropertiesFor<Capability>;
+        /// Existing stateless provider for bounded snapshot memory operations.
+        using ByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider;
+        static_assert(sizeof(ESPressio::Memory::Detail::ByteOperationsProviderTraits<ByteOperationsProvider>) > 0U);
+
 
         static_assert(TSlots >= 2U && TSlots <= 8U);
         static_assert(TMaximumFramePayloadBytes >= 1U && TMaximumFramePayloadBytes <= 4096U);
@@ -121,15 +127,16 @@ namespace ESPressio::Logging {
                 if (keys_[i].Data() == nullptr || keys_[i].Size() == 0U)
                     return false;
                 for (std::size_t j = 0U; j < i; ++j) {
-                    if (keys_[j].Size() != keys_[i].Size()) continue;
-                    bool equal = true;
-                    for (std::size_t k = 0U; k < keys_[i].Size(); ++k) {
-                        if (keys_[i].Data()[k] != keys_[j].Data()[k]) {
-                            equal = false;
-                            break;
-                        }
+                    if (keys_[j].Size() != keys_[i].Size()) {
+                        continue;
                     }
-                    if (equal) return false;
+                    if (ByteOperationsProvider{}.CompareBytes(
+                        keys_[i].Data(),
+                        keys_[j].Data(),
+                        keys_[i].Size()
+                    ) == ESPressio::Memory::ByteComparison::Equal) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -276,9 +283,11 @@ namespace ESPressio::Logging {
                 return outcome;
             }
             used = observed.TotalBytes - EdlsHeaderBytes;
-            for (std::size_t i = 0U; i < used; ++i) {
-                destination[i] = bytes[EdlsHeaderBytes + i];
-            }
+            ByteOperationsProvider{}.CopyBytes(
+                destination.data(),
+                bytes.data() + EdlsHeaderBytes,
+                used
+            );
             return outcome;
         }
 
@@ -318,9 +327,11 @@ namespace ESPressio::Logging {
                     return result;
                 }
                 result.FrameBytes = slot.TotalBytes - EdlsHeaderBytes;
-                for (std::size_t i = 0U; i < result.FrameBytes; ++i) {
-                    destination[i] = bytes[EdlsHeaderBytes + i];
-                }
+                ByteOperationsProvider{}.CopyBytes(
+                    destination.data(),
+                    bytes.data() + EdlsHeaderBytes,
+                    result.FrameBytes
+                );
                 result.Status = DurableEdlsStatus::Clean;
                 return result;
             }
@@ -403,8 +414,11 @@ namespace ESPressio::Logging {
                 result.Status = DurableEdlsStatus::InvalidRecord;
                 return result;
             }
-            for (std::size_t i = 0U; i < frame.size(); ++i)
-                bytes[EdlsHeaderBytes + i] = frame[i];
+            ByteOperationsProvider{}.CopyBytes(
+                bytes.data() + EdlsHeaderBytes,
+                frame.data(),
+                frame.size()
+            );
             const auto total = EdlsHeaderBytes + frame.size();
             result.Native = storage_->StoreValue(
                 keys_[target], P::SourceBufferView{bytes.data(), total});
@@ -424,11 +438,13 @@ namespace ESPressio::Logging {
                 result.Status = DurableEdlsStatus::ReadbackUnconfirmed;
                 return result;
             }
-            for (std::size_t i = 0U; i < total; ++i) {
-                if (bytes[i] != reread[i]) {
-                    result.Status = DurableEdlsStatus::ReadbackUnconfirmed;
-                    return result;
-                }
+            if (ByteOperationsProvider{}.CompareBytes(
+                bytes.data(),
+                reread.data(),
+                total
+            ) != ESPressio::Memory::ByteComparison::Equal) {
+                result.Status = DurableEdlsStatus::ReadbackUnconfirmed;
+                return result;
             }
             result.Status = DurableEdlsStatus::Committed;
             return result;
