@@ -47,6 +47,8 @@ namespace {
         bool failStore{false};
         bool failRead{false};
         bool tornValue{false};
+        /// Models a provider accepting a write while returning different valid bytes.
+        bool alterStoredIncarnation{false};
         std::size_t stores{0U};
         [[nodiscard]] bool IsKeyValueStorageReady() const noexcept {return true;}
         [[nodiscard]] std::size_t Which(P::KeyView key) const noexcept {
@@ -87,6 +89,18 @@ namespace {
             for(std::size_t j=0U;j<source.Size;++j)
                 bytes[i][j]=static_cast<const std::byte*>(source.Address)[j];
             sizes[i]=source.Size;
+            if (alterStoredIncarnation) {
+                L::EdlsHeader header{};
+                assert(L::ReadEdlsHeader(
+                    std::span<const std::byte>(bytes[i]).first(L::EdlsHeaderBytes),
+                    header
+                ) == L::EdlsHeaderStatus::Succeeded);
+                ++header.RuntimeIncarnation;
+                assert(L::WriteEdlsHeader(
+                    header,
+                    bytes[i]
+                ) == L::EdlsHeaderStatus::Succeeded);
+            }
             return P::KeyValueStoreStatus::Succeeded;
         }
         [[nodiscard]] P::KeyValueRemoveStatus RemoveKey(P::KeyView key) noexcept {
@@ -145,6 +159,20 @@ namespace {
         outcome=archive.Commit(id,4U,std::span<const std::byte>(encoded.data(),len));
         assert(outcome.Status==L::DurableEdlsStatus::InvalidRecord);
         encoded[17U]^=std::byte{0x40};
+
+        // A valid but different stored header must fail exact commit readback.
+        {
+            FakeStorage differingStorage{};
+            Archive differingArchive(differingStorage, {{a.Value, b.Value}});
+            differingStorage.alterStoredIncarnation = true;
+            const auto mismatch = differingArchive.Commit(
+                id,
+                1U,
+                frame
+            );
+            assert(mismatch.Native == P::KeyValueStoreStatus::Succeeded);
+            assert(mismatch.Status == L::DurableEdlsStatus::ReadbackUnconfirmed);
+        }
 
         // A failed in-progress write may damage the older inactive key.
         // The protected newest generation remains independently recoverable.

@@ -3,13 +3,16 @@
 ## Authority and scope
 
 `logging/PowerLossEdlsSnapshots.hpp` is an opt-in, **two-to-eight-key
-bounded generation-snapshot** profile. It composes **only** the existing
+bounded generation-snapshot** profile. It composes the existing
 `EDP-Persistence::KeyValueStorage` abstract capability, rejecting
 non-PowerLoss retention and interruption-atomicity properties at compile
 time. No EDP-Mesh, direct ESP-IDF NVS API, alternative flash driver,
 worker, queue, allocator, synchronization object or Clock is introduced
 into Logging. Application Bootstrap chooses and exclusively owns the
-provider, its namespace, and the unique key names.
+provider, its namespace, and the unique key names. The snapshot uses
+EDP-Memory ByteOperations through the stateless EDP-Platform-Portable
+provider to assemble and recover frames, compare equal-length key names,
+and verify stored bytes after native acceptance.
 
 The qualified reference binding is
 `EDP-Persistence-ESP-IDF::NvsKeyValueStorage` whose declared per-key
