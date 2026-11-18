@@ -53,6 +53,8 @@ namespace ESPressio::Logging {
         std::atomic<std::uint64_t> SinkServiceFailures{0U};
         /// Ordinary finite queue lock contention before any claim or sink invocation.
         std::atomic<std::uint64_t> QueueContentions{0U};
+        /// Exact queue retirement result when Exit is ReclaimUnconfirmed.
+        std::atomic<RecordQueueResult> ReclaimFailure{RecordQueueResult::Empty};
     };
 
     /// Explicit compile-time opt-in to finite locking on the SAME queue and ordinary mutex.
@@ -209,6 +211,7 @@ namespace ESPressio::Logging {
 
         /// Runs finite quanta and optional service inside the one managed Threading context.
         void operator()(Threading::ThreadContext &context) noexcept {
+            _report->ReclaimFailure.store(RecordQueueResult::Empty, std::memory_order_relaxed);
             while (!context.IsStopRequested()) {
                 const auto quantum = std::apply(
                     [&](TSinks *...sinks) noexcept {
@@ -247,6 +250,9 @@ namespace ESPressio::Logging {
                         std::memory_order_relaxed);
                 }
                 if (quantum.Status == CoordinatorQuantumStatus::ReclaimUnconfirmed) {
+                    _report->ReclaimFailure.store(
+                        quantum.ReclaimFailure,
+                        std::memory_order_relaxed);
                     _report->Exit.store(
                         DedicatedCoordinatorExit::ReclaimUnconfirmed,
                         std::memory_order_release);

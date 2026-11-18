@@ -41,6 +41,8 @@ namespace ESPressio::Logging {
         std::array<std::size_t, TSinkCount> PerSinkAccepted{};
         /// Non-acceptance outcomes by sink position.
         std::array<std::size_t, TSinkCount> PerSinkUnaccepted{};
+        /// Underlying retirement result when the quantum retains an unresolved claim.
+        RecordQueueResult ReclaimFailure{RecordQueueResult::Empty};
     };
 
     /// Drain at most TMaximumRecords immutable queue records to 1..8 sinks.
@@ -98,6 +100,7 @@ namespace ESPressio::Logging {
                 }
                 if (outcome.Source.Status == RecordDrainStatus::ReclaimUnconfirmed) {
                     result.Status = CoordinatorQuantumStatus::ReclaimUnconfirmed;
+                    result.ReclaimFailure = outcome.Source.Reclaim;
                     return result;
                 }
                 if (outcome.Source.Status == RecordDrainStatus::ClaimFailure) {

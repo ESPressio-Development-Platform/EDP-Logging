@@ -43,6 +43,8 @@ namespace {
         /// Explicit fixture configuration; the existing default100ms profile stays separately
         /// selectable.
         constexpr std::int64_t WorkerDwellNanoseconds = EDP_WORKER_DWELL_NS;
+        /// Maximum canonical wait for a coordinator claim or retirement transition.
+        constexpr std::int64_t WorkerCoordinatorQueueWaitNs = 5000000LL;
 #if defined(EDP_WORKER_OPTIMISED_BUILD)
         /// Actual compiler arguments are independently checked by the build runner.
         constexpr const char* WorkerOptimisation = "o2";
@@ -1114,7 +1116,7 @@ namespace {
             static ThreadingRuntime runtime(std::make_tuple(
                 T::BindDedicatedThread<CoordinatorIdentity>(MeasuredCoordinator(
                     Coordinator(
-                        L::CoordinatorQueueLockWait<5000000>{},
+                        L::CoordinatorQueueLockWait<WorkerCoordinatorQueueWaitNs>{},
                         queue,
                         report,
                         sink
@@ -1331,11 +1333,12 @@ namespace {
             ScheduleStart.store(started);
             std::printf(
                 "EDP_WORKER|ADMISSION_PROFILE|pressure_budget_us=%llu"
-                "|scheduled_budget_us=%llu|queue_slots=%zu|schedule_hz=%u\n",
+                "|scheduled_budget_us=%llu|queue_slots=%zu|schedule_hz=%u|coordinator_lock_us=%llu\n",
                 static_cast<unsigned long long>(PressureAdmissionBudgetNs / 1000U),
                 static_cast<unsigned long long>(ScheduledAdmissionBudgetNs / 1000U),
                 WorkerSourceQueueSlots,
-                ScheduleRps
+                ScheduleRps,
+                static_cast<unsigned long long>(WorkerCoordinatorQueueWaitNs / 1000U)
             );
             std::fflush(stdout);
             Phase.store(3U);
@@ -1406,7 +1409,7 @@ namespace {
                 sink.PrintProfile();
                 std::printf(
                     "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
-                    "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
+                    "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|reclaim_result=%u|phase0=%u|phase1=%u\n",
                     Published.load(),
                     Refused.load(),
                     Failures.load(),
@@ -1415,6 +1418,7 @@ namespace {
                     static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
                     static_cast<unsigned long long>(report.PartialSubmissions.load()),
                     static_cast<unsigned>(report.Exit.load()),
+                    static_cast<unsigned>(report.ReclaimFailure.load()),
                     CompletedPhase[0U].load(),
                     CompletedPhase[1U].load()
                 );
@@ -1444,7 +1448,7 @@ namespace {
             sink.PrintProfile();
             std::printf(
                 "EDP_WORKER|SCHEDULE_RESULT|published=%u|refused=%u|failures=%u|retired=%llu"
-                "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|phase0=%u|phase1=%u\n",
+                "|accepted=%llu|durable=%llu|partial=%llu|exit=%u|reclaim_result=%u|phase0=%u|phase1=%u\n",
                 Published.load(),
                 Refused.load(),
                 Failures.load(),
@@ -1453,6 +1457,7 @@ namespace {
                 static_cast<unsigned long long>(report.DurableSinkCompletions.load()),
                 static_cast<unsigned long long>(report.PartialSubmissions.load()),
                 static_cast<unsigned>(report.Exit.load()),
+                static_cast<unsigned>(report.ReclaimFailure.load()),
                 CompletedPhase[0U].load(),
                 CompletedPhase[1U].load()
             );

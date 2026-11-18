@@ -145,3 +145,5 @@ is waived by the user's explicit current disposable-firmware instruction.
 implemented original-deadline commit, late native-grant refusal,
 retained retirement ownership and explicit existing coordinator opt-in.
 Native managed-worker requalification remains pending.
+
+When the coordinator exits with ReclaimUnconfirmed, its report's ReclaimFailure field preserves the underlying queue retirement result. The claim remains owned and delivery is not replayed.

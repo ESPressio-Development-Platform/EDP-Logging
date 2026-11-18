@@ -317,6 +317,57 @@ namespace {
         assert(sink.ServiceCoordinator().DurableSinkCompletions == 1U);
     }
 
+    /// Forces bounded retirement contention after the source has reached its sink.
+    void ReportsBoundedRetirementContention() {
+        ServiceFixture fixture{};
+        fixture.Produce(71);
+        std::atomic<bool> acquire{false};
+        std::atomic<bool> locked{false};
+        std::atomic<bool> release{false};
+        std::thread holder([&]() {
+            while (!acquire.load()) {
+                std::this_thread::yield();
+            }
+            assert(fixture.QueueMutex.Acquire(
+                       ESPressio::Platform::Synchronization::WaitTimeout::NoWait()
+                   ) == T::OrdinaryMutexAcquireResult::Acquired);
+            locked.store(true);
+            while (!release.load()) {
+                std::this_thread::yield();
+            }
+            assert(fixture.QueueMutex.Release() == T::OrdinaryMutexReleaseResult::Released);
+        });
+        unsigned submissions = 0U;
+        auto sink = [&](const Rec&) noexcept {
+            ++submissions;
+            acquire.store(true);
+            while (!locked.load()) {
+                std::this_thread::yield();
+            }
+            return L::RecordSinkSubmission::Accepted;
+        };
+        L::DedicatedCoordinatorReport report{};
+        L::DedicatedCoordinator<1U, 5000000, Queue, decltype(sink)> coordinator(
+            L::CoordinatorQueueLockWait<1000000>{},
+            fixture.Records,
+            report,
+            sink
+        );
+        ServiceContext state{};
+        T::ThreadContext context(
+            &state,
+            ServiceOperations
+        );
+        coordinator(context);
+        release.store(true);
+        holder.join();
+        assert(submissions == 1U);
+        assert(report.Exit.load() == L::DedicatedCoordinatorExit::ReclaimUnconfirmed);
+        assert(report.ReclaimFailure.load() == L::RecordQueueResult::DeadlineElapsed ||
+               report.ReclaimFailure.load() == L::RecordQueueResult::Busy);
+        assert(report.RecordsRetired.load() == 0U);
+    }
+
 } // namespace
 
 int main() {
@@ -327,5 +378,6 @@ int main() {
     ServiceFailureStops();
     AbsoluteWaitFailureStops();
     BoundedQueueContentionRetainsSource();
+    ReportsBoundedRetirementContention();
     std::puts("EXISTING_COORDINATOR_ABSOLUTE_SERVICE_AND_COMPLETION_NEGATIVES=PASS");
 }
