@@ -264,3 +264,29 @@ of the remaining Logging and affected owner surfaces is tracked in
 The exact Xtensa syntax and compile-out checks passed in
 20261118T113942-907bb482. The prior named physical results above apply to
 their recorded source and configuration.
+
+## 18 November 2026 — recovered release evidence and open gates
+
+The exact single-frame successor correction at
+`be1b2bac863c13c4d5751612c788823dc75b432b` passed 16 GCC/Clang checks,
+native ESP-IDF build, and an 8.382-second POR-confirmed WROOM relay cut
+with independent LittleFS/NVS replay and original-flash verification.
+This confirms the selected strict acknowledgement path for G6/G7/G15.
+The 252-slot managed workload under G10/G11 stopped on full-queue
+admission deadlines before completing the 30,000-record target. The
+[qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) records both
+outcomes, exact evidence and scope. The previous integrated revision
+`76e6986` separately passed 34 GCC, 34 Clang and 40 Python checks.
+
+The selected G14 owner revisions are listed in the
+[owner baseline](DEPENDENCY-OWNER-BASELINE.MD). The current Wiki audit
+compiled all production headers, checked 1,021 named declaration pairs
+and resolved 558 local file links. Remaining release gates include
+performance qualification for the stated workload, V2 semantic review
+of Logging and the affected owner contracts, and release approval.
+[Logging #11](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/11)
+also tracks native asynchronous queued cancellation, concurrent shutdown
+and provider-release fault coverage for release scopes that include those
+cases. Earlier real running-Task cancellation evidence remains valid for
+its named fixture. Direct Memory blocked-waiter safety remains tracked in
+[Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16).

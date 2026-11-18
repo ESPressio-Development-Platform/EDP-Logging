@@ -37,6 +37,9 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Validation and qualifications
 
+- Single-frame EDLS successor publication compares the exact intended frame before acknowledgement or retirement. The empty-slot path reuses its verified readback in caller scratch.
+- The 18 November WROOM strict ACK fixture passed an 8.382-second POR-confirmed power cut and independent LittleFS/NVS media audits. The separate 252-slot 100 records/s retest hit full-queue admission deadlines before completing 30,000 records. See the [qualification ledger](./docs/LOGGING-QUALIFICATION-STATUS.MD).
+
 - Real **GCC/Clang host** test suites cover framed wire, metadata, generated schema, malformed input, bounded admission, queue transitions, producer ownership, sinks, strict ACK, protected rolling and non-destructive read-only scan/failure negatives; relevant UBSan and owner tests are maintained and run against selected exact source revisions.
 - Real **RPI400 ESP32-WROOM-32** named native workloads previously sustained a bounded **30,000-record / 300-second / 100 records per second** scheduling profile with strict NVS acknowledgement and finite EDLS retention. Named GPIO17 external relay cuts and independent media CRC scans qualified **specific** protected-data durability profiles.
 - All nine Logging and all six optional downstream Serial demo target builds passed on the ByteOperations baseline. The five directly required Memory demo families have separate Arduino-ESP32 and native ESP-IDF compile/link receipts. A build-only result is **not** physical runtime proof; physical and POR-classified subsets are distinguished in the [G1–G15 acceptance matrix](./docs/ACCEPTANCE-G1-G15.MD) and [qualification status](./docs/LOGGING-QUALIFICATION-STATUS.MD).

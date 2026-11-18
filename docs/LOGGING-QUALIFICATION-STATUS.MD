@@ -245,3 +245,42 @@ of the remaining Logging and affected owner surfaces is tracked in
 The exact Xtensa syntax and compile-out checks passed in
 20261118T113942-907bb482. The prior named physical results above apply to
 their recorded source and configuration.
+
+## 18 November 2026 — exact single-frame readback and 100 records/s retest
+
+Logging `main` and `feature/logging-v1` both published executable source
+`be1b2bac863c13c4d5751612c788823dc75b432b`. The preceding release baseline
+`76e6986` passed 34 GCC and 34 Clang host runners and 40 Python tests on RPI400.
+The new regression reproduced acceptance of a different same-size CRC-valid
+single frame on the previous source. The correction compares the intended
+frame with the verified whole-file capture through EDP-Memory before any
+acknowledgement or retirement. It adds no FileStorage read for a single
+frame. The sealed publication path retains its existing readback.
+
+RPI400 `20261118T121326-743cb89a` passed 16 focused GCC and Clang archive,
+VFS, generated-output and strict ACK checks. The exact native
+`esp32dev-typed-strict` build `20261118T121438-6969a5f1` passed under
+ESP-IDF 5.5.5. Its factory SHA-256 was
+`5e34d7d0303bea1f2f9f99fb7ded3c44f8fb91f5457f31575753154f7807e88c`.
+Guarded physical run `20261118T121439-eaf7b495` passed after an **8.382-second
+GPIO17 power cut**, initiated with ACK2 and a complete generation 3 candidate.
+Both ROM and application reported power-on reset on the fresh boot. Independent
+LittleFS readback confirmed generations 3 and 4, including all 15 typed fields.
+The independent NVS read confirmed ACK4, incarnation 7, and valid page, entry
+and blob CRCs. The original full 4 MiB flash image was restored and verified,
+then the integrated target powered off.
+
+The **252-slot 100 records/s workload failed** on executable `5e6aaa2` in
+`20261118T121219-9a597074`. The fixture was configured to offer 30,000 records
+over 300 seconds. It halted after reporting 25,922 published, 25,670 accepted and
+retired, and 25,653 durable records. Three producer attempts hit their 300 ms
+deadlines while the queue was full, before attempting Memory acquisition.
+The measured maxima were 493.639 ms for a native write and 707.233 ms for
+worker service. The combined receipt establishes an admission/throughput
+failure on this run. The workload halted before its independent media
+audit. The guard restored and verified the original flash and powered off.
+
+Historical 100 records/s passes and the separately qualified strict
+power-cut result retain their exact source and configuration scope. This
+fixture selects 160 MHz, O2, assertion level 2 and a 500 ms batch dwell.
+Current release tracking remains in [Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).

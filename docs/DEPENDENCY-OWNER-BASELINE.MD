@@ -269,3 +269,28 @@ fixtures. The provider's main lacks both headers. Application Bootstrap
 selects the concrete dependency and must reproduce its chosen provider
 closure. The pin does not merge the provider's separate Mesh and Security
 feature history into main.
+
+## 18 November 2026 — reconciled release-validation selection
+
+Rechecked the branch tips of all 19 repositories in the G14 owner and
+companion inventory. The preceding 16-owner release-validation table
+still identifies the selected versions, with **EDP-Serial**
+`b021ff65fb405937ce2d097d17abe0d59422556e` on both `main` and
+`feature/logging-v1` superseding the earlier `707455b` checkpoint.
+These are the actual RPI400 owner checkouts. Clock and Serialisation
+select their latest `main` revisions. EDP-Platform-ESP-IDF remains pinned
+to `adc4164031016c200ad88d742fc4f05c86d66833`. Its later `mesh_v1` tip
+`87f9a71918be0ac606b5acc2479204fbe45b77db` selects Clock `main` in
+`library.json` and has identical provider source under `src`. The
+qualification still applies to the exact older pin composed with the
+selected Clock checkout. EDP-Serial-Arduino remains an independent
+deferred provider.
+
+A source/manifest/workflow scan of 36 other EDP repository tips found
+one external production import, the opt-in EDP-Serial EDLG frame pump.
+Threading's relevant test documentation describes the deadline that
+a Logging caller supplies. Logging's archive reuses the selected Memory
+ByteOperations provider for exact successor readback. Its producer
+retains Memory NoWait and Threading/Clock coordination. The
+[dependency graph](../DEPENDENCY_GRAPH.MD) records the direct activation
+conditions and the transitive manifest closure.
