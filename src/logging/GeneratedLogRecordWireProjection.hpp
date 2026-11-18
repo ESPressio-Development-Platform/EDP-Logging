@@ -208,7 +208,12 @@ namespace ESPressio::Logging {
                       "All fifteen canonical Fields must qualify under owner Serialisation");
 
         const auto clear = [&]() noexcept {
-            std::apply([](auto &...item) noexcept { (item.reset(), ...); }, scratch);
+            std::apply(
+                [](auto &...item) noexcept {
+                    (item.reset(), ...);
+                },
+                scratch
+            );
         };
         clear();
         if (ValidateLogRecord(source) != LogRecordValidation::Valid)
@@ -229,7 +234,10 @@ namespace ESPressio::Logging {
             (([&]() noexcept {
                  if (outcome.Status != GeneratedLogRecordProjectionStatus::Succeeded) return;
                  const auto status = Detail::LoadOwnedPosition<TParameters>(
-                     source.Arguments, I, std::get<I>(scratch));
+                     source.Arguments,
+                     I,
+                     std::get<I>(scratch)
+                 );
                  if (status != OwnedPositionalReencodingStatus::Succeeded) {
                      outcome = {GeneratedLogRecordProjectionStatus::ArgumentRejected, I};
                  }
@@ -246,7 +254,9 @@ namespace ESPressio::Logging {
             (([&]() noexcept {
                  if (!outcome.IsSuccessful()) return;
                  if (Detail::ConvertGeneratedValue<TParameters>(
-                         *std::get<I>(scratch), std::get<I>(candidate.Arguments)) != Detail::GeneratedValueConversionResult::Succeeded) {
+                     *std::get<I>(scratch),
+                     std::get<I>(candidate.Arguments)
+                 ) != Detail::GeneratedValueConversionResult::Succeeded) {
                      outcome = {GeneratedLogRecordProjectionStatus::ArgumentRejected, I};
                  }
              }()),

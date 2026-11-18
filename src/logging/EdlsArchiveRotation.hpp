@@ -219,7 +219,7 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Finite EDLG payload maximum, 1..4096 bytes.
     /// @tparam TSlotMaximum Hard physical segment byte capacity.
     /// @tparam TStorage Bootstrap-selected EDP-Persistence FileStorage owner.
-    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    /// @tparam TByteOperationsProvider Stateless Memory byte operations owner selected at Bootstrap.
     template <
         std::size_t TSlots,
         std::size_t TPayloadMaximum,
@@ -437,15 +437,23 @@ namespace ESPressio::Logging {
                                    ? observed.size()
                                    : used - offset;
             if (Detail::ReadExactEdlsBytes(
-                    storage, paths[oldest], offset, std::span<std::byte>(observed.data(), chunk)) != Detail::EdlsExactReadResult::Succeeded) {
+                storage,
+                paths[oldest],
+                offset,
+                std::span<std::byte>{
+                    observed.data(),
+                    chunk}
+            ) != Detail::EdlsExactReadResult::Succeeded) {
                 result.Status = EdlsRollingStatus::ReadbackUnconfirmed;
                 return result;
             }
-            for (std::size_t i = 0U; i < chunk; ++i) {
-                if (observed[i] != expected[offset + i]) {
-                    result.Status = EdlsRollingStatus::ReadbackUnconfirmed;
-                    return result;
-                }
+            if (TByteOperationsProvider{}.CompareBytes(
+                observed.data(),
+                expected.data() + offset,
+                chunk
+            ) != ESPressio::Memory::ByteComparison::Equal) {
+                result.Status = EdlsRollingStatus::ReadbackUnconfirmed;
+                return result;
             }
             offset += chunk;
         }
@@ -838,7 +846,7 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
     /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
     /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
-    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    /// @tparam TByteOperationsProvider Stateless Memory byte operations owner selected at Bootstrap.
     template <
         std::size_t TPhysicalSlots,
         std::size_t TProtectedSlots,
@@ -975,7 +983,7 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum bounded EDLG payload size used by the scan.
     /// @tparam TSlotMaximum Maximum permitted bytes in one complete successor segment.
     /// @tparam TStorage Bootstrap-selected FileStorage owner for the complete archive.
-    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    /// @tparam TByteOperationsProvider Stateless Memory byte operations owner selected at Bootstrap.
     template <std::size_t TPhysicalSlots, std::size_t TProtectedSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum, class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsProtectedRollingOutcome<TPhysicalSlots>
     PublishEdlsProtectedRollingSuccessor(

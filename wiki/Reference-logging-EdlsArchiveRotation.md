@@ -21,8 +21,12 @@ ProviderRejected, ReadbackUnconfirmed, PriorNewestUnconfirmed and
 NoReclaimableSlot. `EdlsRollingOutcome` retains selected slot,
 protected newest slot, proposed generation, raw native
 `FileReplaceStatus` and whether readback requalified the previous
-newest generation. The oldest slot's replacement bytes are also
-checked independently against the original expected frame.
+newest generation. The oldest slot's complete replacement is reread
+in chunks of up to 64 bytes and compared against the assembled EDLS
+header and EDLG frame using the same stateless EDP-Memory ByteOperations
+provider that assembled the frame. The provider defaults to Portable.
+A read failure or unequal chunk reports ReadbackUnconfirmed even if
+the native replacement succeeded and the segment passed CRC checks.
 
 A successful checked replacement is **not** power-cut durability:
 VFS failure may alter old data, and a CRC does not prove physical

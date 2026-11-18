@@ -212,8 +212,13 @@ No concrete filesystem, Mesh, Serial or supplementary allocator.
 - EDP-Logging [logging/EdlsArchiveSuccessor.hpp only]
   - EDP-Persistence [abstract FileStorage::ReplaceFile/GetFileSize/ReadFileAt]
     - EDP-System [transitive Composition]
+  - EDP-Memory [existing ByteOperations copy and exact comparison]
+  - EDP-Platform-Portable [default stateless ByteOperations provider]
   - Logging/EdlsArchiveInspection, EdlsSegment, EdlgFrameReader
     [internal previously approved source]
+- The optional oldest-eligible rotation shares these same edges and
+  uses ByteOperations to compare complete replacement readback in
+  bounded chunks.
 - Application-specific ESP32 HIL Bootstrap separately chooses
   EDP-Persistence-ESP-IDF::VfsFileStorage with SPIFFS mounted by ESP-IDF,
   EDP-Platform-Portable::Memory::ByteOperationsProvider. This is NOT

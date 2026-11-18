@@ -117,15 +117,18 @@ namespace ESPressio::Logging {
                 output.emplace(LoadOwnedNativeScalar<Value, TByteOperationsProvider>(bytes));
             } else if constexpr (IsBoundedDiagnosticString<Value>::value) {
                 Value next{};
-                const auto status = next.Assign(std::string_view(
-                    reinterpret_cast<const char *>(bytes.data()), bytes.size()));
+                const auto status = next.Assign(std::string_view{
+                    reinterpret_cast<const char *>(bytes.data()),
+                    bytes.size()});
                 if (status != ESPressio::Bounded::StringAssignmentResult::Succeeded)
                     return OwnedPositionalReencodingStatus::OwnerValueRejected;
                 output.emplace(std::move(next));
             } else if constexpr (IsBoundedDiagnosticBytes<Value>::value) {
                 Value next{};
                 const auto status = next.Assign(
-                    reinterpret_cast<const std::uint8_t *>(bytes.data()), bytes.size());
+                    reinterpret_cast<const std::uint8_t *>(bytes.data()),
+                    bytes.size()
+                );
                 if (status != ESPressio::Bounded::BytesAssignmentResult::Succeeded)
                     return OwnedPositionalReencodingStatus::OwnerValueRejected;
                 output.emplace(std::move(next));

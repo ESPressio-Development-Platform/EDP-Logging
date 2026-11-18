@@ -17,7 +17,7 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Corrected and clarified
 
-- EDLG writer migration: include `logging/EdlgFrameWriter.hpp` and pass the application-selected ByteOperations provider as the last argument to `WriteEdlgFrame`. EDLS bulk workspace copies now use EDP-Memory. The default umbrella and reader still use the C++20 standard library.
+- EDLG writer migration: include `logging/EdlgFrameWriter.hpp` and pass the application-selected ByteOperations provider as the last argument to `WriteEdlgFrame`. EDLS bulk workspace copies and exact-byte readback comparisons in oldest-eligible rotation and sealed successor publication use EDP-Memory. The default umbrella and reader still use the C++20 standard library.
 
 - Diagnostic source migration: use `IsDiagnosticSchemaMatching` for all generated argument signatures. For owned diagnostic values, call `EncodeOwnedDiagnosticArgumentsCbor` or `EncodeOwnedDiagnosticArgumentsJson` with an explicit `OwnedPositionalScratch`. Inspect the typed outcome and its `Encoding` member. The scalar-named predicate alias and stack-scratch replay facade were removed.
 

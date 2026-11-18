@@ -25,6 +25,7 @@ struct Storage {
  bool failReplace=false;
  bool tornReplace=false;
  bool badReadback=false;
+ std::span<const std::byte> substituteFrame{};
  unsigned replaceCount=0U;
  mutable unsigned sizeQueries=0;
  /// Test-only physical-read witnesses and explicit large-read faults.
@@ -72,6 +73,22 @@ struct Storage {
   for(std::size_t k=0U;k<n;++k)
    bytes[i][k]=static_cast<const std::byte*>(src.Address)[k];
   length[i]=n;
+  if (!substituteFrame.empty()) {
+   auto segment = std::span{bytes[i]}.first(n);
+   auto frame = segment.subspan(L::EdlsHeaderBytes, substituteFrame.size());
+   for (std::size_t k = 0U; k < substituteFrame.size(); ++k) {
+    frame[k] = substituteFrame[k];
+   }
+   if (segment.size() == L::EdlsHeaderBytes + substituteFrame.size() + 16U) {
+    const auto covered = segment.first(segment.size() - 4U);
+    L::Detail::WriteEdlsLe(
+     segment,
+     covered.size(),
+     L::Detail::EdlgFrameCrc32C(covered),
+     4U
+    );
+   }
+  }
   if(badReadback && n>=20U)bytes[i][16U]^=std::byte{1};
   return P::FileReplaceStatus::Succeeded;
  }
@@ -495,6 +512,63 @@ int main(){
  assert(advanced.Status==L::EdlsRollingStatus::InvalidIdentityOrFrame);
  assert(rotating.replaceCount==beforeCount);
  encoded[16U]^=std::byte{0x01U};
+
+ // Provider acceptance and valid CRCs do not establish byte-exact readback.
+ std::array<std::byte, 128U> substituted{};
+ const std::array replacementPayload{std::byte{9U}, std::byte{8U}, std::byte{7U}};
+ std::size_t replacementBytes = 0U;
+ assert(L::WriteEdlgFrame(
+  L::EdlgCodec::Cbor,
+  replacementPayload,
+  substituted,
+  replacementBytes,
+  16U,
+  ESPressio::Platform::Portable::Memory::ByteOperationsProvider{}
+ ) == L::EdlgFrameWriteResult::Succeeded);
+ assert(replacementBytes == exact.size());
+ const auto differentFrame = std::span{substituted}.first(replacementBytes);
+
+ Storage substitutedSuccessor{};
+ substitutedSuccessor.substituteFrame = differentFrame;
+ std::array<std::byte, 128U> sealedScratch{};
+ const auto sealed = L::PublishEdlsSuccessorIntoEmptySlotWithScratch<
+  2U, 16U, 128U, Storage, 2U>(
+   substitutedSuccessor,
+   paths,
+   identity,
+   1U,
+   exact,
+   sealedScratch
+ );
+ assert(sealed.Status == L::EdlsSuccessorStatus::ReadbackUnconfirmed &&
+        sealed.Native == P::FileReplaceStatus::Succeeded);
+ const auto sealedReadback = L::InspectEdlsSlot<16U>(
+  substitutedSuccessor,
+  paths[0U],
+  0U
+ );
+ assert(sealedReadback.Condition == L::EdlsSlotCondition::Clean &&
+        sealedReadback.VerifiedFrames == 1U);
+
+ auto substitutedRotation = rotating;
+ substitutedRotation.substituteFrame = differentFrame;
+ const auto substitutedOutcome = L::PublishEdlsOldestEligibleSuccessor<2U,16U,128U>(
+  substitutedRotation,
+  paths,
+  identity,
+  65U,
+  exact
+ );
+ assert(substitutedOutcome.Status == L::EdlsRollingStatus::ReadbackUnconfirmed &&
+        substitutedOutcome.Native == P::FileReplaceStatus::Succeeded &&
+        substitutedOutcome.PriorNewestVerified);
+ const auto rotatedReadback = L::InspectEdlsSlot<16U>(
+  substitutedRotation,
+  paths[substitutedOutcome.Slot],
+  static_cast<std::uint16_t>(substitutedOutcome.Slot)
+ );
+ assert(rotatedReadback.Condition == L::EdlsSlotCondition::Clean &&
+        rotatedReadback.VerifiedFrames == 1U);
 
  // An actual provider refusal preserves the prior verified newest slot
  // and never invents a successful rotation/durability acknowledgement.

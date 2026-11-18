@@ -76,7 +76,7 @@ namespace ESPressio::Logging {
     /// @tparam TStorage Application-composed abstract FileStorage provider.
     /// @tparam TMaximumFrames Explicit opt-in maximum frames per segment; default one.
     /// Caller scratch must be disjoint from the input frames and hold the complete segment.
-    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    /// @tparam TByteOperationsProvider Stateless Memory byte operations owner selected at Bootstrap.
     template <
         std::size_t TSlots,
         std::size_t TPayloadMaximum,
@@ -293,11 +293,13 @@ namespace ESPressio::Logging {
                 outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
                 return outcome;
             }
-            for (std::size_t index = 0U; index < completeEdlg.size(); ++index) {
-                if (callerScratch[EdlsHeaderBytes + index] != completeEdlg[index]) {
-                    outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
-                    return outcome;
-                }
+            if (TByteOperationsProvider{}.CompareBytes(
+                callerScratch.data() + EdlsHeaderBytes,
+                completeEdlg.data(),
+                completeEdlg.size()
+            ) != ESPressio::Memory::ByteComparison::Equal) {
+                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
+                return outcome;
             }
         }
         outcome.Status = EdlsSuccessorStatus::PublishedAndVerified;
@@ -310,7 +312,7 @@ namespace ESPressio::Logging {
     /// @tparam TPayloadMaximum Maximum EDLG payload temporarily retained.
     /// @tparam TSlotMaximum Maximum bytes permitted in one physical slot.
     /// @tparam TStorage Application-composed FileStorage owner.
-    /// @tparam TByteOperationsProvider Stateless Memory copy owner selected at Bootstrap.
+    /// @tparam TByteOperationsProvider Stateless Memory byte operations owner selected at Bootstrap.
     template <std::size_t TSlots, std::size_t TPayloadMaximum, std::size_t TSlotMaximum,
               class TStorage, class TByteOperationsProvider = ESPressio::Platform::Portable::Memory::ByteOperationsProvider>
     [[nodiscard]] EdlsSuccessorOutcome<TSlots> PublishEdlsSuccessorIntoEmptySlot(
