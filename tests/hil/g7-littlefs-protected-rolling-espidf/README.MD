@@ -571,3 +571,10 @@ NVS SHA256: 2d12820fa3b33b54d8e3cef1ca4ce18d70f43fa8145ed2e6da17596dc7043c9e.
 Earlier run123633-33f6ed8c also passed physical/raw qualification with the same production code. Review then found the new test-only observer would incorrectly count unrelated padding in the separate near-full fixture. It now matches only owned paths, and the final native run explicitly exercises exclusion of an oversized hypothetical unrelated write. No production transaction ordering changed. The final repeat above qualifies the exact corrected fixture.
 
 Logical sink bytes include EDLS headers/seals, the temporary successor and the fixed40-byte ACK value. Filesystem allocation/GC and NVS internal metadata are separate provider budgets, not measured by this logical limit. Provider selection and physical partition allocation remain application-owned.
+
+The 252-slot, 30,000-record fixture at 100 records/s selects a bounded
+20 ms coordinator queue-mutex policy on the native 100 Hz FreeRTOS target.
+The console reports this separately from its unchanged 300 ms producer
+admission deadline. Other fixture profiles retain their original 5 ms
+coordinator policy. A terminal ReclaimUnconfirmed receipt reports the
+underlying typed retirement result for diagnosis.

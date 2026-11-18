@@ -43,8 +43,6 @@ namespace {
         /// Explicit fixture configuration; the existing default100ms profile stays separately
         /// selectable.
         constexpr std::int64_t WorkerDwellNanoseconds = EDP_WORKER_DWELL_NS;
-        /// Maximum canonical wait for a coordinator claim or retirement transition.
-        constexpr std::int64_t WorkerCoordinatorQueueWaitNs = 20000000LL;
 #if defined(EDP_WORKER_OPTIMISED_BUILD)
         /// Actual compiler arguments are independently checked by the build runner.
         constexpr const char* WorkerOptimisation = "o2";
@@ -99,6 +97,11 @@ namespace {
         constexpr unsigned PrimeAttemptsPerProducer = 80U;
         constexpr unsigned ExpectedPrimeRefusals = 32U;
 #endif
+        /// The 252-slot release workload selects two native ticks at 100 Hz.
+        constexpr std::int64_t WorkerCoordinatorQueueWaitNs =
+            WorkerSourceQueueSlots == 252U && ScheduledRecords == 30000U && ScheduleRps == 100U
+                ? 20000000LL
+                : 5000000LL;
         // Application-level finite absolute queue+Memory admission budgets.
         // The pressure test retains its original 100ms failure criterion.
         constexpr std::uint64_t PressureAdmissionBudgetNs = 100000000ULL;
