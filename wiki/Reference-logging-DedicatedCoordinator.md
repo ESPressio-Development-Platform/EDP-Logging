@@ -8,7 +8,7 @@
 
 ## Public `DedicatedCoordinatorReport` — every retained state member
 
-This is a shared report object supplied by Bootstrap; **only the Dedicated Thread mutates its atomic fields during activation**, while readers inspect them from other contexts using atomic loads. All counters begin at zero except `Exit`, which begins NeverStarted.
+This is a shared report object supplied by Bootstrap; **only the Dedicated Thread mutates its atomic fields during activation**, while readers inspect them from other contexts using atomic loads. Counters begin at zero and accumulate across activations that reuse the report. `Exit` begins at NeverStarted. `ReclaimFailure` begins at `RecordQueueResult::Empty`.
 
 - `Exit : atomic<DedicatedCoordinatorExit>` — terminal state published with release semantics on exit; a consumer should pair it with an acquire observation when interpreting final counts.
 - `RecordsRetired : atomic<uint64_t>` — number of source Memory ownership units **confirmed retired** after completed queue transactions.
@@ -19,6 +19,7 @@ This is a shared report object supplied by Bootstrap; **only the Dedicated Threa
 - `DurableSinkCompletions : atomic<uint64_t>` — sum of newly **independently verified per-sink** durable record completions, which need not be unique source records.
 - `SinkServiceFailures : atomic<uint64_t>` — count of callbacks reporting RecoveryRequired during ordinary worker service.
 - `QueueContentions : atomic<uint64_t>` — bounded queue ordinary mutex contentions observed **before** claim or sink invocation, separated from actual claim failure.
+- `ReclaimFailure : atomic<RecordQueueResult>` — the retirement result from the affected claim, published before the release-store of `Exit = ReclaimUnconfirmed`. The worker resets this detail at activation entry. Read the terminal pair after execution quiescence and before any new activation. Separate atomic loads during restart can pair the previous exit with reset detail.
 
 No field makes a FileStorage provider intrinsically interruption-atomic, promises fairness forever, or represents an unbounded monitoring history.
 
@@ -46,4 +47,4 @@ Bootstrap configures and starts the Threading topology, keeps all queue/sink/Clo
 
 GCC/Clang owner tests include healthy quantum, contention, sink readiness, earliest deadline, failure and shutdown, and prior qualified WROOM managed worker/NVS retention profiles prove only their bounded run-specific workloads. See [Dedicated Coordinator contract](../docs/DEDICATED-COORDINATOR.MD), [sink service](Reference-logging-CoordinatorSinkService), [bounded quantum](Reference-logging-CoordinatorQuantum) and [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD). No claim of generic filesystem power-loss atomicity or flash lifespan is made.
 
-`DedicatedCoordinatorReport::ReclaimFailure` preserves the typed queue result when `Exit` is `ReclaimUnconfirmed`. This diagnostic is reset when the dedicated coordinator starts.
+A terminal exit does not disarm an unresolved claim. `_claim` is private to the callable and the binding exposes no explicitly bounded retirement-only recovery operation for it. Bootstrap must preserve the topology and queue when the outcome remains uncertain. Restarting the callable with that active claim returns `PriorClaimUnresolved` before another sink callback. An application using the standalone quantum owns the separate `ConsumerClaim` and can apply the queue retirement API directly.

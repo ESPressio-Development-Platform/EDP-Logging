@@ -17,6 +17,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Corrected and clarified
 
+- Documented the dedicated coordinator's retained claim after a retirement failure and the selected async Threading dispatch boundary. Immediate worker admission still uses the owner's facility mutex. Native queued cancellation requires a profile that exposes a queued Task handle.
+
 - EDLG writer migration: include `logging/EdlgFrameWriter.hpp` and pass the application-selected ByteOperations provider as the last argument to `WriteEdlgFrame`. EDLS bulk workspace copies and exact-byte readback comparisons in oldest-eligible rotation and sealed successor publication use EDP-Memory. The default umbrella and reader still use the C++20 standard library.
 
 - Severity predicate migration: use IsSeverityEnabled for direct compile-time threshold checks. InvokeLogSite and EDP_LOG_WHEN_ENABLED keep their existing call forms.

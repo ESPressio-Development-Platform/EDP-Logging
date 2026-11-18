@@ -72,8 +72,9 @@ records accepted by all sinks (submission only), partial submissions,
 release-notification failures and idle timeout observations, all
 `std::atomic` values. A failed native reclaim may still leave an
 active caller-owned claim. Bootstrap MUST NOT destroy the Queue or
-worker resources in that state; freeze topology, retain the claim and
-request explicit owner-side recovery/abort. It cannot force reset
+worker resources in that state; preserve the topology and retained
+claim until ownership is reconciled as described below. A terminal exit
+cannot force reset
 or silently turn provider uncertainty into successful reclamation.
 
 ## Invariants and exclusions
@@ -146,4 +147,17 @@ implemented original-deadline commit, late native-grant refusal,
 retained retirement ownership and explicit existing coordinator opt-in.
 Native managed-worker requalification remains pending.
 
-When the coordinator exits with ReclaimUnconfirmed, its report's ReclaimFailure field preserves the underlying queue retirement result. The claim remains owned and delivery is not replayed.
+When the coordinator exits with `ReclaimUnconfirmed`, its atomic
+`ReclaimFailure` field preserves the underlying queue retirement result.
+Read the terminal pair after execution quiesces and before restarting the
+binding. The next activation resets that detail while `Exit` remains the
+last reported terminal reason until it publishes another exit.
+
+The private claim still owns its ticket. A restart with that claim
+reports `PriorClaimUnresolved` before any delivery. The dedicated binding
+has no public, bounded retirement-only recovery operation. Preserve the
+binding, queue and native providers on failure. Destroying the binding
+only invokes the queue guard's immediate scope-exit cleanup, which
+quarantines the queue if retirement again cannot be confirmed. The
+standalone quantum gives Bootstrap direct ownership of the claim and
+allows it to use `CompleteUntil` explicitly.

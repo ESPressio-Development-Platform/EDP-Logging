@@ -294,3 +294,21 @@ ByteOperations provider for exact successor readback. Its producer
 retains Memory NoWait and Threading/Clock coordination. The
 [dependency graph](../DEPENDENCY_GRAPH.MD) records the direct activation
 conditions and the transitive manifest closure.
+
+## 18 November 2026 — coordinator and asynchronous owner contract review
+
+| Surface reviewed | Authoritative owner and result |
+| --- | --- |
+| `TransactionalRecordQueue` claim and deadline | Queue serializes ticket generation and FIFO transitions through the configured ordinary mutex. Native Memory release happens outside that mutex. A failed finalization wait preserves a live retirement token after release, with no second Memory release. Capacity wakes are published only after slot retirement. |
+| `AcquireRecordUntil` and tracked admission | One canonical Clock deadline governs queue entitlement, advisory waits and pool attempts. Pool acquisition is NoWait. Shutdown and late attachment use the original Memory and queue rollback paths. Bootstrap keeps the coordinator, wait slots and leases alive through producer shutdown and release. |
+| `DedicatedCoordinator` and `CoordinatorQuantum` | The caller-owned synchronous sinks finish using the borrowed record before retirement is attempted. A failed retirement preserves its typed cause and retained claim, with no subsequent delivery replay. The dedicated binding has no public bounded operation to retire its private outstanding claim. Preserve it after an uncertain exit. The standalone quantum exposes the claim to its caller. |
+| `AsyncCopyingTaskSink` and Task dispatch | Selected Threading `1c5ff530c7051d0ccb9480c9a46fbb3cd9424750` returns a handle under `AbandonImmediately` only with a worker grant. A queued cancellation is outside that concrete native profile. The existing facility ordinary mutex uses a Forever acquisition policy even for immediate worker admission. |
+| Async lease release | Selected Memory `9c5a994eb1e101b80a6fb0e1357c0add0e3a38c4` clears a lease token only for a confirmed `Released` result. Failed release retains ownership for an explicit retry. Bootstrap keeps the Memory runtime and lease alive until then. |
+
+This checkpoint compares the named Logging headers with the exact pinned
+Threading and Memory owners. It corrects the corresponding coordinator,
+queue and async contract pages. It does not close the remaining
+per-declaration review, native shutdown or provider-fault qualification.
+See [Dedicated coordinator](DEDICATED-COORDINATOR.MD),
+[async copying sink](ASYNC-COPYING-TASK-SINK.MD) and
+[Logging #15](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/15).

@@ -116,8 +116,15 @@ assignment is deliberately deleted. Each records the nonowning
   non-owning handle semantics. `Complete()` and
   `CompleteUntil(deadline)` release the source lease after its last
   reader and disarm only after confirmed native retirement; the
-  private `CompleteOnScopeExit()` invokes that finalization on
+  private `CompleteOnScopeExit()` invokes immediate finalization on
   destruction and quarantines unconfirmed failures.
+
+`Abort*` and `Complete*` invalidate the cached borrow before attempting
+retirement. An active handle can therefore return `nullptr` from `Borrow()`
+while it still holds retirement responsibility. If the first mutex
+acquisition fails, native release may still be outstanding. If the
+finalization acquisition times out after confirmed Memory release, a
+later retry finalizes the slot without releasing the native object again.
 
 A caller must not transfer a borrowed `TLease*` to an unrelated
 concurrent consumer without a separate ownership protocol. All

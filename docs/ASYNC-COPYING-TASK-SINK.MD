@@ -133,7 +133,7 @@ be qualified independently before #11 is closed.
 The real RPI400-integrated ESP32-D0WD HIL now binds the published
 `AsyncOwnedDeliveryWork` to an actual topology-owned EDP-Threading
 `DedicatedWorkerLease` and uses real Memory pools and callbacks.
-The nonwaiting `AbandonImmediately` policy explicitly refuses a second
+The `AbandonImmediately` worker-admission policy explicitly refuses a second
 Task while the sole Worker executes a slow first Task. Its rejected
 admission reclaims its own lease immediately and leaves the first lease
 held. A running-Task cancellation request does not release bytes before
@@ -196,3 +196,37 @@ same runtime check. None emitted an application memory diagnostic.
 Therefore UBSan is executable evidence, but **ASan remains unavailable
 on this appliance and must be repeated on an authorised ASan-capable
 execution environment before claiming ASan qualification**.
+
+## 18 November 2026 — selected Threading dispatch and teardown boundary
+
+The Logging adapter asks for `AbandonImmediately`. At qualified
+EDP-Threading `1c5ff530c7051d0ccb9480c9a46fbb3cd9424750`,
+`TaskFacilityRuntime::Dispatch` checks the availability of a worker and
+refuses admission if work is queued or a grant cannot be confirmed.
+`TaskFacilityCore::HasWorkerGrant` is false for a Task in Queued state.
+The accepted handle from the selected DedicatedWorkerLease therefore
+cannot exercise cancel-while-queued through this adapter. The deterministic
+host dispatcher still verifies the adapter's terminal-cancellation and
+lease handling for a Task supplied in that state. Native coverage of an
+alternate queued profile requires a separately designed bounded dispatch
+contract. Do not bypass the supplied Threading policy in the native fixture
+to claim qualification for this profile.
+
+Immediate dispatch policy governs worker availability and capacity
+waiting. The task facility's internal ordinary mutex uses
+`WaitTimeout::Forever()`. Task inspection, cancellation and result
+acquisition also enter owner synchronization. Bootstrap must account for
+these waits when budgeting concurrent shutdown. There is no end-to-end
+time bound from this adapter alone. Bootstrap serializes adapter calls
+and keeps Memory and Threading intact until the Task is terminal and the
+lease release is confirmed.
+
+The selected native profile still needs physical concurrent shutdown and
+a fault-injected native Memory release trial. The shutdown trial must
+hold the delivery callback active, initiate shutdown through Threading,
+verify that the payload and lease survive until terminal completion, and
+release the resources before Memory teardown. For the fault trial,
+inject the failure through the existing Memory ordinary mutex provider.
+Verify `ReclaimUnconfirmed`, retained lease ownership after the Task
+handle is cleared, one explicit successful `RetryReclaim` and restored
+pool capacity. These are independent tests of the existing product path.
