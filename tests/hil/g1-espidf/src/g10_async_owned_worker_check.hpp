@@ -386,13 +386,17 @@ namespace Test {
         const bool workerEntered = firstSink.Calls.load(std::memory_order_acquire) == 2U;
         const auto began = taskRuntime.BeginShutdown();
         const bool retainedDuringShutdown =
+            workerEntered && firstTask.has_value() && !firstTask->IsFinished() &&
             first.TryFinalize().Status == L::AsyncSinkCompletionStatus::Pending &&
-            !firstLease.IsEmpty() && !taskRuntime.IsExecutionQuiescent();
+            !firstLease.IsEmpty() && !taskRuntime.IsExecutionQuiescent() &&
+            taskRuntime.FinalizeShutdown() ==
+                T::ThreadingFinalizationResult::ExecutionNotQuiescent;
         firstSink.Hold.store(false, std::memory_order_release);
 
         const auto shutdownBound = Deadline(2000U);
         while (
-            (!firstTask->IsFinished() || !taskRuntime.IsExecutionQuiescent()) &&
+            ((firstTask.has_value() && !firstTask->IsFinished()) ||
+                !taskRuntime.IsExecutionQuiescent()) &&
             ESPressio::Clock::MonotonicNow() < shutdownBound
         ) {
             vTaskDelay(1U);

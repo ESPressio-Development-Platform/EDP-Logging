@@ -99,7 +99,7 @@ if len(resource_lines)==1:
     except (KeyError, ValueError):
         resource_valid=False
 # The G11 test-site assertion is deliberately separate from the existing
-# nineteen canonical functional HIL assertions, and must occur exactly once.
+# canonical functional HIL assertions, and must occur exactly once.
 site_mode=os.environ.get("EDP_LOGGING_G11_APP_SITE_ENABLED","0")
 site_verified=(
     site_mode in ("0","1")
