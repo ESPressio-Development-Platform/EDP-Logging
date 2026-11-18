@@ -295,3 +295,11 @@ The matched 252-slot and 496-slot trials completed and independently audited the
 native read per sealed successor, then stopped at a full queue after the
 coordinator reported ReclaimUnconfirmed. Its exact sealed power-cut and raw
 media test passed. See the [matched timing and readback record](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--matched-timing-and-sealed-readback).
+
+## 18 November 2026 — scoped 100 records/s gate
+
+Scoped release fixture `b78a736` finished all 30,000 scheduled records
+at 100 records/s and verified the retained LittleFS data and raw NVS ACK472.
+It uses a 20 ms coordinator mutex budget with the 300 ms producer deadline.
+GCC and Clang passed 34 runners each, and Python passed 40 tests. See
+[scoped workload qualification](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--scoped-252-slot-workload-qualification).

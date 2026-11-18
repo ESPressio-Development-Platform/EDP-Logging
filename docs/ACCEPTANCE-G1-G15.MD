@@ -291,3 +291,14 @@ and provider-release fault coverage for release scopes that include those
 cases. Earlier real running-Task cancellation evidence remains valid for
 its named fixture. Direct Memory blocked-waiter safety remains tracked in
 [Memory #16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16).
+
+## 18 November 2026 — scoped 100 records/s gate
+
+The selected 252-slot ESP32-WROOM-32 30,000-record workload now passed
+two native 20 ms coordinator-budget trials at 100 records/s, with independent
+LittleFS and NVS verification. This qualifies the named G10/G11 workload
+configuration on exact executable `b78a736`. The prior full-queue stops remain
+in the [workload ledger](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD).
+The broader V2 semantic/owner review and the native asynchronous cases in
+[Logging #11](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/11)
+remain open for release sign-off.

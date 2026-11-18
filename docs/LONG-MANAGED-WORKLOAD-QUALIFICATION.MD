@@ -136,3 +136,36 @@ The failing fixture selects a 5 ms bounded coordinator mutex budget and
 a 100 Hz FreeRTOS tick. The producer deadlines remain 300 ms. Diagnose
 the typed retirement failure and compare the existing budget with one
 that spans the native timer granularity before qualifying the workload.
+
+## 18 November 2026 — scoped 252-slot workload qualification
+
+The coordinator now records the precise `RecordQueueResult` in
+`ReclaimFailure` when it exits with `ReclaimUnconfirmed`. GCC and Clang
+passed an injected retirement-lock contention test after sink delivery.
+The claim stayed owned, and the callback executed once. An earlier 5 ms
+on-device failure captured `ReclaimUnconfirmed` only. The 5 ms witness
+with typed reporting completed the full workload without reproducing the
+failure, so the underlying queue result in the earlier failures is
+unknown.
+
+The 252-slot, 100 records/s fixture uses a 20 ms coordinator mutex
+budget on the 100 Hz FreeRTOS target and keeps the 300 ms producer
+deadline. The selected profile preserves the validated strict commit
+order and roll-out policy.
+
+| RPI400 run | Executable | Phase records retired and durably acknowledged | Elapsed including drain | Sampled backlog peak | Minimum sampled free heap |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `20261118T132254-bd904c90`, 5 ms witness | `14bcddd` | 30,129 | 300.862 s | 75 | 133,588 B |
+| `20261118T132255-4cc02c41`, 20 ms comparison | `3c132f2` | 30,129 | 300.881 s | 82 | 133,588 B |
+| `20261118T133053-3069c810`, scoped 20 ms | `b78a736` | 30,129 | 300.872 s | 78 | 133,564 B |
+
+All three runs used the 30,000-record schedule, acknowledged ACK472,
+reported zero missed admissions and completed independent LittleFS/NVS
+audits. Each restored and verified the full original 4 MiB flash. The
+final scoped image built in `20261118T133053-ca7b2c48`, factory SHA-256
+`222193fbd404f2fa336beefbfc8212eb0be029a1b51c7118420c66bd5e2359e8`.
+The final run measured 4,690 reads for 469 successor writes, one fewer
+native read per successor than the matched baseline. The result
+qualifies the named workload and records prior intermittent failures
+separately. Future failures can now be diagnosed from the typed
+retirement receipt.

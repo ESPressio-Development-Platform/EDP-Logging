@@ -37,6 +37,9 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Validation and qualifications
 
+- Coordinator reports preserve the exact queue retirement result when reclamation is unconfirmed.
+- The scoped 252-slot, 20 ms fixture passed the 30,000-record workload at 100 records/s and its independent LittleFS/NVS audit.
+
 - Sealed EDLS publication compares the verified whole-file capture in caller scratch. Hardware measured one fewer native read per successor, and the sealed 64-record relay fixture passed independent LittleFS and NVS verification.
 
 - Single-frame EDLS successor publication compares the exact intended frame before acknowledgement or retirement. The empty-slot path reuses its verified readback in caller scratch.
