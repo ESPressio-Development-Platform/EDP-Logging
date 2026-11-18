@@ -13,8 +13,13 @@ An invalid header, unreadable slot, wrong physical slot, duplicate generation
 or mixed 16-byte DeviceIdentifier FAILS CLOSED as Ambiguous. Generation
 exhaustion forbids wrap. NewestSlot and NextGeneration are READ-ONLY
 observations and **never authorise a write or durable generation allocation**.
-A damaged tail is never appended behind implicitly; concurrency mutation
-while scanning must be prevented by the application.
+A missing path and a zero-byte file both report `Empty`. Publication
+profiles that require a physically absent path check absence separately.
+A valid header followed by a damaged tail can still supply generation
+evidence. Generation gaps do not prevent the read-only scanner from
+calculating a unique next generation. Protected rolling and strict
+acknowledgement enforce their own continuity and cleanliness rules.
+The application must prevent concurrent mutation during inspection.
 
 This is NOT the production EDLS append/rotate writer or a trustworthy archival
 manifest. No external-power-cut, retention, auth, signing or multi-segment
