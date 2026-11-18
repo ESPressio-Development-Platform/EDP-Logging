@@ -12,6 +12,8 @@
 #include "LogRecordApprovedFieldsSerialisation.hpp"
 
 namespace ESPressio::Logging {
+
+    /// Result of one approved semantic scalar conversion.
     enum class LogRecordCoreFieldConversion : std::uint8_t {
         /// The approved scalar mapping completed.
         Succeeded = 0U,
@@ -20,6 +22,7 @@ namespace ESPressio::Logging {
     };
 
     namespace Detail {
+
         /// Maps an explicitly approved semantic type to its canonical scalar representation.
         /// @tparam TSemantic Strong source value.
         /// @tparam TWire Exact scalar or fixed aggregate consumed by the owner codec.
@@ -31,6 +34,7 @@ namespace ESPressio::Logging {
             LogMessageIdentifier,
             std::array<std::uint32_t, 3U>>
             final {
+            /// Maps a valid message identifier to Domain, SubDomain and String in that order.
             static constexpr LogRecordCoreFieldConversion To(
                 const LogMessageIdentifier &v,
                 std::array<std::uint32_t, 3U> &w) noexcept {
@@ -38,6 +42,7 @@ namespace ESPressio::Logging {
                 w = {v.Domain, v.SubDomain, v.String};
                 return LogRecordCoreFieldConversion::Succeeded;
             }
+            /// Reconstructs the identifier only when the String number is outside the reserved range.
             static constexpr LogRecordCoreFieldConversion From(
                 const std::array<std::uint32_t, 3U> &w,
                 LogMessageIdentifier &v) noexcept {
@@ -49,12 +54,14 @@ namespace ESPressio::Logging {
 
         template <>
         struct LogRecordScalarRepresentation<Severity, std::uint8_t> final {
+            /// Writes the attempted emitted ordinal and rejects a value above Fatal.
             static constexpr LogRecordCoreFieldConversion To(const Severity &v, std::uint8_t &w) noexcept {
                 w = static_cast<std::uint8_t>(v);
                 return w <= static_cast<std::uint8_t>(Severity::Fatal)
                            ? LogRecordCoreFieldConversion::Succeeded
                            : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
+            /// Checks the ordinal before constructing an emitted severity.
             static constexpr LogRecordCoreFieldConversion From(const std::uint8_t &w, Severity &v) noexcept {
                 if (w > static_cast<std::uint8_t>(Severity::Fatal)) return LogRecordCoreFieldConversion::InvalidSemanticValue;
                 v = static_cast<Severity>(w);
@@ -69,7 +76,9 @@ namespace ESPressio::Logging {
             AttemptSequence<TWidth>,
             typename AttemptSequence<TWidth>::Storage>
             final {
+            /// Exact unsigned storage chosen by the source attempt width.
             using Storage = typename AttemptSequence<TWidth>::Storage;
+            /// Writes the selected-width source ticket and rejects the reserved zero ticket.
             static constexpr LogRecordCoreFieldConversion To(
                 const AttemptSequence<TWidth> &v, Storage &w) noexcept {
                 w = v.Value();
@@ -77,6 +86,7 @@ namespace ESPressio::Logging {
                            ? LogRecordCoreFieldConversion::Succeeded
                            : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
+            /// Reconstructs a nonzero attempt ticket using its selected storage width.
             static constexpr LogRecordCoreFieldConversion From(
                 const Storage &w, AttemptSequence<TWidth> &v) noexcept {
                 if (w == 0U) return LogRecordCoreFieldConversion::InvalidSemanticValue;
@@ -90,11 +100,13 @@ namespace ESPressio::Logging {
             Clock::MonotonicTimestamp,
             std::uint64_t>
             final {
+            /// Extracts the existing monotonic coordinate in nanoseconds.
             static constexpr LogRecordCoreFieldConversion To(
                 const Clock::MonotonicTimestamp &v, std::uint64_t &w) noexcept {
                 w = v.Nanoseconds();
                 return LogRecordCoreFieldConversion::Succeeded;
             }
+            /// Reconstructs a monotonic coordinate without querying a Clock.
             static constexpr LogRecordCoreFieldConversion From(
                 const std::uint64_t &w, Clock::MonotonicTimestamp &v) noexcept {
                 v = Clock::MonotonicTimestamp::FromNanoseconds(w);
@@ -107,11 +119,13 @@ namespace ESPressio::Logging {
             Clock::SynchronizedTimestamp,
             std::uint64_t>
             final {
+            /// Extracts the synchronized coordinate, including zero.
             static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizedTimestamp &v, std::uint64_t &w) noexcept {
                 w = v.Nanoseconds();
                 return LogRecordCoreFieldConversion::Succeeded;
             }
+            /// Reconstructs the synchronized coordinate; the enclosing record validates presence.
             static constexpr LogRecordCoreFieldConversion From(
                 const std::uint64_t &w, Clock::SynchronizedTimestamp &v) noexcept {
                 v = Clock::SynchronizedTimestamp::FromNanoseconds(w);
@@ -124,6 +138,7 @@ namespace ESPressio::Logging {
             Clock::SynchronizationState,
             std::uint8_t>
             final {
+            /// Writes the attempted state ordinal and rejects values above LostSynchronization.
             static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizationState &v, std::uint8_t &w) noexcept {
                 w = static_cast<std::uint8_t>(v);
@@ -132,6 +147,7 @@ namespace ESPressio::Logging {
                            ? LogRecordCoreFieldConversion::Succeeded
                            : LogRecordCoreFieldConversion::InvalidSemanticValue;
             }
+            /// Checks the ordinal before constructing the canonical Clock synchronization state.
             static constexpr LogRecordCoreFieldConversion From(
                 const std::uint8_t &w, Clock::SynchronizationState &v) noexcept {
                 if (w > static_cast<std::uint8_t>(
@@ -146,21 +162,26 @@ namespace ESPressio::Logging {
             Clock::SynchronizationUncertainty,
             std::uint32_t>
             final {
+            /// Extracts the Clock uncertainty nanoseconds at the owner-defined width.
             static constexpr LogRecordCoreFieldConversion To(
                 const Clock::SynchronizationUncertainty &v, std::uint32_t &w) noexcept {
                 w = v.Nanoseconds();
                 return LogRecordCoreFieldConversion::Succeeded;
             }
+            /// Reconstructs the strong Clock uncertainty from its nanosecond value.
             static constexpr LogRecordCoreFieldConversion From(
                 const std::uint32_t &w, Clock::SynchronizationUncertainty &v) noexcept {
                 v = Clock::SynchronizationUncertainty::FromNanoseconds(w);
                 return LogRecordCoreFieldConversion::Succeeded;
             }
         };
+
     } // namespace Detail
+
 } // namespace ESPressio::Logging
 
 namespace ESPressio::Serialisation {
+
     // Enum certification selects the owner's exact underlying integer width.
     // Root LogRecord decode must still call ValidateLogRecord to reject
     // invalid numeric enumerators. No new enum values are introduced.
@@ -198,20 +219,27 @@ namespace ESPressio::Serialisation {
         final {
         using Type = std::uint32_t;
     };
+
 } // namespace ESPressio::Serialisation
 
 namespace ESPressio::Logging::Detail {
+
     /// Adapts the semantic-to-wire mapping to the BoundedTypes conversion protocol.
     /// @tparam TSemantic Strong source type.
     /// @tparam TWire Destination wire representation.
     template <class TSemantic, class TWire>
     struct ToCoreWire {
+        /// Typed conversion outcome required by the BoundedTypes bridge.
         using ResultType = LogRecordCoreFieldConversion;
+        /// This approved pair provides a direct conversion.
         static constexpr bool IsAvailable = true;
+        /// The scalar conversion executes without exceptions.
         static constexpr bool IsNoexcept = true;
+        /// Returns whether the conversion published its intended output.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Delegates to the approved scalar conversion in the selected direction.
         static constexpr ResultType Convert(
             const TSemantic &source, TWire &wire) noexcept {
             return LogRecordScalarRepresentation<TSemantic, TWire>::To(
@@ -225,12 +253,17 @@ namespace ESPressio::Logging::Detail {
     /// @tparam TSemantic Strong destination type.
     template <class TWire, class TSemantic>
     struct FromCoreWire {
+        /// Typed conversion outcome required by the BoundedTypes bridge.
         using ResultType = LogRecordCoreFieldConversion;
+        /// This approved pair provides a direct conversion.
         static constexpr bool IsAvailable = true;
+        /// The scalar conversion executes without exceptions.
         static constexpr bool IsNoexcept = true;
+        /// Returns whether the conversion published its intended output.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Delegates to the approved scalar conversion in the selected direction.
         static constexpr ResultType Convert(
             const TWire &wire, TSemantic &source) noexcept {
             return LogRecordScalarRepresentation<TSemantic, TWire>::From(
@@ -239,9 +272,11 @@ namespace ESPressio::Logging::Detail {
             );
         }
     };
+
 } // namespace ESPressio::Logging::Detail
 
 namespace ESPressio::Bounded {
+
     // All mapping specialization pairs are owned by this optional Logging
     // adapter; no implicit namespace-wide arithmetic conversion is allowed.
     template <>
@@ -320,6 +355,7 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::FromCoreWire<
                     std::uint32_t,
                     ESPressio::Clock::SynchronizationUncertainty> {};
+
 } // namespace ESPressio::Bounded
 
 static_assert(ESPressio::Serialisation::SerialisableType<

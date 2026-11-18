@@ -95,7 +95,7 @@ EDP-Logging [C++20 core; no mandatory EDP library]
 ├── EDP-Clock [optional: temporal evidence, deadlines or worker coordination]
 │   ├── EDP-System
 │   └── EDP-Platform
-├── EDP-Memory [optional: finite producer/record/representation pools]
+├── EDP-Memory [optional: finite pools or framing, owned argument and archive byte operations]
 │   ├── EDP-BoundedTopology
 │   ├── EDP-System
 │   └── EDP-Platform
@@ -105,7 +105,10 @@ EDP-Logging [C++20 core; no mandatory EDP library]
 │   ├── EDP-BoundedTopology
 │   ├── EDP-System
 │   └── EDP-Platform
+├── EDP-System [optional: issued LogRecord, source identity and composition contracts]
+├── EDP-Platform [optional: queue mutex and lifecycle atomic abstractions]
 ├── EDP-BoundedTopology [optional: transactional queue slots]
+├── EDP-BoundedTypes [optional: bounded arguments, generated wire projection and archive batching]
 ├── EDP-Serialisation [optional: generated CBOR/JSON and strict UTF-8]
 │   ├── EDP-System / EDP-BoundedTypes / EDP-BoundedTopology
 │   ├── EDP-Memory / EDP-Localisation
@@ -113,7 +116,9 @@ EDP-Logging [C++20 core; no mandatory EDP library]
 ├── EDP-Localisation [optional: generated diagnostic contracts]
 ├── EDP-Persistence [optional: FileStorage / KeyValueStorage archive sinks]
 │   └── EDP-System
-└── EDP-Platform-Portable [optional: owned-argument byte-copy provider]
+└── EDP-Platform-Portable [optional: default ByteOperations for owned arguments, EDLS archives and typed delivery]
+    ├── EDP-Memory
+    └── EDP-Platform
 ```
 
 This is a **readable activation overview**; [the complete conditional and transitive dependency graph](./DEPENDENCY_GRAPH.MD) specifies actual header-level requirements and provider ownership. Declare direct dependencies explicitly in the application. The application chooses concrete ESP-IDF/Arduino/host implementations at Bootstrap; **EDP-Serial** and **EDP-Mesh** are not required by Logging. The optional historical-schema **Python** tooling uses EDP-Localisation's Python tools, not an embedded library dependency.

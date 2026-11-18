@@ -104,6 +104,7 @@ namespace ESPressio::Logging {
                 return GeneratedValueConversionResult::Succeeded;
             }
         }
+
     } // namespace Detail
 
     /// Fixed wire view of the existing fifteen-field governed LogRecord.
@@ -282,4 +283,5 @@ namespace ESPressio::Logging {
         output = std::move(candidate);
         return outcome;
     }
+
 } // namespace ESPressio::Logging
