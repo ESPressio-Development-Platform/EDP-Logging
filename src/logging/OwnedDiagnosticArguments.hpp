@@ -330,7 +330,10 @@ namespace ESPressio::Logging {
 
             const auto bytes =
                 std::as_bytes(std::span(text.data(), text.size()));
-            return Store(OwnedArgumentKind::Utf8, bytes);
+            return Store(
+                OwnedArgumentKind::Utf8,
+                bytes
+            );
         }
 
         /// Copies an arbitrary binary argument into private memory.
@@ -339,7 +342,10 @@ namespace ESPressio::Logging {
         [[nodiscard]] OwnedArgumentResult AddBytes(
             std::span<const std::byte> bytes
         ) noexcept {
-            return Store(OwnedArgumentKind::Bytes, bytes);
+            return Store(
+                OwnedArgumentKind::Bytes,
+                bytes
+            );
         }
 
         /// Copies an issued EDP-System TypeIdentifier's canonical eight bytes.
@@ -358,7 +364,10 @@ namespace ESPressio::Logging {
                 copy[index] = static_cast<std::byte>(bytes[index]);
             }
 
-            return Store(OwnedArgumentKind::TypeIdentifier, copy);
+            return Store(
+                OwnedArgumentKind::TypeIdentifier,
+                copy
+            );
         }
 
         /// Captures a governed System FieldIdentifier as one private owned byte.
@@ -371,7 +380,10 @@ namespace ESPressio::Logging {
             const std::array<std::byte, 1U> bytes{
                 static_cast<std::byte>(identifier.Value())
             };
-            return Store(OwnedArgumentKind::FieldIdentifier, bytes);
+            return Store(
+                OwnedArgumentKind::FieldIdentifier,
+                bytes
+            );
         }
 
 
@@ -391,7 +403,10 @@ namespace ESPressio::Logging {
                 copy[index] = static_cast<std::byte>(bytes[index]);
             }
 
-            return Store(OwnedArgumentKind::DeviceIdentifier, copy);
+            return Store(
+                OwnedArgumentKind::DeviceIdentifier,
+                copy
+            );
         }
 
 

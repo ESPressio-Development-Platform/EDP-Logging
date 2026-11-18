@@ -76,7 +76,10 @@ namespace ESPressio::Logging {
     /// void preserves the original always-lock-free standard-atomic requirement.
     template <std::size_t TProducerCount, class TWaitWakeProvider, class TAtomicWordProvider = void>
     class AdmissionLifecycleCoordinator final {
-        static_assert(TProducerCount > 0U, "At least one producer required");
+        static_assert(
+            TProducerCount > 0U,
+            "At least one producer required"
+        );
         static_assert(
             TWaitWakeProvider::Capacity > TProducerCount,
             "One extra EDP-Threading slot is reserved for shutdown drain");

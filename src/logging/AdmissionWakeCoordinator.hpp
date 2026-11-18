@@ -49,7 +49,10 @@ namespace ESPressio::Logging {
     /// @tparam TWaitWakeProvider Bootstrap-provided EDP-Threading BoundedWaitWake owner.
     template<std::size_t TProducerCount, class TWaitWakeProvider>
     class AdmissionWakeCoordinator final {
-        static_assert(TProducerCount > 0U, "Producer count must be positive");
+        static_assert(
+            TProducerCount > 0U,
+            "Producer count must be positive"
+        );
         static_assert(
             TWaitWakeProvider::Capacity >= TProducerCount,
             "EDP-Threading wake owner has fewer slots than Logging producers"

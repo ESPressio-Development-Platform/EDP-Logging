@@ -113,7 +113,11 @@ namespace ESPressio::Logging {
         result.Projection = ProjectGeneratedLogRecord<
             TMessageSchema,
             TWidth,
-            TParameters...>(record, projection, positionalScratch);
+            TParameters...>(
+            record,
+            projection,
+            positionalScratch
+        );
         if (!result.Projection.IsSuccessful()) {
             result.Status = GeneratedEdlsPublishStatus::ProjectionRejected;
             return result;
@@ -132,7 +136,10 @@ namespace ESPressio::Logging {
         }
         const auto encoded = Serialisation::Serialise<
             Serialisation::Cbor,
-            Serialisation::RootProfile::TypedEnvelope>(projection, cborScratch.first(measured.RequiredBytes));
+            Serialisation::RootProfile::TypedEnvelope>(
+            projection,
+            cborScratch.first(measured.RequiredBytes)
+        );
         if (!encoded.IsSuccessful() ||
             encoded.BytesWritten != measured.RequiredBytes) {
             result.Status = GeneratedEdlsPublishStatus::CborRejected;
@@ -142,7 +149,10 @@ namespace ESPressio::Logging {
         std::size_t framed = 0U;
         if (WriteEdlgFrame(
                 EdlgCodec::Cbor,
-                std::span<const std::byte>(cborScratch.data(), result.CborBytes),
+                std::span<const std::byte>(
+                    cborScratch.data(),
+                    result.CborBytes
+                ),
                 edlgScratch,
                 framed,
                 TMaximumPayload,
@@ -156,7 +166,19 @@ namespace ESPressio::Logging {
             TPhysicalSlots,
             TProtectedSlots,
             TMaximumPayload,
-            TMaximumSegment, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, std::span<const std::byte>(edlgScratch.data(), framed), archiveScratch);
+            TMaximumSegment,
+            TStorage,
+            TByteOperationsProvider>(
+            storage,
+            paths,
+            deviceIdentifier,
+            runtimeIncarnation,
+            std::span<const std::byte>(
+                edlgScratch.data(),
+                framed
+            ),
+            archiveScratch
+        );
         result.Status = (result.Archive.Status == EdlsProtectedRollingStatus::PublishedWithinCapacity ||
                          result.Archive.Status == EdlsProtectedRollingStatus::PublishedAndRetired)
                             ? GeneratedEdlsPublishStatus::Published
@@ -209,7 +231,19 @@ namespace ESPressio::Logging {
             TMessageSchema,
             TProtectedSlots,
             TMaximumPayload,
-            TMaximumSegment>(record, projection, positionalScratch, cborScratch, edlgScratch, storage, paths, deviceIdentifier, runtimeIncarnation, archiveScratch, TByteOperationsProvider{});
+            TMaximumSegment>(
+            record,
+            projection,
+            positionalScratch,
+            cborScratch,
+            edlgScratch,
+            storage,
+            paths,
+            deviceIdentifier,
+            runtimeIncarnation,
+            archiveScratch,
+            TByteOperationsProvider{}
+        );
     }
 
 } // namespace ESPressio::Logging

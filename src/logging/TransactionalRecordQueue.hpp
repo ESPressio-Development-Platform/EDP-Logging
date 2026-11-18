@@ -78,7 +78,10 @@ namespace ESPressio::Logging {
               class TReleaseCoordinator,
               class TGeneration = std::uint32_t>
     class TransactionalRecordQueue final {
-        static_assert(TCapacity > 0U, "Logging queue needs a positive static bound");
+        static_assert(
+            TCapacity > 0U,
+            "Logging queue needs a positive static bound"
+        );
         static_assert(std::is_integral_v<TGeneration> && std::is_unsigned_v<TGeneration>);
         static_assert(std::is_default_constructible_v<TLease>);
         static_assert(std::is_nothrow_move_assignable_v<TLease>);
