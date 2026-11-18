@@ -189,6 +189,9 @@ namespace ESPressio::Logging {
     /// @tparam TParameters Exact ordered semantic types from the generated schema.
     /// @tparam N Maximum descriptors in the source arena.
     /// @tparam B Byte capacity of the source arena.
+    /// @param source Record and owned argument bytes to validate.
+    /// @param output Caller-owned projection replaced only on success.
+    /// @param scratch Exclusive caller-owned positional workspace cleared on return.
     template <
         class TMessageSchema,
         AttemptSequenceWidth TWidth,
@@ -200,13 +203,17 @@ namespace ESPressio::Logging {
         const BasicLogRecord<TWidth, N, B> &source,
         GeneratedLogRecordWireProjection<TWidth, TParameters...> &output,
         OwnedPositionalScratch<TParameters...> &scratch) noexcept {
-        static_assert(IsDiagnosticSchemaMatching<TMessageSchema, TParameters...>(),
-                      "Projection must use exact owner-generated EDP-Localisation types");
+        static_assert(
+            IsDiagnosticSchemaMatching<TMessageSchema, TParameters...>(),
+            "Projection must use exact owner-generated EDP-Localisation types"
+        );
         using Projection = GeneratedLogRecordWireProjection<TWidth, TParameters...>;
-        static_assert(System::SchemaType<Projection> &&
-                          System::IdentifiedType<Projection> &&
-                          Serialisation::SerialisableType<Projection>,
-                      "All fifteen canonical Fields must qualify under owner Serialisation");
+        static_assert(
+            System::SchemaType<Projection> &&
+                System::IdentifiedType<Projection> &&
+                Serialisation::SerialisableType<Projection>,
+            "All fifteen canonical Fields must qualify under owner Serialisation"
+        );
 
         const auto clear = [&]() noexcept {
             std::apply(
@@ -227,10 +234,15 @@ namespace ESPressio::Logging {
             TMessageSchema::OwningContract::DiagnosticSchemaFingerprint)
             return {GeneratedLogRecordProjectionStatus::DiagnosticFingerprintMismatch, 0U};
         if (source.Arguments.Count() != sizeof...(TParameters))
-            return {GeneratedLogRecordProjectionStatus::ArgumentCountMismatch, source.Arguments.Count()};
+            return {
+                GeneratedLogRecordProjectionStatus::ArgumentCountMismatch,
+                source.Arguments.Count()
+            };
 
         GeneratedLogRecordProjectionOutcome outcome{
-            GeneratedLogRecordProjectionStatus::Succeeded, 0U};
+            GeneratedLogRecordProjectionStatus::Succeeded,
+            0U
+        };
         [&]<std::size_t... I>(std::index_sequence<I...>) noexcept {
             (([&]() noexcept {
                  if (outcome.Status != GeneratedLogRecordProjectionStatus::Succeeded) return;
@@ -240,7 +252,10 @@ namespace ESPressio::Logging {
                      std::get<I>(scratch)
                  );
                  if (status != OwnedPositionalReencodingStatus::Succeeded) {
-                     outcome = {GeneratedLogRecordProjectionStatus::ArgumentRejected, I};
+                     outcome = {
+                         GeneratedLogRecordProjectionStatus::ArgumentRejected,
+                         I
+                     };
                  }
              }()),
              ...);
@@ -258,7 +273,10 @@ namespace ESPressio::Logging {
                      *std::get<I>(scratch),
                      std::get<I>(candidate.Arguments)
                  ) != Detail::GeneratedValueConversionResult::Succeeded) {
-                     outcome = {GeneratedLogRecordProjectionStatus::ArgumentRejected, I};
+                     outcome = {
+                         GeneratedLogRecordProjectionStatus::ArgumentRejected,
+                         I
+                     };
                  }
              }()),
              ...);

@@ -81,6 +81,9 @@ namespace ESPressio::Logging {
         /// @tparam N Number of argument descriptors the source can hold.
         /// @tparam B Byte capacity of the source arena.
         /// @tparam TByteOperationsProvider Stateless Memory copy provider for the source.
+        /// @param source Arena owning the descriptor and its bytes.
+        /// @param index Zero-based generated position to reconstruct.
+        /// @param output Caller-owned slot updated only after successful reconstruction.
         template <class TValue, std::size_t N, std::size_t B, class TByteOperationsProvider>
         [[nodiscard]] OwnedPositionalReencodingStatus LoadOwnedPosition(
             const OwnedDiagnosticArguments<N, B, TByteOperationsProvider> &source,
@@ -117,9 +120,12 @@ namespace ESPressio::Logging {
                 output.emplace(LoadOwnedNativeScalar<Value, TByteOperationsProvider>(bytes));
             } else if constexpr (IsBoundedDiagnosticString<Value>::value) {
                 Value next{};
-                const auto status = next.Assign(std::string_view{
-                    reinterpret_cast<const char *>(bytes.data()),
-                    bytes.size()});
+                const auto status = next.Assign(
+                    std::string_view{
+                        reinterpret_cast<const char *>(bytes.data()),
+                        bytes.size()
+                    }
+                );
                 if (status != ESPressio::Bounded::StringAssignmentResult::Succeeded)
                     return OwnedPositionalReencodingStatus::OwnerValueRejected;
                 output.emplace(std::move(next));
@@ -162,8 +168,10 @@ namespace ESPressio::Logging {
                     return OwnedPositionalReencodingStatus::OwnerValueRejected;
                 output.emplace(next);
             } else {
-                static_assert(std::is_same_v<Value, void>,
-                              "Missing EDP owner-certified native source conversion");
+                static_assert(
+                    std::is_same_v<Value, void>,
+                    "Missing EDP owner-certified native source conversion"
+                );
             }
             return OwnedPositionalReencodingStatus::Succeeded;
         }
@@ -189,10 +197,14 @@ namespace ESPressio::Logging {
             std::span<std::byte> destination,
             OwnedPositionalScratch<TValues...> &scratch,
             std::index_sequence<TIndices...>) noexcept {
-            static_assert(IsDiagnosticSchemaMatching<TGeneratedSchema, TValues...>(),
-                          "Owned positions must exactly match the generated Localisation schema");
-            static_assert((ESPressio::Serialisation::SerialisableType<TValues> && ...),
-                          "Rehydrated values must have EDP-Serialisation owner support");
+            static_assert(
+                IsDiagnosticSchemaMatching<TGeneratedSchema, TValues...>(),
+                "Owned positions must exactly match the generated Localisation schema"
+            );
+            static_assert(
+                (ESPressio::Serialisation::SerialisableType<TValues> && ...),
+                "Rehydrated values must have EDP-Serialisation owner support"
+            );
 
             const auto clear = [&]() noexcept {
                 (std::get<TIndices>(scratch).reset(), ...);
@@ -212,7 +224,10 @@ namespace ESPressio::Logging {
                  if (outcome.Status != OwnedPositionalReencodingStatus::Succeeded)
                      return;
                  outcome.Status = LoadOwnedPosition<TValues>(
-                     source, TIndices, std::get<TIndices>(scratch));
+                     source,
+                     TIndices,
+                     std::get<TIndices>(scratch)
+                 );
                  if (outcome.Status != OwnedPositionalReencodingStatus::Succeeded)
                      outcome.FirstFailedArgument = TIndices;
              }()),
@@ -224,10 +239,14 @@ namespace ESPressio::Logging {
 
             if constexpr (TJson) {
                 outcome.Encoding = EncodeDiagnosticArgumentsJson<TGeneratedSchema>(
-                    destination, (*std::get<TIndices>(scratch))...);
+                    destination,
+                    (*std::get<TIndices>(scratch))...
+                );
             } else {
                 outcome.Encoding = EncodeDiagnosticArgumentsCbor<TGeneratedSchema>(
-                    destination, (*std::get<TIndices>(scratch))...);
+                    destination,
+                    (*std::get<TIndices>(scratch))...
+                );
             }
             clear();
             if (!outcome.Encoding.IsSuccessful())
