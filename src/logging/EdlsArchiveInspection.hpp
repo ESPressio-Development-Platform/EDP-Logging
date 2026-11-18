@@ -101,9 +101,11 @@ namespace ESPressio::Logging {
     /// Scratch must fit TMaximumPayloadBytes+20. When the whole physical file
     /// fits that caller-owned span, one complete read supplies all validation;
     /// otherwise the existing bounded streaming reads remain authoritative.
-    /// No file bytes or integrity evidence survive this invocation. Caller
-    /// serializes archive mutation for a coherent observation. A failed bulk
-    /// read preserves an independently readable header but never accepts frames.
+    /// A clean inspection of a complete file that fits in scratch leaves the
+    /// verified file at the start of frameScratch. Streaming inspection may
+    /// overwrite scratch. Caller serializes archive mutation for a coherent
+    /// observation. A failed bulk read preserves an independently readable
+    /// header and reports provider failure before accepting any frames.
     ///
     /// @tparam TMaximumPayloadBytes Maximum EDLG payload retained temporarily.
     /// @tparam TStorage Bootstrap-owned EDP-Persistence FileStorage provider.

@@ -38,6 +38,8 @@ and slot provenance, then returns failure. This prevents strict recovery from
 treating a readable foreign segment as an unknown removable candidate. Corrupt
 or mismatched headers keep their existing classifications; no repair occurs.
 
+A clean `InspectEdlsSlotWithScratch` that fits the entire file in caller scratch leaves the verified file at the start of that span. The single-frame successor publisher consumes that capture immediately for its exact-byte check. A streamed inspection may overwrite scratch with successive reads. Application-exclusive archive mutation ownership is required across the observation and its use.
+
 ## 12 November 2026 — full per-declaration classification, native reads and failure contract
 
 **Current source:** [`src/logging/EdlsArchiveInspection.hpp`](../src/logging/EdlsArchiveInspection.hpp). This public **read-only** optional API composes the abstract EDP-Persistence FileStorage owner and the existing Logging strict EDLS/EDLG readers. No independent provider, allocator, file writer, recovery mutation, task or volatile evidence cache is created.

@@ -293,14 +293,17 @@ namespace ESPressio::Logging {
                 outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
                 return outcome;
             }
-            if (TByteOperationsProvider{}.CompareBytes(
-                callerScratch.data() + EdlsHeaderBytes,
-                completeEdlg.data(),
-                completeEdlg.size()
-            ) != ESPressio::Memory::ByteComparison::Equal) {
-                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
-                return outcome;
-            }
+        }
+
+        // The verified file fits in caller scratch. A single-frame inspection
+        // already captured it in full, so the exact comparison needs no extra read.
+        if (TByteOperationsProvider{}.CompareBytes(
+            callerScratch.data() + EdlsHeaderBytes,
+            completeEdlg.data(),
+            completeEdlg.size()
+        ) != ESPressio::Memory::ByteComparison::Equal) {
+            outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
+            return outcome;
         }
         outcome.Status = EdlsSuccessorStatus::PublishedAndVerified;
         return outcome;

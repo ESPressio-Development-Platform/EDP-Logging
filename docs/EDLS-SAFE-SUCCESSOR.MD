@@ -18,10 +18,11 @@ checks GetFileSize again before mutation, assembles the exact EDLS
 header plus EDLG frame in bounded scratch, calls EDP-Persistence
 FileStorage ReplaceFile once, then opens and checks the actual published
 bytes afresh: header CRC, slot identity, DeviceIdentifier, incarnation,
-generation, frame CRC and exact size. The caller-scratch form supports
-sealed multi-frame publication. When the configured maximum allows
-sealing, it also reads back the complete segment and compares the framed
-range to the input using the selected EDP-Memory ByteOperations provider.
+generation, frame CRC and exact size. It compares the framed range to the
+input using the selected EDP-Memory ByteOperations provider. Single-frame
+publication uses the verified whole-file capture already in caller scratch.
+The caller-scratch form also supports sealed multi-frame publication, which
+retains the additional complete-segment readback.
 
 Statuses: PublishedAndVerified, InvalidIdentityOrFrame,
 ArchiveAmbiguous, NoEmptySlot, SlotCapacityExceeded,
@@ -48,7 +49,8 @@ power-cut-certified rotating archive.
 Native GCC/Clang tests cover initial and second successor,
 no-empty-slot protection, mismatched identity, bad CRC,
 generation wrap, unreadable prior header, rejected native replace,
-partial provider mutation and corrupted successful readback.
+partial provider mutation, corrupted successful readback and substitution
+of a different same-size frame with valid CRCs.
 Separate host integration tests bind the **real EDP-Persistence-ESP-IDF
 VfsFileStorage** provider to an isolated disposable native filesystem
 directory. That proves two generations persist across creation of a
