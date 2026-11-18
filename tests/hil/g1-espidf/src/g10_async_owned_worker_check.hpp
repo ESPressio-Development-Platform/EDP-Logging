@@ -19,6 +19,44 @@ namespace Test {
     bool Check(bool value, const char* label) noexcept;
     ESPressio::Clock::MonotonicTimestamp Deadline(std::uint64_t ms) noexcept;
 
+    /// Faults one Memory lock acquisition and otherwise delegates to the native mutex.
+    /// @tparam TNativeMutex Selected native ordinary mutex provider.
+    template<class TNativeMutex>
+    class G10MemoryReleaseMutex final {
+        using LockAcquireResult = ESPressio::Platform::Synchronization::LockAcquireResult;
+        using LockReleaseResult = ESPressio::Platform::Synchronization::LockReleaseResult;
+        using WaitTimeout = ESPressio::Platform::Synchronization::WaitTimeout;
+
+        /// Native provider used for every acquisition outside the injected fault.
+        TNativeMutex _native;
+        /// Bootstrap-only countdown. Only the test's Memory runtime uses this instance.
+        unsigned _acquiresUntilFailure{0U};
+
+      public:
+        /// Preserves the selected native provider's composition identity.
+        using CompositionDomain = typename TNativeMutex::CompositionDomain;
+        /// Preserves the selected native mutex capability and wait resolution.
+        using CompositionOffers = typename TNativeMutex::CompositionOffers;
+
+        /// Arms exactly one acquisition failure.
+        void FailOnAcquire(unsigned count) noexcept {
+            _acquiresUntilFailure = count;
+        }
+
+        /// Forwards the requested native wait unless the selected acquisition faults.
+        LockAcquireResult Acquire(WaitTimeout timeout) noexcept {
+            if (_acquiresUntilFailure != 0U && --_acquiresUntilFailure == 0U) {
+                return LockAcquireResult::ProviderFailure;
+            }
+            return _native.Acquire(timeout);
+        }
+
+        /// Releases through the native provider.
+        LockReleaseResult Release() noexcept {
+            return _native.Release();
+        }
+    };
+
     /// Real ESP32 task execution and native independently owned representation,
     /// not the synthetic deferred executor used in host unit tests.
     template<
@@ -44,8 +82,8 @@ namespace Test {
             /// Exact captured payload second byte after source was mutated.
             std::atomic<unsigned> Captured{0U};
 
-            /// Slow callback is used to force the second Task to remain queued.
-            bool Slow{false};
+            /// Keeps a running delivery active while Bootstrap exercises its lifecycle.
+            std::atomic<bool> Hold{false};
 
             /// Final native callback outcome, distinct from Task dispatch.
             L::RecordSinkSubmission Result{L::RecordSinkSubmission::Accepted};
@@ -59,8 +97,12 @@ namespace Test {
                     return L::RecordSinkSubmission::ProviderFailure;
                 }
                 Calls.fetch_add(1U, std::memory_order_release);
-                if (Slow) {
-                    vTaskDelay(pdMS_TO_TICKS(120U));
+                const auto bound = Deadline(4000U);
+                while (Hold.load(std::memory_order_acquire)) {
+                    if (ESPressio::Clock::MonotonicNow() >= bound) {
+                        return L::RecordSinkSubmission::ProviderFailure;
+                    }
+                    vTaskDelay(1U);
                 }
                 Captured.store(
                     static_cast<unsigned>(
@@ -80,7 +122,7 @@ namespace Test {
             M::ObjectPoolSpec<Buffer, M::DedicatedInstances<2U>>
         >;
         using MemRuntime = M::MemoryRuntime<
-            MemTopology, TMemoryComposition, TMutex, TSignal
+            MemTopology, TMemoryComposition, G10MemoryReleaseMutex<TMutex>, TSignal
         >;
         using Work = L::AsyncOwnedDeliveryWork<
             L::EdlgCodec::Cbor, 32U, NativeSink
@@ -126,7 +168,7 @@ namespace Test {
 
         using ByteOps = P::Portable::Memory::ByteOperationsProvider;
         TMemoryResource resource;
-        TMutex nativeMutex;
+        G10MemoryReleaseMutex<TMutex> nativeMutex;
         TAllocator allocator;
         MemRuntime memory(nativeMutex, allocator, resource);
         M::MemoryTopologyInitializationFailure initialization{};
@@ -162,8 +204,7 @@ namespace Test {
 
         static NativeSink firstSink{};
         static NativeSink secondSink{};
-        firstSink.Slow = true;
-        secondSink.Slow = false;
+        firstSink.Hold.store(true, std::memory_order_relaxed);
         secondSink.Result = L::RecordSinkSubmission::Rejected;
 
         Executor executor{&taskRuntime};
@@ -246,6 +287,7 @@ namespace Test {
             return false;
         }
 
+        firstSink.Hold.store(false, std::memory_order_release);
         const auto finishDeadline = Deadline(2000U);
         while (
             firstTask.has_value() &&
@@ -281,26 +323,95 @@ namespace Test {
         ) {
             vTaskDelay(pdMS_TO_TICKS(5U));
         }
-        const auto rejected = second.TryFinalize();
+        // Fail Memory's second coordination acquisition, after object destruction
+        // and before the dedicated slot can be returned. Threading uses its own mutex.
         if (!Check(
-            rejected.Status == L::AsyncSinkCompletionStatus::RejectedAndReleased &&
-            rejected.Delivery == L::RecordSinkSubmission::Rejected &&
-            secondSink.Calls.load() == 1U &&
-            secondSink.Captured.load() == 0xB2U &&
-            secondLease.IsEmpty(),
-            "g10-async-native-final-rejection"
+            secondTask.has_value() && secondTask->IsCompleted(),
+            "g10-async-native-fault-task-completed"
         )) {
             return false;
         }
-
+        nativeMutex.FailOnAcquire(2U);
+        const auto rejected = second.TryFinalize();
         if (!Check(
+            rejected.Status == L::AsyncSinkCompletionStatus::ReclaimUnconfirmed &&
+            rejected.Delivery == L::RecordSinkSubmission::Rejected &&
+            rejected.Release == M::ObjectPoolLeaseReleaseResult::ProviderFailure &&
+            !secondTask.has_value() && !secondLease.IsEmpty() &&
+            secondLease.Get() == nullptr &&
+            secondSink.Calls.load() == 1U &&
+            secondSink.Captured.load() == 0xB2U &&
+            second.Submit(L::EdlgCodec::Cbor, later) ==
+                L::AsyncSinkAdmissionStatus::Busy,
+            "g10-async-native-release-fault-retains-slot"
+        )) {
+            return false;
+        }
+        if (!Check(
+            second.RetryReclaim() == M::ObjectPoolLeaseReleaseResult::Released &&
+            second.RetryReclaim() == M::ObjectPoolLeaseReleaseResult::AlreadyEmpty &&
+            secondLease.IsEmpty(),
+            "g10-async-native-release-fault-retry"
+        )) {
+            return false;
+        }
+        const auto noWait = P::Synchronization::WaitTimeout::NoWait();
+        if (!Check(
+            pool.Acquire(firstLease, noWait) == M::ObjectPoolAcquisitionResult::Succeeded &&
+            pool.Acquire(secondLease, noWait) == M::ObjectPoolAcquisitionResult::Succeeded &&
+            firstLease.Release() == M::ObjectPoolLeaseReleaseResult::Released &&
+            secondLease.Release() == M::ObjectPoolLeaseReleaseResult::Released,
+            "g10-async-native-release-fault-full-capacity"
+        )) {
+            return false;
+        }
+        std::printf("EDP_LOGGING_HIL|PASS|G10_ASYNC_NATIVE_MEMORY_RELEASE_FAULT\n");
+
+        // Begin real Threading shutdown while the Worker owns and reads its copy.
+        firstSink.Hold.store(true, std::memory_order_relaxed);
+        if (!Check(
+            first.Submit(L::EdlgCodec::Cbor, later) ==
+                L::AsyncSinkAdmissionStatus::Queued,
+            "g10-async-native-shutdown-task-admitted"
+        )) {
+            return false;
+        }
+        const auto shutdownEntry = Deadline(2000U);
+        while (
+            firstSink.Calls.load(std::memory_order_acquire) != 2U &&
+            ESPressio::Clock::MonotonicNow() < shutdownEntry
+        ) {
+            vTaskDelay(1U);
+        }
+        const bool workerEntered = firstSink.Calls.load(std::memory_order_acquire) == 2U;
+        const auto began = taskRuntime.BeginShutdown();
+        const bool retainedDuringShutdown =
+            first.TryFinalize().Status == L::AsyncSinkCompletionStatus::Pending &&
+            !firstLease.IsEmpty() && !taskRuntime.IsExecutionQuiescent();
+        firstSink.Hold.store(false, std::memory_order_release);
+
+        const auto shutdownBound = Deadline(2000U);
+        while (
+            (!firstTask->IsFinished() || !taskRuntime.IsExecutionQuiescent()) &&
+            ESPressio::Clock::MonotonicNow() < shutdownBound
+        ) {
+            vTaskDelay(1U);
+        }
+        const auto shutdownTask = first.TryFinalize();
+        const bool releasedBeforeTeardown =
+            shutdownTask.Status == L::AsyncSinkCompletionStatus::AcceptedAndReleased &&
+            firstLease.IsEmpty() && !firstTask.has_value();
+        if (!Check(
+            workerEntered && began == T::ThreadingShutdownResult::Accepted &&
+            retainedDuringShutdown && releasedBeforeTeardown &&
+            firstSink.Captured.load(std::memory_order_acquire) == 0xB2U &&
             taskRuntime.IsExecutionQuiescent() &&
-            taskRuntime.BeginShutdown() == T::ThreadingShutdownResult::Accepted &&
             taskRuntime.FinalizeShutdown() == T::ThreadingFinalizationResult::Completed,
             "g10-async-native-worker-shutdown"
         )) {
             return false;
         }
+        std::printf("EDP_LOGGING_HIL|PASS|G10_ASYNC_NATIVE_ACTIVE_SHUTDOWN\n");
         if (!Check(
             memory.TearDown() == M::MemoryTopologyTeardownResult::Succeeded,
             "g10-async-native-memory-teardown"
