@@ -36,6 +36,28 @@ namespace ESPressio::Logging {
 
     } // namespace Detail
 
+    /// Completion evidence reported by generated EDLS delivery adapters.
+    enum class TypedEdlsTaskCompletion : std::uint8_t {
+        /// No delivery callback has run.
+        NotInvoked = 0U,
+        /// Legacy non-strict immutable archive publication completed.
+        Archived = 1U,
+        /// Input is not a supported nonempty canonical CBOR payload.
+        InvalidCodec = 2U,
+        /// Generated typed fields or canonical representation were rejected.
+        InvalidTypedRecord = 3U,
+        /// Device or runtime incarnation does not match the archive owner.
+        SourceIdentityMismatch = 4U,
+        /// A complete bounded CRC frame could not be admitted.
+        FramingFailure = 5U,
+        /// Publication is unsuccessful or requires explicit reconciliation.
+        ArchiveFailure = 6U,
+        /// The strict archive confirmed file and independent NVS completion.
+        DurablyAcknowledged = 7U,
+        /// The complete frame is owned in RAM; no durable ACK follows from this status.
+        BufferedForBatch = 8U
+    };
+
     /// Schema-qualified canonical-CBOR encoder, for the EXISTING
     /// EncodeOnceAndSubmitToSinks / EDP-Memory pooled representation owner.
     /// This adapter has no queue, worker, storage or SDK of its own.
@@ -87,27 +109,6 @@ namespace ESPressio::Logging {
                 return {RepresentationEncodeStatus::ProviderFailure, 0U};
             return {RepresentationEncodeStatus::Succeeded, written.BytesWritten};
         }
-    };
-
-    enum class TypedEdlsTaskCompletion : std::uint8_t {
-        /// No delivery callback has run.
-        NotInvoked = 0U,
-        /// Legacy non-strict immutable archive publication completed.
-        Archived = 1U,
-        /// Input is not a supported nonempty canonical CBOR payload.
-        InvalidCodec = 2U,
-        /// Generated typed fields or canonical representation were rejected.
-        InvalidTypedRecord = 3U,
-        /// Device or runtime incarnation does not match the archive owner.
-        SourceIdentityMismatch = 4U,
-        /// A complete bounded CRC frame could not be admitted.
-        FramingFailure = 5U,
-        /// Publication is unsuccessful or requires explicit reconciliation.
-        ArchiveFailure = 6U,
-        /// The strict archive confirmed file and independent NVS completion.
-        DurablyAcknowledged = 7U,
-        /// The complete frame is owned in RAM; no durable ACK follows from this status.
-        BufferedForBatch = 8U
     };
 
     /// Existing EDP-Threading Task-completion-side delivery callback.

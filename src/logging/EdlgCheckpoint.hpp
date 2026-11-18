@@ -18,6 +18,15 @@ namespace ESPressio::Logging {
         ProviderRejected = 3U
     };
 
+    /// Exact result of reading a single frame-shaped checkpoint.
+    enum class EdlgCheckpointReadStatus : std::uint8_t {
+        Recovered = 0U,
+        NotFound = 1U,
+        BufferTooSmall = 2U,
+        CorruptFrame = 3U,
+        ProviderFailure = 4U
+    };
+
     /// Both semantic validity and underlying provider commit outcome.
     struct EdlgCheckpointWriteOutcome final {
         /// Semantic checkpoint write result, kept separate from raw provider status.
@@ -26,15 +35,6 @@ namespace ESPressio::Logging {
         ESPressio::Persistence::KeyValueStoreStatus Store{
             ESPressio::Persistence::KeyValueStoreStatus::NotReady
         };
-    };
-
-    /// Exact result of reading a single frame-shaped checkpoint.
-    enum class EdlgCheckpointReadStatus : std::uint8_t {
-        Recovered = 0U,
-        NotFound = 1U,
-        BufferTooSmall = 2U,
-        CorruptFrame = 3U,
-        ProviderFailure = 4U
     };
 
     /// Unambiguous result: frame proven valid only on Recovered.

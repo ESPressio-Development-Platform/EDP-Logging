@@ -32,6 +32,23 @@ namespace ESPressio::Logging {
         CommitFailed = 9U
     };
 
+    // Accepted by an output interface does NOT imply durable or physically received.
+    enum class RecordSinkSubmission : std::uint8_t {
+        Accepted = 0U,
+        Rejected = 1U,
+        Partial = 2U,
+        ProviderFailure = 3U
+    };
+
+    /// Outcome of claiming, offering and reclaiming one source record.
+    enum class RecordDrainStatus : std::uint8_t {
+        Empty = 0U,
+        AcceptedAndReclaimed = 1U,
+        FailedAndReclaimed = 2U,
+        ClaimFailure = 3U,
+        ReclaimUnconfirmed = 4U
+    };
+
     /// Evidence for one attempt, bounded admission and queue publication.
     /// @tparam TWidth Compile-time width of the allocated attempt ticket.
     template <AttemptSequenceWidth TWidth = DefaultAttemptSequenceWidth>
@@ -189,28 +206,26 @@ namespace ESPressio::Logging {
         return outcome;
     }
 
-    // Accepted by an output interface does NOT imply durable or physically received.
-    enum class RecordSinkSubmission : std::uint8_t {
-        Accepted = 0U,
-        Rejected = 1U,
-        Partial = 2U,
-        ProviderFailure = 3U
-    };
-
-    enum class RecordDrainStatus : std::uint8_t {
-        Empty = 0U,
-        AcceptedAndReclaimed = 1U,
-        FailedAndReclaimed = 2U,
-        ClaimFailure = 3U,
-        ReclaimUnconfirmed = 4U
-    };
-
+    /// Caller-visible evidence from one synchronous source drain attempt.
     struct RecordDrainOutcome final {
+
+        // Claim, sink submission and reclamation evidence.
+
+        /// Aggregate outcome of the source drain.
         RecordDrainStatus Status{RecordDrainStatus::ClaimFailure};
+
+        /// Native queue outcome when claiming the next source.
         RecordQueueResult Pop{RecordQueueResult::Empty};
+
+        /// Native queue outcome of the source reclamation.
         RecordQueueResult Reclaim{RecordQueueResult::Empty};
+
+        /// Sink disposition, meaningful when the callback was invoked.
         RecordSinkSubmission Submission{RecordSinkSubmission::ProviderFailure};
+
+        /// Indicates that the sink callback was invoked for the claimed source.
         bool SubmissionAttempted{false};
+
     };
 
     // One consumer owns one FIFO claim while calling the application-composed

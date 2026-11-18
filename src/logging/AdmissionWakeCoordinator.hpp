@@ -19,18 +19,25 @@ namespace ESPressio::Logging {
         ProviderFailure = 2U
     };
 
-    /// Typed admission status plus notification-health evidence.
-    struct CoordinatedAdmissionResult final {
-        AdmissionWaitResult Admission;
-        AdmissionWakePublicationResult Notification;
-    };
-
     /// Capacity-release and wake-publication outcome.
     enum class CoordinatedReleaseResult : std::uint8_t {
         ReleasedAndNotified = 0U,
         ReleasedNotificationFailed = 1U,
         AlreadyEmpty = 2U,
         MemoryProviderFailure = 3U
+    };
+
+    /// Typed admission status plus notification-health evidence.
+    struct CoordinatedAdmissionResult final {
+
+        // Admission and independent capacity notification evidence.
+
+        /// Outcome of the bounded admission operation.
+        AdmissionWaitResult Admission;
+
+        /// Outcome of notifying waiters when capacity might have changed.
+        AdmissionWakePublicationResult Notification;
+
     };
 
     /// Fixed exclusive producer slots bound by Bootstrap to one Threading wait/wake owner.
