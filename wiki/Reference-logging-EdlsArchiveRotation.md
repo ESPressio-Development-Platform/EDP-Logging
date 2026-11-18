@@ -21,9 +21,9 @@ PublishedAfterOldestReclaim, InvalidIdentityOrFrame,
 ArchiveAmbiguous, SlotCapacityExceeded, ChangedDuringPreflight,
 ProviderRejected, ReadbackUnconfirmed, PriorNewestUnconfirmed and
 NoReclaimableSlot. `EdlsRollingOutcome` retains selected slot,
-protected newest slot, proposed generation, raw native
-`FileReplaceStatus` and whether readback requalified the previous
-newest generation. The oldest slot's complete replacement is reread
+protected newest slot (ProtectedNewestSlot), proposed generation,
+raw FileReplaceStatus (Native), and the PriorNewestVerified flag for
+independent readback of the previous newest generation. The oldest slot's complete replacement is reread
 in chunks of up to 64 bytes and compared against the assembled EDLS
 header and EDLG frame using the same stateless EDP-Memory ByteOperations
 provider that assembled the frame. The provider defaults to Portable.

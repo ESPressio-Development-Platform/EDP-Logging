@@ -95,7 +95,7 @@ spans and disjoint operation-local snapshots. `storage_` is a nonowning pointer 
 caller-owned provider, and `keys_` is a fixed-size collection of
 nonowning key views; the caller must maintain both for the complete
 adapter lifetime. The private `Slot` value groups its parsed
-`Status`, `EdlsHeader`, and exact `TotalBytes` for one
+`Status`, `Header` (the parsed EDLS header), and exact `TotalBytes` for one
 bounded key read.
 
 The private method `IsKeySetValid()` rejects null, empty or

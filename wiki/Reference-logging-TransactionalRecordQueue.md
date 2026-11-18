@@ -84,6 +84,14 @@ alive longer than the queue and must drain all nonvacant phases before
 destroying it; the destructor calls `std::terminate` rather than
 silently leaking an active native Memory lease.
 
+### Ticket borrow result internals
+
+BorrowResult stores the exact queue outcome in _status and the borrowed
+lease address in _lease. A failure constructor leaves _lease null. The
+success constructor records Succeeded and the verified lease address.
+Status() reports the outcome and Lease() exposes the non-owning view.
+The queue ticket and caller-side lifecycle still govern use of the view.
+
 ### Reservation and ConsumerClaim lifetime
 
 Both RAII handles are move-constructible but noncopyable; move
