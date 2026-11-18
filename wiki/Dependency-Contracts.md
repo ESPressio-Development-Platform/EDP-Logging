@@ -30,5 +30,5 @@ record current branch tips and the exact native Platform-ESP-IDF pin.
 The downstream EDP-Serial EDLG pump uses the current Memory-backed
 writer contract at Serial `b021ff6`. The empty-slot EDLS successor uses
 Memory ByteOperations for exact frame comparison in both the single-frame
-and sealed profiles. The single-frame path uses the whole-file capture
-already verified by archive inspection.
+and sealed profiles. Both paths compare the whole-file capture already
+verified by archive inspection.

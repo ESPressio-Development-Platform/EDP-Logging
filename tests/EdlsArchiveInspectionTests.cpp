@@ -561,6 +561,8 @@ int main(){
  );
  assert(sealed.Status == L::EdlsSuccessorStatus::ReadbackUnconfirmed &&
         sealed.Native == P::FileReplaceStatus::Succeeded);
+ // The full verified capture supplies the exact comparison in one native read.
+ assert(substitutedSuccessor.readCalls == 1U);
  const auto sealedReadback = L::InspectEdlsSlot<16U>(
   substitutedSuccessor,
   paths[0U],

@@ -19,10 +19,10 @@ header plus EDLG frame in bounded scratch, calls EDP-Persistence
 FileStorage ReplaceFile once, then opens and checks the actual published
 bytes afresh: header CRC, slot identity, DeviceIdentifier, incarnation,
 generation, frame CRC and exact size. It compares the framed range to the
-input using the selected EDP-Memory ByteOperations provider. Single-frame
-publication uses the verified whole-file capture already in caller scratch.
-The caller-scratch form also supports sealed multi-frame publication, which
-retains the additional complete-segment readback.
+input using the selected EDP-Memory ByteOperations provider. Both single-frame
+and sealed multi-frame publication use the verified whole-file capture already
+in caller scratch. The sealed inspection includes the completion marker and
+whole-segment CRC.
 
 Statuses: PublishedAndVerified, InvalidIdentityOrFrame,
 ArchiveAmbiguous, NoEmptySlot, SlotCapacityExceeded,

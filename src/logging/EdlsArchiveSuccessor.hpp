@@ -272,31 +272,8 @@ namespace ESPressio::Logging {
             outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
             return outcome;
         }
-        if constexpr (TMaximumFrames > 1U) {
-            if (Detail::ReadExactEdlsBytes(
-                    storage,
-                    paths[outcome.Slot],
-                    0U,
-                    callerScratch.first(used)) != Detail::EdlsExactReadResult::Succeeded) {
-                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
-                return outcome;
-            }
-            EdlsHeader actual{};
-            if (ReadEdlsHeader(
-                    callerScratch.first(EdlsHeaderBytes),
-                    actual) != EdlsHeaderStatus::Succeeded ||
-                actual.Slot != header.Slot ||
-                actual.Generation != header.Generation ||
-                actual.DeviceIdentifier != header.DeviceIdentifier ||
-                actual.RuntimeIncarnation != header.RuntimeIncarnation ||
-                actual.Profile != header.Profile) {
-                outcome.Status = EdlsSuccessorStatus::ReadbackUnconfirmed;
-                return outcome;
-            }
-        }
-
-        // The verified file fits in caller scratch. A single-frame inspection
-        // already captured it in full, so the exact comparison needs no extra read.
+        // The exact size was verified and fits in caller scratch. The clean
+        // inspection captured the complete successor, including any seal.
         if (TByteOperationsProvider{}.CompareBytes(
             callerScratch.data() + EdlsHeaderBytes,
             completeEdlg.data(),
