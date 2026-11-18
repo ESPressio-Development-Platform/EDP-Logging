@@ -127,7 +127,12 @@ namespace ESPressio::Logging {
             Properties::template Value<ESPressio::Persistence::MaximumKeyValueSize> >= ESPressio::Persistence::StorageSize{TMaximumValueBytes},
             "EDLS snapshot exceeds provider's declared per-key maximum");
 
+        // Borrowed provider and immutable physical-key selection.
+
+        /// Read/write owner that remains live for this adapter's lifetime.
         TStorage *storage_;
+
+        /// Immutable non-owning key views whose backing strings outlive the adapter.
         std::array<ESPressio::Persistence::KeyView, TSlots> keys_;
 
         /// Duplicate/empty physical keys would alias protected and inactive

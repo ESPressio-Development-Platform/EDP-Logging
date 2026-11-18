@@ -9,8 +9,13 @@ namespace ESPressio::Logging {
 
     /// Typed result of strict, issued Field 11/14 canonical conversions.
     enum class ApprovedLogFieldConversion : std::uint8_t {
+        /// The canonical output was assigned successfully.
         Succeeded = 0U,
+
+        /// A Clock provenance ordinal lies outside the issued range.
         UnknownClockValue = 1U,
+
+        /// The facts byte is nonzero and reserved in this wire version.
         ReservedRecordFacts = 2U
     };
 
@@ -31,11 +36,13 @@ namespace ESPressio::Serialisation {
 
     /// Field 11 canonical pair remains owned by the Serialisation framework.
     template<> struct CanonicalRepresentation<ESPressio::Logging::LogTemporalProvenance> final {
+        /// Canonical projection and quality ordinals, in wire order.
         using Type = std::array<std::uint8_t, 2U>;
     };
 
     /// Field 14 canonical representation is exactly one unsigned byte.
     template<> struct CanonicalRepresentation<ESPressio::Logging::LogRecordFacts> final {
+        /// Canonical facts byte. The v1 schema accepts zero only.
         using Type = std::uint8_t;
     };
 
@@ -48,12 +55,17 @@ namespace ESPressio::Bounded {
         ESPressio::Logging::LogTemporalProvenance,
         std::array<std::uint8_t, 2U>
     > final {
+        /// Typed conversion outcome exposed to the BoundedTypes caller.
         using ResultType = ESPressio::Logging::ApprovedLogFieldConversion;
+        /// Registers this explicit semantic and wire pair.
         static constexpr bool IsAvailable = true;
+        /// This bounded scalar conversion does not throw.
         static constexpr bool IsNoexcept = true;
+        /// Returns true when the supplied conversion outcome reports success.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Assigns the destination only after validating the source value.
         static constexpr ResultType Convert(
             const ESPressio::Logging::LogTemporalProvenance& src,
             std::array<std::uint8_t, 2U>& dst
@@ -72,12 +84,17 @@ namespace ESPressio::Bounded {
         std::array<std::uint8_t, 2U>,
         ESPressio::Logging::LogTemporalProvenance
     > final {
+        /// Typed conversion outcome exposed to the BoundedTypes caller.
         using ResultType = ESPressio::Logging::ApprovedLogFieldConversion;
+        /// Registers this explicit semantic and wire pair.
         static constexpr bool IsAvailable = true;
+        /// This bounded scalar conversion does not throw.
         static constexpr bool IsNoexcept = true;
+        /// Returns true when the supplied conversion outcome reports success.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Assigns the destination only after validating the source value.
         static constexpr ResultType Convert(
             const std::array<std::uint8_t, 2U>& src,
             ESPressio::Logging::LogTemporalProvenance& dst
@@ -98,12 +115,17 @@ namespace ESPressio::Bounded {
     template<> struct TypeConversionAdapter<
         ESPressio::Logging::LogRecordFacts, std::uint8_t
     > final {
+        /// Typed conversion outcome exposed to the BoundedTypes caller.
         using ResultType = ESPressio::Logging::ApprovedLogFieldConversion;
+        /// Registers this explicit semantic and wire pair.
         static constexpr bool IsAvailable = true;
+        /// This bounded scalar conversion does not throw.
         static constexpr bool IsNoexcept = true;
+        /// Returns true when the supplied conversion outcome reports success.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Assigns the destination only after validating the source value.
         static constexpr ResultType Convert(
             const ESPressio::Logging::LogRecordFacts& src,
             std::uint8_t& dst
@@ -118,12 +140,17 @@ namespace ESPressio::Bounded {
     template<> struct TypeConversionAdapter<
         std::uint8_t, ESPressio::Logging::LogRecordFacts
     > final {
+        /// Typed conversion outcome exposed to the BoundedTypes caller.
         using ResultType = ESPressio::Logging::ApprovedLogFieldConversion;
+        /// Registers this explicit semantic and wire pair.
         static constexpr bool IsAvailable = true;
+        /// This bounded scalar conversion does not throw.
         static constexpr bool IsNoexcept = true;
+        /// Returns true when the supplied conversion outcome reports success.
         static constexpr bool IsSuccessful(ResultType r) noexcept {
             return r == ResultType::Succeeded;
         }
+        /// Assigns the destination only after validating the source value.
         static constexpr ResultType Convert(
             const std::uint8_t& src,
             ESPressio::Logging::LogRecordFacts& dst
