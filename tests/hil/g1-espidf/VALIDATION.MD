@@ -1306,3 +1306,26 @@ recovery evidence**, **not** uncontrolled external power-cut durability.
 No original pre-test firmware backup or restoration was performed in
 this G6/G7 campaign: the integrated device was already dedicated to
 Logging HIL firmware before it started.
+
+## 18 November 2026 — active async shutdown and native Memory release fault
+
+RPI400 integrated WROOM, PlatformIO ESP-IDF, selected owner revisions in the
+[dependency baseline](../../../docs/DEPENDENCY-OWNER-BASELINE.MD).
+The initial `a23cd94` run `20261118T140514-8b1d96f3` passed 22/22,
+including the two new G10 markers. The exact strengthened build
+`20261118T140753-4ed0029e` from `1bea40915c1281c9ce6dfb60edd1c086251bed16` additionally verifies that
+`FinalizeShutdown` returns `ExecutionNotQuiescent` while the Worker
+is using the representation. Factory SHA-256 `87094f97a572a46f84845f51fdefdcad20ef3fad4c5b5e2570f16581bc703cc2`.
+
+Physical run `20261118T140753-4d196cfd` passed 22/22 required UART markers, with
+zero failure markers, valid framed UART output, verified application
+resource snapshot and G11 site check. The integrated board's original
+complete 4 MiB image was independently verified before flashing and
+restored and verified after the test. The target was powered off.
+
+New required markers are `G10_ASYNC_NATIVE_MEMORY_RELEASE_FAULT`
+and `G10_ASYNC_NATIVE_ACTIVE_SHUTDOWN`. The fault injection occurs at
+the second native Memory coordination acquisition during release, after
+object destruction and before slot return. Retry returns both slots to
+normal service. Independent Threading and Memory lifecycle cleanup
+is observed while using the selected nonqueueing dispatch policy.

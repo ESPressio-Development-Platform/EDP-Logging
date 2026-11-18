@@ -50,15 +50,16 @@ owns its bounded Worker/TaskRecord/stack resources; Logging creates none.
    its ownership.
 4. Application Bootstrap waits or arranges notifications using the *existing*
    EDP-Threading Task mechanisms; `TryFinalize` itself never polls,
-   blocks, creates clocks or sleeps. It sees a queued/running Task as Pending
+   waits on a Task deadline, creates clocks or sleeps. Owner operations can
+   acquire native mutexes. It sees a queued/running Task as Pending
    and retains the lease. Only a terminal Task may lead to EDP-Memory release.
 5. A Completed Task's `TakeResult` supplies the **actual per-sink**
    `RecordSinkSubmission` (Accepted, Rejected, Partial, ProviderFailure).
    A cancelled terminal Task reports `CancelledAndReleased`. Task handle
    result interest is retired explicitly before the native Memory release.
-   A failed or uncertain native `Release` is `ReclaimUnconfirmed` and
-   leaves the caller-owned lease present for **explicit** `RetryReclaim`
-   after terminal Task state, never a silently discarded native claim.
+   A failed or uncertain native `Release` is `ReclaimUnconfirmed`.
+   A retained token permits explicit `RetryReclaim` after terminal Task
+   state. Preserve the first provider result even if the lease is empty.
 6. `RequestCancellation` is only an EDP-Threading cancellation request.
    A running Task need not be terminal immediately; Bootstrap must still
    join/wait and retain the lease until `TryFinalize` has observed completion.
@@ -221,12 +222,33 @@ time bound from this adapter alone. Bootstrap serializes adapter calls
 and keeps Memory and Threading intact until the Task is terminal and the
 lease release is confirmed.
 
-The selected native profile still needs physical concurrent shutdown and
-a fault-injected native Memory release trial. The shutdown trial must
-hold the delivery callback active, initiate shutdown through Threading,
-verify that the payload and lease survive until terminal completion, and
-release the resources before Memory teardown. For the fault trial,
-inject the failure through the existing Memory ordinary mutex provider.
-Verify `ReclaimUnconfirmed`, retained lease ownership after the Task
-handle is cleared, one explicit successful `RetryReclaim` and restored
-pool capacity. These are independent tests of the existing product path.
+The selected WROOM profile passed active shutdown and a fault-injected
+native Memory release. Build `20261118T140753-4ed0029e` and physical run
+`20261118T140753-4d196cfd` used test revision `1bea40915c1281c9ce6dfb60edd1c086251bed16` and factory SHA-256
+`87094f97a572a46f84845f51fdefdcad20ef3fad4c5b5e2570f16581bc703cc2`. All 22 UART markers passed, including EDLG CRC, the
+resource snapshot and the configured G11 occurrence check. The original
+4 MiB flash was restored and verified.
+
+The release-fault fixture delegates locking to the native FreeRTOS
+mutex, except for the second acquisition within the Memory release
+transaction. It observes the original delivery result and
+`ReclaimUnconfirmed` after the payload object is destroyed. The
+Task handle is cleared but the destroyed token still owns its slot.
+One explicit `RetryReclaim` returns that slot, the next retry reports
+`AlreadyEmpty`, and both pool slots can be acquired again.
+
+For the shutdown fixture, Bootstrap holds a real delivery active.
+Threading accepts `BeginShutdown`, remains non-quiescent and refuses
+`FinalizeShutdown` while the Task still owns the payload. After the
+callback completes, the exact bytes and final delivery receipt are
+verified, the Memory lease is returned, Threading finalizes and the
+Memory runtime tears down. The qualification applies to the selected
+immediate-admission topology and the injected pre-capacity-return
+acquisition fault.
+
+A separate Memory error can arise after capacity has already returned,
+such as a failed waiter service or native unlock. Memory then clears the
+token and quarantines coordination while returning `ProviderFailure`.
+Bootstrap must preserve the original failure receipt. A subsequent
+`AlreadyEmpty` observation cannot establish successful recovery of that
+provider. The physical test does not inject this later failure.

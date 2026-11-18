@@ -299,6 +299,18 @@ two native 20 ms coordinator-budget trials at 100 records/s, with independent
 LittleFS and NVS verification. This qualifies the named G10/G11 workload
 configuration on exact executable `b78a736`. The prior full-queue stops remain
 in the [workload ledger](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD).
-The broader V2 semantic/owner review and the native asynchronous cases in
+The broader V2 semantic and affected-owner review remains open for
+release sign-off.
+
+## 18 November 2026 — selected asynchronous Task gate
+
+The selected WROOM immediate-admission profile passed concurrent shutdown
+and injected Memory release acquisition failure in `20261118T140753-4d196cfd` on
+`1bea40915c1281c9ce6dfb60edd1c086251bed16`. It verified retained ownership and exact release after
+retry, refusal of final shutdown while a delivery was active, and teardown
+after terminal Task and confirmed lease release. Cancel-while-queued is
+outside this native profile because Threading returns a Task only after
+a Worker grant. The host queue-cancellation case remains available, and
 [Logging #11](https://github.com/ESPressio-Development-Platform/EDP-Logging/issues/11)
-remain open for release sign-off.
+tracks any alternate native queued profile. See the
+[async contract](ASYNC-COPYING-TASK-SINK.MD) for the exact fault boundary.
