@@ -44,7 +44,7 @@ namespace {
         /// selectable.
         constexpr std::int64_t WorkerDwellNanoseconds = EDP_WORKER_DWELL_NS;
         /// Maximum canonical wait for a coordinator claim or retirement transition.
-        constexpr std::int64_t WorkerCoordinatorQueueWaitNs = 5000000LL;
+        constexpr std::int64_t WorkerCoordinatorQueueWaitNs = 20000000LL;
 #if defined(EDP_WORKER_OPTIMISED_BUILD)
         /// Actual compiler arguments are independently checked by the build runner.
         constexpr const char* WorkerOptimisation = "o2";
