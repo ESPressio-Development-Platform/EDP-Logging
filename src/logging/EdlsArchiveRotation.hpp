@@ -261,7 +261,11 @@ namespace ESPressio::Logging {
             return result;
         }
         EdlgFrameView frame{};
-        if (ReadEdlgFrame(completeEdlg, frame, TPayloadMaximum) !=
+        if (ReadEdlgFrame(
+            completeEdlg,
+            frame,
+            TPayloadMaximum
+        ) !=
                 EdlgFrameReadResult::Succeeded ||
             frame.Consumed != completeEdlg.size()) {
             result.Status = EdlsRollingStatus::InvalidIdentityOrFrame;
@@ -281,7 +285,13 @@ namespace ESPressio::Logging {
                 const auto appended = PublishEdlsSuccessorIntoEmptySlot<
                     TSlots,
                     TPayloadMaximum,
-                    TSlotMaximum, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg);
+                    TSlotMaximum, TStorage, TByteOperationsProvider>(
+                        storage,
+                        paths,
+                        deviceIdentifier,
+                        runtimeIncarnation,
+                        completeEdlg
+                    );
                 result.Native = appended.Native;
                 result.Slot = appended.Slot;
                 result.Generation = appended.Generation;
@@ -542,7 +552,11 @@ namespace ESPressio::Logging {
                 result{};
             result.Inspected = InspectEdlsArchiveWithScratch<
                 TPhysicalSlots,
-                TPayloadMaximum>(storage, paths, scratch);
+                TPayloadMaximum>(
+                    storage,
+                    paths,
+                    scratch
+                );
 
             if (result.Inspected.Condition ==
                 EdlsArchiveCondition::GenerationExhausted) {
@@ -619,7 +633,11 @@ namespace ESPressio::Logging {
             return InspectProtectedRollingPlanWithScratch<
                 TPhysicalSlots,
                 TProtectedSlots,
-                TPayloadMaximum>(storage, paths, scratch);
+                TPayloadMaximum>(
+                    storage,
+                    paths,
+                    scratch
+                );
         }
 
         /// Reinspect each previously clean slot using shared caller scratch.
@@ -719,7 +737,11 @@ namespace ESPressio::Logging {
         const auto before = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,
             TProtectedSlots,
-            TPayloadMaximum>(storage, paths, scratch);
+            TPayloadMaximum>(
+                storage,
+                paths,
+                scratch
+            );
         result.Status = before.Status;
         if (before.Status !=
             EdlsProtectedRollingStatus::NoPendingRetirement) {
@@ -757,7 +779,11 @@ namespace ESPressio::Logging {
         const auto after = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,
             TProtectedSlots,
-            TPayloadMaximum>(storage, paths, scratch);
+            TPayloadMaximum>(
+                storage,
+                paths,
+                scratch
+            );
         if (after.Status != EdlsProtectedRollingStatus::NoPendingRetirement ||
             after.Occupied != TProtectedSlots ||
             after.NewestGeneration != before.NewestGeneration ||
@@ -785,7 +811,11 @@ namespace ESPressio::Logging {
         return FinishEdlsProtectedRollingRetirementWithScratch<
             TPhysicalSlots,
             TProtectedSlots,
-            TPayloadMaximum>(storage, paths, scratch);
+            TPayloadMaximum>(
+                storage,
+                paths,
+                scratch
+            );
     }
 
     /// Publish a real EDLS/EDLG successor into an UNUSED physical path,
@@ -844,7 +874,11 @@ namespace ESPressio::Logging {
         const auto before = Detail::InspectProtectedRollingPlanWithScratch<
             TPhysicalSlots,
             TProtectedSlots,
-            TPayloadMaximum>(storage, paths, scratch);
+            TPayloadMaximum>(
+                storage,
+                paths,
+                scratch
+            );
         result.Status = before.Status;
         if (before.Status !=
             EdlsProtectedRollingStatus::NoPendingRetirement) {
@@ -866,7 +900,14 @@ namespace ESPressio::Logging {
         const auto posted = PublishEdlsSuccessorIntoEmptySlotWithScratch<
             TPhysicalSlots,
             TPayloadMaximum,
-            TSlotMaximum, TStorage, 1U, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TSlotMaximum, TStorage, 1U, TByteOperationsProvider>(
+                storage,
+                paths,
+                deviceIdentifier,
+                runtimeIncarnation,
+                completeEdlg,
+                scratch
+            );
         result.NativeWrite = posted.Native;
         result.PublishedSlot = posted.Slot;
         result.Generation = posted.Generation;
@@ -913,7 +954,11 @@ namespace ESPressio::Logging {
         const auto retired = FinishEdlsProtectedRollingRetirementWithScratch<
             TPhysicalSlots,
             TProtectedSlots,
-            TPayloadMaximum>(storage, paths, scratch);
+            TPayloadMaximum>(
+                storage,
+                paths,
+                scratch
+            );
         result.RetiredSlot = retired.RetiredSlot;
         result.NativeRemove = retired.NativeRemove;
         result.Status = retired.Status ==
@@ -945,7 +990,14 @@ namespace ESPressio::Logging {
             TPhysicalSlots,
             TProtectedSlots,
             TPayloadMaximum,
-            TSlotMaximum, TStorage, TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TSlotMaximum, TStorage, TByteOperationsProvider>(
+                storage,
+                paths,
+                deviceIdentifier,
+                runtimeIncarnation,
+                completeEdlg,
+                scratch
+            );
     }
 
 } // namespace ESPressio::Logging

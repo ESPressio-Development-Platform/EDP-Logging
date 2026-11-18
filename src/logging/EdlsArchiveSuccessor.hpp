@@ -229,10 +229,25 @@ namespace ESPressio::Logging {
             buffer[sealOffset + 1U] = std::byte{'D'};
             buffer[sealOffset + 2U] = std::byte{'L'};
             buffer[sealOffset + 3U] = std::byte{'C'};
-            Detail::WriteEdlsLe(buffer, sealOffset + 4U, frameCount, 4U);
-            Detail::WriteEdlsLe(buffer, sealOffset + 8U, completeEdlg.size(), 4U);
+            Detail::WriteEdlsLe(
+                buffer,
+                sealOffset + 4U,
+                frameCount,
+                4U
+            );
+            Detail::WriteEdlsLe(
+                buffer,
+                sealOffset + 8U,
+                completeEdlg.size(),
+                4U
+            );
             const auto checksum = Detail::EdlgFrameCrc32C(buffer.first(sealOffset + 12U));
-            Detail::WriteEdlsLe(buffer, sealOffset + 12U, checksum, 4U);
+            Detail::WriteEdlsLe(
+                buffer,
+                sealOffset + 12U,
+                checksum,
+                4U
+            );
         }
         const auto used = sealOffset + sealBytes;
         outcome.Native = storage.ReplaceFile(
@@ -312,7 +327,14 @@ namespace ESPressio::Logging {
             TSlotMaximum,
             TStorage,
             1U,
-            TByteOperationsProvider>(storage, paths, deviceIdentifier, runtimeIncarnation, completeEdlg, scratch);
+            TByteOperationsProvider>(
+                storage,
+                paths,
+                deviceIdentifier,
+                runtimeIncarnation,
+                completeEdlg,
+                scratch
+            );
     }
 
 } // namespace ESPressio::Logging

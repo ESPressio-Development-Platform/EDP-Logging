@@ -93,7 +93,10 @@ namespace ESPressio::Logging {
         static_assert(TSlots >= 2U && TSlots <= 8U);
         static_assert(TMaximumFramePayloadBytes >= 1U && TMaximumFramePayloadBytes <= 4096U);
         static_assert(TMaximumValueBytes >= EdlsHeaderBytes + 20U);
-        static_assert(TMaximumValueBytes <= 512U, "Bounded NVS reference profile maximum");
+        static_assert(
+            TMaximumValueBytes <= 512U,
+            "Bounded NVS reference profile maximum"
+        );
         static_assert(ESPressio::Persistence::KeyValueStorageProvider<TStorage>);
         static_assert(
             Properties::template Value<ESPressio::Persistence::KeyValueAccessMode> == ESPressio::Persistence::AccessMode::ReadWrite);
@@ -148,7 +151,10 @@ namespace ESPressio::Logging {
                 return {DurableEdlsStatus::Empty};
             }
             if (native.Status != P::KeyValueReadStatus::Succeeded ||
-                !P::HasFact(native.Facts, P::ReadFact::AvailableDataSizeIsKnown) ||
+                !P::HasFact(
+                    native.Facts,
+                    P::ReadFact::AvailableDataSizeIsKnown
+                ) ||
                 native.BytesTransferred > buffer.size() ||
                 native.AvailableDataSize.RawValue != native.BytesTransferred) {
                 return {DurableEdlsStatus::ProviderFailure};
@@ -166,7 +172,11 @@ namespace ESPressio::Logging {
             }
             const auto frame = data.subspan(EdlsHeaderBytes);
             EdlgFrameView validated{};
-            if (ReadEdlgFrame(frame, validated, TMaximumFramePayloadBytes) !=
+            if (ReadEdlgFrame(
+                frame,
+                validated,
+                TMaximumFramePayloadBytes
+            ) !=
                     EdlgFrameReadResult::Succeeded ||
                 validated.Consumed != frame.size()) {
                 return {DurableEdlsStatus::Degraded};
@@ -254,7 +264,10 @@ namespace ESPressio::Logging {
                 return outcome;
             }
             std::array<std::byte, TMaximumValueBytes> bytes{};
-            const auto observed = ReadSlot(outcome.NewestSlot, bytes);
+            const auto observed = ReadSlot(
+                outcome.NewestSlot,
+                bytes
+            );
             if (observed.Status != DurableEdlsStatus::Clean ||
                 observed.Header.Generation != outcome.Generation ||
                 observed.Header.DeviceIdentifier != outcome.Identity ||
@@ -331,7 +344,11 @@ namespace ESPressio::Logging {
                 return result;
             }
             EdlgFrameView parsed{};
-            if (ReadEdlgFrame(frame, parsed, TMaximumFramePayloadBytes) !=
+            if (ReadEdlgFrame(
+                frame,
+                parsed,
+                TMaximumFramePayloadBytes
+            ) !=
                     EdlgFrameReadResult::Succeeded ||
                 parsed.Consumed != frame.size()) {
                 result.Status = DurableEdlsStatus::InvalidRecord;
