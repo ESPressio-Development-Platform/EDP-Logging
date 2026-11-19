@@ -17,16 +17,27 @@ namespace ESPressio::Logging {
     /// Bounded snapshot archive using individual PowerLoss-atomic Persistence keys.
     /// This is a small-record reference profile, not an unbounded EDLS file journal.
     enum class DurableEdlsStatus : std::uint8_t {
+        /// No committed snapshot was recovered from the selected physical keys.
         Empty = 0U,
+        /// The recovered snapshot or retained history is fully valid.
         Clean = 1U,
+        /// A snapshot is invalid, or valid history survives alongside an invalid candidate.
         Degraded = 2U,
+        /// The observed snapshots do not establish one unique retained history.
         Ambiguous = 3U,
+        /// The native key-value owner could not confirm an operation.
         ProviderFailure = 4U,
+        /// The offered or recovered record violates the snapshot contract.
         InvalidRecord = 5U,
+        /// The selected physical layout cannot accommodate this snapshot.
         NoCapacity = 6U,
+        /// The native key-value store did not confirm publication.
         StorageRejected = 7U,
+        /// The stored candidate could not be verified byte-for-byte.
         ReadbackUnconfirmed = 8U,
+        /// No next generation can be issued without wrap or reuse.
         GenerationExhausted = 9U,
+        /// The candidate was stored and its exact snapshot was independently read back.
         Committed = 10U
     };
 

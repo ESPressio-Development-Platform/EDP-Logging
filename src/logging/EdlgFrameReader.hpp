@@ -11,14 +11,23 @@ namespace ESPressio::Logging {
 
     /// Strict, non-resynchronising read-only inspection of one EDLG v1 frame.
     enum class EdlgFrameReadResult : std::uint8_t {
+        /// Header, payload, completion marker and CRC all validate.
         Succeeded = 0,
+        /// The source ends before the required header or full frame.
         IncompleteFrame = 1,
+        /// The source does not start with the EDLG magic bytes.
         InvalidMagic = 2,
+        /// The frame version is outside the implemented v1 contract.
         UnsupportedVersion = 3,
+        /// The wire codec is neither CBOR nor JSON.
         InvalidCodec = 4,
+        /// Reserved frame flags contain unsupported nonzero bits.
         InvalidFlags = 5,
+        /// The declared payload exceeds the caller bound or addressable frame size.
         PayloadTooLarge = 6,
+        /// The complete frame lacks the required GLDE trailer.
         InvalidCompletion = 7,
+        /// The stored CRC32C differs from the complete protected bytes.
         ChecksumMismatch = 8
     };
 

@@ -52,17 +52,29 @@ namespace ESPressio::Logging {
     ///
     /// A late grant still owns its lease and MUST be released explicitly.
     enum class AdmissionWaitResult : std::uint8_t {
+        /// A Memory lease was acquired within the original deadline and active lifecycle.
         Admitted = 0U,
+        /// Memory granted a lease after the deadline; the caller must return it.
         GrantedAfterDeadline = 1U,
+        /// The original admission deadline expired without an accepted grant.
         DeadlineElapsed = 2U,
+        /// The finite advisory wake and acquisition retry budget was exhausted.
         WakeRetryLimitReached = 3U,
+        /// The selected Threading wait provider could not complete its operation.
         WaitProviderFailure = 4U,
+        /// The Memory owner reported an acquisition provider fault.
         MemoryProviderFailure = 5U,
+        /// The selected Memory runtime has not been initialized.
         MemoryNotInitialized = 6U,
+        /// The requested Memory pool is absent from the selected topology.
         TopologyUnavailable = 7U,
+        /// The output lease already owns an object and was preserved.
         OutputLeaseOccupied = 8U,
+        /// The caller did not supply a valid exclusive producer wait slot.
         InvalidProducerSlot = 9U,
+        /// Shutdown was observed before an accepted Memory grant.
         ShutdownRequested = 10U,
+        /// A Memory grant arrived after shutdown and remains caller-owned.
         GrantedDuringShutdown = 11U
     };
 

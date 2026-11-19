@@ -26,40 +26,65 @@ namespace ESPressio::Logging {
 
     /// Internal in-memory diagnostic argument kinds; NOT wire tag allocations.
     enum class OwnedArgumentKind : std::uint8_t {
+        /// A captured native Boolean value.
         Boolean = 0U,
+        /// A captured exact-width signed 8-bit value.
         Signed8 = 1U,
+        /// A captured exact-width signed 16-bit value.
         Signed16 = 2U,
+        /// A captured exact-width signed 32-bit value.
         Signed32 = 3U,
+        /// A captured exact-width signed 64-bit value.
         Signed64 = 4U,
+        /// A captured exact-width unsigned 8-bit value.
         Unsigned8 = 5U,
+        /// A captured exact-width unsigned 16-bit value.
         Unsigned16 = 6U,
+        /// A captured exact-width unsigned 32-bit value.
         Unsigned32 = 7U,
+        /// A captured exact-width unsigned 64-bit value.
         Unsigned64 = 8U,
+        /// A captured 32-bit floating-point value.
         Float32 = 9U,
+        /// A captured 64-bit floating-point value.
         Float64 = 10U,
+        /// Validated UTF-8 text copied into the bounded owned arena.
         Utf8 = 11U,
+        /// An uninterpreted byte span copied into the bounded owned arena.
         Bytes = 12U,
+        /// The governed System Type identifier captured by value.
         TypeIdentifier = 13U,
+        /// The governed permanent device identifier captured by value.
         DeviceIdentifier = 14U,
+        /// The governed Type-local Field identifier captured by value.
         FieldIdentifier = 15U,
+        /// The governed runtime incarnation identifier captured by value.
         RuntimeIncarnationId = 16U,
+        /// The Clock owner's era identifier captured by value.
         ClockEra = 17U
     };
 
 
     /// Capacity, data-validation and type qualification result of one append.
     enum class OwnedArgumentResult : std::uint8_t {
+        /// One descriptor and its complete source bytes were captured.
         Added = 0U,
+        /// No descriptor slot remains in the fixed argument capacity.
         CountExceeded = 1U,
+        /// The byte arena cannot hold the entire next argument.
         BytesExceeded = 2U,
+        /// The source text fails the selected strict UTF-8 contract.
         InvalidUtf8 = 3U,
+        /// The supplied source Type is outside the supported argument vocabulary.
         UnsupportedType = 4U
     };
 
 
     /// Status of obtaining one borrowed view/descriptor from owned storage.
     enum class OwnedArgumentAccessResult : std::uint8_t {
+        /// The requested descriptor or borrowed byte slice is available.
         Available = 0U,
+        /// The argument index is outside the currently captured count.
         OutOfRange = 1U
     };
 

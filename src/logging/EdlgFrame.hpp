@@ -8,15 +8,21 @@ namespace ESPressio::Logging {
 
     /// Portable, independently framed encoded LogRecord payload format.
     enum class EdlgCodec : std::uint8_t {
+        /// The frame carries the canonical CBOR payload representation.
         Cbor = 1,
+        /// The frame carries the canonical JSON payload representation.
         Json = 2
     };
 
     /// Result of constructing one complete framed record into caller-owned storage.
     enum class EdlgFrameWriteResult : std::uint8_t {
+        /// The complete frame and written byte count were produced.
         Succeeded = 0,
+        /// The supplied codec is outside the supported wire vocabulary.
         InvalidCodec = 1,
+        /// Payload size, address or overlap violates the write contract.
         InvalidPayload = 2,
+        /// Caller storage cannot hold the complete header, payload and trailer.
         InsufficientCapacity = 3
     };
 

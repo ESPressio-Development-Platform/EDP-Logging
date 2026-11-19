@@ -14,17 +14,25 @@ namespace ESPressio::Logging {
 
     /// Outcome from one bounded portable segment-header operation.
     enum class EdlsHeaderStatus : std::uint8_t {
+        /// The complete EDLS header was encoded or validated successfully.
         Succeeded = 0,
+        /// The supplied identity, generation, slot or profile is invalid.
         InvalidArguments = 1,
+        /// Caller storage cannot hold the complete fixed header.
         InsufficientCapacity = 2,
+        /// The encoded header violates its magic, reserved field or shape contract.
         MalformedHeader = 3,
+        /// The encoded EDLS version is unsupported.
         UnsupportedVersion = 4,
+        /// The stored header CRC32C fails validation.
         ChecksumMismatch = 5
     };
 
     /// Explicit EDLS v1 content-profile discriminator in the former reserved byte.
     enum class EdlsContentProfile : std::uint8_t {
+        /// The segment contains an unsealed complete EDLG frame prefix.
         Unsealed = 0U,
+        /// The segment requires a validated fixed-count EDLC frame seal.
         SealedFrames = 1U
     };
 

@@ -15,23 +15,41 @@ namespace ESPressio::Logging {
     /// a separately PowerLoss-atomic committed and reread watermark. The
     /// writer may not return success to a producer before BOTH facts hold.
     enum class EdlsAcknowledgedStatus : std::uint8_t {
+        /// The retained archive and durable watermark are reconciled for continued use.
         Ready = 0,
+        /// An empty archive received its initial checked durable watermark.
         Initialized = 1,
+        /// The watermark key is absent and initialization or recovery is required.
         MissingWatermark = 2,
+        /// The stored watermark fails its identity, shape or checksum contract.
         InvalidWatermark = 3,
+        /// The retained physical archive does not establish a unique safe history.
         ArchiveAmbiguous = 4,
+        /// The observed history conflicts with the durable acknowledged boundary.
         AcknowledgedHistoryChanged = 5,
+        /// Recovery removed an eligible unacknowledged successor.
         UnacknowledgedCandidateRemoved = 6,
+        /// Recovery completed retirement after a verified durable successor.
         CommittedOldestRetired = 7,
+        /// No empty physical successor slot is available under protected retention.
         NoPhysicalReserve = 8,
+        /// The next generation cannot be issued without wrap or reuse.
         GenerationExhausted = 9,
+        /// A native archive or watermark read or mutation could not be confirmed.
         ProviderFailure = 10,
+        /// The key-value owner did not confirm watermark publication.
         WatermarkStoreRejected = 11,
+        /// Successor publication completed but durable acknowledgement is unresolved.
         PublishedNotAcknowledged = 12,
+        /// The successor is durably acknowledged and history remains within capacity.
         AcknowledgedWithinCapacity = 13,
+        /// Durable acknowledgement and eligible predecessor retirement both completed.
         AcknowledgedAndRetired = 14,
+        /// The successor is acknowledged while eligible retirement remains incomplete.
         AcknowledgedPendingRetirement = 15,
+        /// The configured archive byte capacity cannot support the selected layout.
         InvalidByteCapacity = 16,
+        /// The candidate or retained physical bytes exceed the selected capacity bound.
         ByteCapacityExceeded = 17,
         /// The proposed frame bytes alias scratch used by inspection and recovery.
         AliasedFrameWorkspace = 18,

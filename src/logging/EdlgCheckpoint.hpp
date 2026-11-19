@@ -12,18 +12,27 @@ namespace ESPressio::Logging {
 
     /// Status from writing one complete checked EDLG frame to EDP-Persistence.
     enum class EdlgCheckpointWriteStatus : std::uint8_t {
+        /// The selected KeyValueStorage provider accepted the exact checked frame.
         Committed = 0U,
+        /// The input is malformed or contains bytes beyond one complete EDLG frame.
         InvalidFrame = 1U,
+        /// The configured payload bound or complete frame size exceeds the profile.
         FrameTooLarge = 2U,
+        /// The native key-value owner did not confirm the store.
         ProviderRejected = 3U
     };
 
     /// Exact result of reading a single frame-shaped checkpoint.
     enum class EdlgCheckpointReadStatus : std::uint8_t {
+        /// Exactly one complete checksum-verified frame was recovered into caller storage.
         Recovered = 0U,
+        /// The selected key has no stored value.
         NotFound = 1U,
+        /// The destination cannot hold the provider's complete value.
         BufferTooSmall = 2U,
+        /// Stored bytes fail exact frame validation or exceed the profile bound.
         CorruptFrame = 3U,
+        /// The native key-value owner could not confirm the read.
         ProviderFailure = 4U
     };
 

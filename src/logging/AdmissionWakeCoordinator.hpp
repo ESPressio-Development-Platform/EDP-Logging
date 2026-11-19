@@ -14,16 +14,23 @@ namespace ESPressio::Logging {
 
     /// Outcome from publishing an entire configured producer wake fanout.
     enum class AdmissionWakePublicationResult : std::uint8_t {
+        /// No producer wake publication was attempted.
         NotAttempted = 0U,
+        /// Every configured producer slot received its advisory wake.
         Published = 1U,
+        /// At least one configured producer wake could not be confirmed.
         ProviderFailure = 2U
     };
 
     /// Capacity-release and wake-publication outcome.
     enum class CoordinatedReleaseResult : std::uint8_t {
+        /// Memory returned the lease and all producer wakes were published.
         ReleasedAndNotified = 0U,
+        /// Memory returned the lease but producer wake publication failed.
         ReleasedNotificationFailed = 1U,
+        /// The supplied lease already owned no Memory object.
         AlreadyEmpty = 2U,
+        /// Memory could not confirm release; preserve the lease and provider outcome.
         MemoryProviderFailure = 3U
     };
 
@@ -74,9 +81,13 @@ namespace ESPressio::Logging {
         explicit AdmissionWakeCoordinator(TWaitWakeProvider& owner) noexcept :
             _waitWake(&owner) {}
 
+        /// Prevents copying the association with exclusive producer wait slots.
         AdmissionWakeCoordinator(const AdmissionWakeCoordinator&) = delete;
+        /// Prevents replacing an active producer-slot association by copy.
         AdmissionWakeCoordinator& operator =(const AdmissionWakeCoordinator&) = delete;
+        /// Keeps this coordinator stable while producer references remain active.
         AdmissionWakeCoordinator(AdmissionWakeCoordinator&&) = delete;
+        /// Prevents moving another coordinator into an active association.
         AdmissionWakeCoordinator& operator =(AdmissionWakeCoordinator&&) = delete;
 
         /// Fan out a latched wake to ALL statically configured slots.

@@ -14,11 +14,17 @@ namespace ESPressio::Logging {
 
     /// One deliberately non-rotating, checked EDLS existing-slot append.
     enum class EdlsAppendStatus : std::uint8_t {
+        /// The native FileStorage owner accepted the checked append.
         ProviderAccepted = 0U,
+        /// The offered bytes do not contain exactly one valid EDLG frame.
         InvalidFrame = 1U,
+        /// The existing slot failed the complete clean-segment preflight.
         SegmentUnclean = 2U,
+        /// The append would exceed the immutable segment byte bound.
         SegmentCapacityExceeded = 3U,
+        /// The observed slot size changed before native append.
         ChangedDuringPreflight = 4U,
+        /// The native FileStorage append was not confirmed.
         ProviderRejected = 5U
     };
 

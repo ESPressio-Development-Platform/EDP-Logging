@@ -17,22 +17,35 @@ namespace ESPressio::Logging {
 
     /// Outcome reported by the application-selected encoder.
     enum class RepresentationEncodeStatus : std::uint8_t {
+        /// The encoder produced one complete bounded payload.
         Succeeded = 0U,
+        /// The encoder rejected the source record or representation.
         Rejected = 1U,
+        /// The selected encoder could not confirm its operation.
         ProviderFailure = 2U
     };
 
     /// Aggregate outcome for the bounded encode, submit and release operation.
     enum class OwnedRepresentationStatus : std::uint8_t {
+        /// Every selected sink accepted and the temporary Memory lease was returned.
         SubmittedAndReleased = 0U,
+        /// The selected pool had no immediately available payload slot.
         PoolCapacityUnavailable = 1U,
+        /// The selected Memory topology or runtime is unavailable.
         PoolUnavailable = 2U,
+        /// The Memory provider could not confirm payload acquisition.
         PoolProviderFailure = 3U,
+        /// The caller's payload lease already owns storage.
         OutputLeaseOccupied = 4U,
+        /// The selected encoder rejected this representation.
         EncoderRejected = 5U,
+        /// The selected encoder reported provider failure.
         EncoderProviderFailure = 6U,
+        /// The reported encoded length exceeds the offered payload storage.
         EncoderLengthInvalid = 7U,
+        /// At least one selected sink declined full acceptance.
         SubmissionNotAccepted = 8U,
+        /// The temporary Memory lease release could not be confirmed.
         MemoryReclaimUnconfirmed = 9U
     };
 

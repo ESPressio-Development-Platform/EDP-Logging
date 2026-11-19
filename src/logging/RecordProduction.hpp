@@ -20,32 +20,51 @@ namespace ESPressio::Logging {
     // Records ONE instrumentation attempt, even if bounded admission subsequently fails.
     // These statuses never conflate publication, sink acceptance, or durable storage.
     enum class RecordProductionStatus : std::uint8_t {
+        /// The source record was committed into the transactional FIFO.
         Published = 0U,
+        /// A caller-owned scratch lease or reservation is already active.
         OutputOccupied = 1U,
+        /// The caller selected no valid exclusive producer wait slot.
         InvalidProducerSlot = 2U,
+        /// Producer cancellation or admission shutdown was observed.
         StopRequested = 3U,
+        /// The attempt sequencer mutex was not acquired within its budget.
         SequencerTimedOut = 4U,
+        /// The attempt sequencer mutex provider failed acquisition.
         SequencerProviderFailure = 5U,
+        /// The sequencer mutex release could not be confirmed.
         SequencerReleaseUnconfirmed = 6U,
+        /// The incarnation's monotone attempt ticket space is exhausted.
         AttemptExhausted = 7U,
+        /// Queue entitlement or Memory admission did not complete successfully.
         AdmissionFailed = 8U,
+        /// The reservation could not be confirmed published and remains caller-owned.
         CommitFailed = 9U
     };
 
     // Accepted by an output interface does NOT imply durable or physically received.
     enum class RecordSinkSubmission : std::uint8_t {
+        /// The sink accepted the offered source or independently copied payload.
         Accepted = 0U,
+        /// The sink declined the entire offered record.
         Rejected = 1U,
+        /// The sink accepted only part of its delivery contract.
         Partial = 2U,
+        /// The sink could not confirm delivery through its provider.
         ProviderFailure = 3U
     };
 
     /// Outcome of claiming, offering and reclaiming one source record.
     enum class RecordDrainStatus : std::uint8_t {
+        /// The source FIFO had no next record to claim.
         Empty = 0U,
+        /// The source was accepted by its sink and ownership was retired.
         AcceptedAndReclaimed = 1U,
+        /// Submission was unaccepted but source ownership was retired.
         FailedAndReclaimed = 2U,
+        /// The queue could not establish the source consumer claim.
         ClaimFailure = 3U,
+        /// The source claim remains owned after an unconfirmed retirement.
         ReclaimUnconfirmed = 4U
     };
 

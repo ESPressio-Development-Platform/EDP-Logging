@@ -12,10 +12,15 @@ namespace ESPressio::Logging {
     /// One bounded, synchronous coordinator execution quantum, NOT a Thread.
     /// The application-composed EDP-Threading dedicated worker owns wake/stop/join.
     enum class CoordinatorQuantumStatus : std::uint8_t {
+        /// The next claim found no queued record; prior quantum progress is retained.
         QueueEmpty = 0U,
+        /// The finite record budget was consumed and lifecycle checks are due.
         BudgetConsumed = 1U,
+        /// The queue could not establish a valid source claim.
         ClaimFailed = 2U,
+        /// Source retirement failed and its claim remains owned.
         ReclaimUnconfirmed = 3U,
+        /// The supplied claim was already active at quantum entry.
         PriorClaimUnresolved = 4U,
         /// An unclaimed source remains queued after finite mutex contention.
         QueueContended = 5U
