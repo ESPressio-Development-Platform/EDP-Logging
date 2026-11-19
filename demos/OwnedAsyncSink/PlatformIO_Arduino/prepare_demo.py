@@ -1,4 +1,4 @@
-"""Apply the shared native-provider selection to the Arduino demo."""
+"""Apply the shared native-provider selection to the selected demo."""
 from pathlib import Path
 import runpy
 

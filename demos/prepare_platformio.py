@@ -3,9 +3,7 @@ from pathlib import Path
 
 
 def SelectNativeProviderHeaders(env):
-    """Preserve native header selection when Arduino also imports FreeRTOS."""
-    if "arduino" not in env.get("PIOFRAMEWORK", []):
-        return
+    """Prioritize the declared native package over overlapping provider paths."""
     native = (
         Path(env.subst("$PROJECT_LIBDEPS_DIR"))
         / env.subst("$PIOENV")

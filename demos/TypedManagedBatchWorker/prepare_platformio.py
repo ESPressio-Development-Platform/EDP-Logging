@@ -5,7 +5,8 @@ import runpy
 import sys
 
 setup = runpy.run_path(str(Path(__file__).resolve().parent.parent / "prepare_platformio.py"))
-setup["SelectNativeProviderHeaders"](env)
+if "arduino" in env.get("PIOFRAMEWORK", []):
+    setup["SelectNativeProviderHeaders"](env)
 
 project = Path(env.subst("$PROJECT_DIR")).resolve()
 packages = Path(env.subst("$PROJECT_LIBDEPS_DIR")) / env.subst("$PIOENV")
