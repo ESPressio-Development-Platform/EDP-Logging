@@ -29,6 +29,7 @@ namespace ESPressio::Logging {
         template <class TSemantic, class TWire>
         struct LogRecordScalarRepresentation;
 
+        /// Maps the governed message identity to its Domain, SubDomain and String triple.
         template <>
         struct LogRecordScalarRepresentation<
             LogMessageIdentifier,
@@ -52,6 +53,7 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Maps the six emitted severities to their validated one-byte wire ordinals.
         template <>
         struct LogRecordScalarRepresentation<Severity, std::uint8_t> final {
             /// Writes the attempted emitted ordinal and rejects a value above Fatal.
@@ -95,6 +97,7 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Maps a local Clock coordinate to its exact unsigned nanosecond scalar.
         template <>
         struct LogRecordScalarRepresentation<
             Clock::MonotonicTimestamp,
@@ -114,6 +117,7 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Maps a synchronized coordinate to nanoseconds while the enclosing record owns presence.
         template <>
         struct LogRecordScalarRepresentation<
             Clock::SynchronizedTimestamp,
@@ -133,6 +137,7 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Maps the canonical Clock state ordinal with explicit semantic range validation.
         template <>
         struct LogRecordScalarRepresentation<
             Clock::SynchronizationState,
@@ -157,6 +162,7 @@ namespace ESPressio::Logging {
             }
         };
 
+        /// Maps the Clock owner's uncertainty to its exact unsigned nanosecond representation.
         template <>
         struct LogRecordScalarRepresentation<
             Clock::SynchronizationUncertainty,
@@ -185,38 +191,57 @@ namespace ESPressio::Serialisation {
     // Enum certification selects the owner's exact underlying integer width.
     // Root LogRecord decode must still call ValidateLogRecord to reject
     // invalid numeric enumerators. No new enum values are introduced.
+    /// Certifies the exact emitted-severity integer width for the Serialisation owner.
     template <>
     struct EnumSerialisationTraits<ESPressio::Logging::Severity> final {
-        using UnderlyingType = std::uint8_t;
-    };
-    template <>
-    struct EnumSerialisationTraits<ESPressio::Clock::SynchronizationState> final {
+        /// One-byte ordinal. Record validation separately rejects values above Fatal.
         using UnderlyingType = std::uint8_t;
     };
 
+    /// Certifies the Clock state width for this opt-in LogRecord field mapping.
+    template <>
+    struct EnumSerialisationTraits<ESPressio::Clock::SynchronizationState> final {
+        /// One-byte ordinal. Record validation separately checks the Clock vocabulary.
+        using UnderlyingType = std::uint8_t;
+    };
+
+    /// Selects the exact governed message triple consumed by the owner codec.
     template <>
     struct CanonicalRepresentation<ESPressio::Logging::LogMessageIdentifier> final {
+        /// Ordered Domain, SubDomain and String values at their exact unsigned width.
         using Type = std::array<std::uint32_t, 3U>;
     };
+
+    /// Selects the exact attempt-ticket scalar width for the owner codec.
     /// @tparam TWidth Selected width of the source record attempt sequence.
     template <ESPressio::Logging::AttemptSequenceWidth TWidth>
     struct CanonicalRepresentation<
         ESPressio::Logging::AttemptSequence<TWidth>>
         final {
+        /// The same unsigned 16-, 32- or 64-bit storage selected for the source ticket.
         using Type = typename ESPressio::Logging::AttemptSequence<TWidth>::Storage;
     };
+
+    /// Selects the exact local monotonic nanosecond scalar for record encoding.
     template <>
     struct CanonicalRepresentation<ESPressio::Clock::MonotonicTimestamp> final {
+        /// Unsigned nanoseconds from the record's captured local Clock sample.
         using Type = std::uint64_t;
     };
+
+    /// Selects the synchronized coordinate scalar whose presence is validated by the record.
     template <>
     struct CanonicalRepresentation<ESPressio::Clock::SynchronizedTimestamp> final {
+        /// Unsigned synchronized nanoseconds. Zero remains a valid present coordinate.
         using Type = std::uint64_t;
     };
+
+    /// Selects the Clock owner's exact uncertainty width for the record codec.
     template <>
     struct CanonicalRepresentation<
         ESPressio::Clock::SynchronizationUncertainty>
         final {
+        /// Unsigned uncertainty nanoseconds at the Clock owner's canonical width.
         using Type = std::uint32_t;
     };
 
@@ -248,6 +273,7 @@ namespace ESPressio::Logging::Detail {
             );
         }
     };
+
     /// Adapts the wire-to-semantic mapping to the BoundedTypes conversion protocol.
     /// @tparam TWire Encoded scalar source representation.
     /// @tparam TSemantic Strong destination type.
@@ -279,6 +305,7 @@ namespace ESPressio::Bounded {
 
     // All mapping specialization pairs are owned by this optional Logging
     // adapter; no implicit namespace-wide arithmetic conversion is allowed.
+    /// Adapts the governed message triple through the existing exact semantic conversion.
     template <>
     struct TypeConversionAdapter<
         ESPressio::Logging::LogMessageIdentifier,
@@ -286,6 +313,8 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Logging::LogMessageIdentifier,
                     std::array<std::uint32_t, 3U>> {};
+
+    /// Restores a governed message identity through the existing validated triple conversion.
     template <>
     struct TypeConversionAdapter<
         std::array<std::uint32_t, 3U>,
@@ -302,6 +331,7 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Logging::AttemptSequence<TWidth>,
                     typename ESPressio::Logging::AttemptSequence<TWidth>::Storage> {};
+
     /// @tparam TWidth Selected width of the source record attempt sequence.
     template <ESPressio::Logging::AttemptSequenceWidth TWidth>
     struct TypeConversionAdapter<
@@ -311,6 +341,7 @@ namespace ESPressio::Bounded {
                     typename ESPressio::Logging::AttemptSequence<TWidth>::Storage,
                     ESPressio::Logging::AttemptSequence<TWidth>> {};
 
+    /// Adapts a captured local Clock coordinate to its nanosecond wire scalar.
     template <>
     struct TypeConversionAdapter<
         ESPressio::Clock::MonotonicTimestamp,
@@ -318,6 +349,8 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Clock::MonotonicTimestamp,
                     std::uint64_t> {};
+
+    /// Restores a local Clock coordinate without obtaining another time sample.
     template <>
     struct TypeConversionAdapter<
         std::uint64_t,
@@ -326,6 +359,7 @@ namespace ESPressio::Bounded {
                     std::uint64_t,
                     ESPressio::Clock::MonotonicTimestamp> {};
 
+    /// Adapts synchronized nanoseconds while retaining record-level presence validation.
     template <>
     struct TypeConversionAdapter<
         ESPressio::Clock::SynchronizedTimestamp,
@@ -333,6 +367,8 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Clock::SynchronizedTimestamp,
                     std::uint64_t> {};
+
+    /// Restores synchronized nanoseconds with presence supplied by the enclosing record.
     template <>
     struct TypeConversionAdapter<
         std::uint64_t,
@@ -341,6 +377,7 @@ namespace ESPressio::Bounded {
                     std::uint64_t,
                     ESPressio::Clock::SynchronizedTimestamp> {};
 
+    /// Adapts uncertainty using the exact width defined by the Clock owner.
     template <>
     struct TypeConversionAdapter<
         ESPressio::Clock::SynchronizationUncertainty,
@@ -348,6 +385,8 @@ namespace ESPressio::Bounded {
         final : ESPressio::Logging::Detail::ToCoreWire<
                     ESPressio::Clock::SynchronizationUncertainty,
                     std::uint32_t> {};
+
+    /// Restores the strong Clock uncertainty from its exact nanosecond wire scalar.
     template <>
     struct TypeConversionAdapter<
         std::uint32_t,

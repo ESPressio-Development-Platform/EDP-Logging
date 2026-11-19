@@ -152,6 +152,7 @@ namespace ESPressio::Logging {
             Unconfirmed = 1U
         };
 
+        /// Canonical decoded record representation used for source-identity validation.
         using Projection = GeneratedLogRecordWireProjection<TWidth, TParameters...>;
         /// Bootstrap-selected existing archive or bounded batch target.
         TStorage *_storage;

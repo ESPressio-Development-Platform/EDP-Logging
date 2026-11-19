@@ -17,8 +17,8 @@
 namespace ESPressio::Logging {
 
 
-    // Records ONE instrumentation attempt, even if bounded admission subsequently fails.
-    // These statuses never conflate publication, sink acceptance, or durable storage.
+    /// Outcome of one instrumentation attempt, including failed bounded admission.
+    /// Publication, sink acceptance and durable storage retain their separate evidence.
     enum class RecordProductionStatus : std::uint8_t {
         /// The source record was committed into the transactional FIFO.
         Published = 0U,
@@ -42,7 +42,7 @@ namespace ESPressio::Logging {
         CommitFailed = 9U
     };
 
-    // Accepted by an output interface does NOT imply durable or physically received.
+    /// Synchronous sink disposition, with durability and physical receipt tracked separately.
     enum class RecordSinkSubmission : std::uint8_t {
         /// The sink accepted the offered source or independently copied payload.
         Accepted = 0U,

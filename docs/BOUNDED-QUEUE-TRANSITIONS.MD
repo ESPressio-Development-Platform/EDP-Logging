@@ -101,3 +101,5 @@ independent actual-media/NVS audit. QueueContentions observed0 in that run;
 host distinct-owner tests remain the deliberate finite-lock-contention proof.
 Earlier native Commit Busy failures and later Og capacity failures remain
 unchanged. See native README for exact configuration and limits.
+
+The explicit queue deadline bounds its own mutex acquisitions. Memory release and advisory wake publication retain their owner-provided wait contracts. In particular the selected Memory release can acquire its own coordination mutex with Forever. Bootstrap must qualify the combined provider path for its application shutdown budget.

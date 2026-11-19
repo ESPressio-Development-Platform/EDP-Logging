@@ -235,6 +235,8 @@ namespace ESPressio::Logging {
         }
 
       public:
+        /// Borrows the qualified storage owner and copies its fixed key selection.
+        /// Bootstrap keeps storage and the selected key bytes alive through all operations.
         PowerLossEdlsSnapshots(
             TStorage &storage,
             const std::array<ESPressio::Persistence::KeyView, TSlots> &keys) noexcept : storage_(&storage), keys_(keys) {}

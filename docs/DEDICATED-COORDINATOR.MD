@@ -191,3 +191,15 @@ application resource snapshot and configured G11 site check passed.
 The original full 4 MiB flash was restored and verified and the target
 powered OFF. Header/Wiki inventory 20261119T065101-8ca71020 compiled
 1,024 named declaration entries and resolved 570 local file links.
+
+
+## Recovery deadline scope
+
+CompleteUntil applies the supplied absolute deadline to the queue's
+pre-release and post-release mutex acquisition. Native Memory release
+and capacity-wake publication execute outside that queue mutex and
+retain their selected provider contracts. The Memory runtime's ordinary
+release path can use a Forever coordination-lock wait. Bootstrap must
+account for that provider behavior in its whole-application shutdown
+budget. The queue deadline cannot preempt a blocking Memory provider,
+destructor, wake provider or sink callback.

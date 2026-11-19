@@ -18,6 +18,7 @@
 
 namespace ESPressio::Clock {
 
+    /// Clock-owned era identifier used by optional capture without an eager Clock include.
     class ClockEra;
 
 } // ESPressio::Clock
