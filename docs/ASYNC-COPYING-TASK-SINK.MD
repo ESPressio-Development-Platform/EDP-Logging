@@ -252,3 +252,13 @@ token and quarantines coordination while returning `ProviderFailure`.
 Bootstrap must preserve the original failure receipt. A subsequent
 `AlreadyEmpty` observation cannot establish successful recovery of that
 provider. The physical test does not inject this later failure.
+
+## Consumer example
+
+The three-target [OwnedAsyncSink example](../demos/OwnedAsyncSink/README.MD)
+composes the existing Memory and Threading owners without a persistence
+provider. It mutates the source after admission and gates the Worker read,
+verifying the independent payload copy before terminal completion, lease
+release and owner teardown. Its README records the three build receipts
+and actual ESP-IDF WROOM execution. The example's application polling
+checks retain the selected owner-operation wait contracts described above.

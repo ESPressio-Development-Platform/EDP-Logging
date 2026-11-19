@@ -28,14 +28,14 @@ The [G12 integration ledger](../docs/SERIAL-OUTPUT-INTEGRATION.MD) records the R
 
 The public demo manifests select the PIOArduino ESP32 platform and C++20.
 See the [Arduino-ESP32 framing manifest](../demos/FramingAndInstrumentation/PlatformIO_Arduino/platformio.ini)
-for the qualified pin and build flags. The native workflow runs all six
-PlatformIO demo combinations. RPI400 also compiles the three Arduino IDE
+for the qualified pin and build flags. The native workflow runs all eight
+PlatformIO demo combinations. RPI400 also compiles the four Arduino IDE
 sketches using the Arduino CLI and ESP32 core.
 
 
 ## Reproducing the selected Arduino profile
 
-The three PlatformIO Arduino demo manifests explicitly select
+The four PlatformIO Arduino demo manifests explicitly select
 Arduino-ESP32 3.3.12 and its ESP-IDF 5.5 library bundle alongside the
 recorded PIOArduino platform revision. The framing recipe uses the same
 pins as the two managed demo families. Preserve both package selections
@@ -45,3 +45,17 @@ Concurrent RPI400 native and demo builds use distinct
 PLATFORMIO_BUILD_CACHE_DIR locations. A shared SCons cache replacement
 failure was observed during the first final sweep. The isolated-cache
 retry and its exact run IDs are recorded in the current Policy handoff.
+
+## Owned asynchronous delivery example
+
+[OwnedAsyncSink](../demos/OwnedAsyncSink/README.MD) adds the fourth
+three-target family. Its common Bootstrap selects one existing Memory
+payload slot and Threading Dedicated Worker. The Worker checks its copy
+after source mutation; Bootstrap verifies terminal delivery, exact lease
+release and runtime teardown. All three targets built on source
+db0bdf797756709b51ed8c926af4f6a09671c4fa. The native WROOM execution
+20261119T080249-d436698d passed with result 0 and verified restoration
+of the original full flash image. The native workflow covers eight
+PlatformIO combinations; RPI400 also built all four Arduino IDE sketches.
+See the demo README for exact receipts and [async ownership](../docs/ASYNC-COPYING-TASK-SINK.MD)
+for the provider-wait and failure-preservation contracts.

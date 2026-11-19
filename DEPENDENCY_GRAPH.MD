@@ -666,3 +666,15 @@ The main-source SHAs of Clock, Localisation, Serialisation, Memory, Threading an
 ## Optional Serial integration fixtures
 
 The host owned-representation fan-out fixture selects the optional EDP-Serial EDLG FIFO and the existing EDP-Platform-Portable SpinLock. The ESP-IDF G1 fixture selects that FIFO, the EDP-Serial-ESP-IDF UART provider and the pinned EDP-Platform-ESP-IDF native SpinLock. Both supply a separate EDP-Threading ordinary Mutex for queue ownership. These are direct fixture dependencies. The [Serial integration contract](docs/SERIAL-OUTPUT-INTEGRATION.MD) describes their activation and lifetime.
+
+## Owned asynchronous demo activation
+
+The [OwnedAsyncSink demo](demos/OwnedAsyncSink/README.MD) directly selects
+EDP-Logging, EDP-Clock, EDP-Memory, EDP-Threading, EDP-Platform,
+EDP-Platform-Portable, EDP-Platform-FreeRTOS, EDP-Platform-ESP-IDF,
+EDP-System and EDP-BoundedTopology. Its three build recipes declare the
+same owner set. It uses the existing canonical monotonic timebase,
+ordinary synchronization, topology-owned Worker and Memory ByteOperations.
+It adds no production dependency edge. Neither Persistence, Mesh,
+Serial nor generated diagnostic schemas are activated by this small
+encoded-payload example.

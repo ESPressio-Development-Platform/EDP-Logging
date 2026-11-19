@@ -59,3 +59,17 @@ uncertain result before destroying these owners or starting another run.
 The [async contract](../../docs/ASYNC-COPYING-TASK-SINK.MD) describes
 concurrency and recovery requirements. Qualification receipts are kept
 in the [acceptance matrix](../../docs/ACCEPTANCE-G1-G15.MD).
+
+## Qualified execution
+
+All three target builds passed on source
+db0bdf797756709b51ed8c926af4f6a09671c4fa on RPI400:
+ESP-IDF 20261119T075417-5f1e5abd, Arduino IDE
+20261119T075931-d1708d46 and PlatformIO Arduino
+20261119T075931-4c9d7d3a. Native image SHA-256:
+98df2aac23247ccd52c12791e347808629152b0e608dac3740868ec78c5bc9ca.
+
+Guarded WROOM execution 20261119T080249-d436698d passed with result 0.
+The original full 4 MiB flash image was restored and verified, and the
+board was powered off. The Arduino results are build qualifications;
+the execution receipt applies to the ESP-IDF image.
