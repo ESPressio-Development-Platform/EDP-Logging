@@ -31,3 +31,17 @@ See the [Arduino-ESP32 framing manifest](../demos/FramingAndInstrumentation/Plat
 for the qualified pin and build flags. The native workflow runs all six
 PlatformIO demo combinations. RPI400 also compiles the three Arduino IDE
 sketches using the Arduino CLI and ESP32 core.
+
+
+## Reproducing the selected Arduino profile
+
+The three PlatformIO Arduino demo manifests explicitly select
+Arduino-ESP32 3.3.12 and its ESP-IDF 5.5 library bundle alongside the
+recorded PIOArduino platform revision. The framing recipe uses the same
+pins as the two managed demo families. Preserve both package selections
+when reproducing the qualified build.
+
+Concurrent RPI400 native and demo builds use distinct
+PLATFORMIO_BUILD_CACHE_DIR locations. A shared SCons cache replacement
+failure was observed during the first final sweep. The isolated-cache
+retry and its exact run IDs are recorded in the current Policy handoff.

@@ -19,6 +19,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Corrected and clarified
 
+- The framing demo explicitly pins Arduino-ESP32 3.3.12 and its ESP-IDF 5.5 library bundle, matching the managed demo recipes and preventing incompatible development-framework resolution.
+
 - On the selected ESP32-WROOM-32 async profile, qualified Threading shutdown during active delivery and native Memory slot recovery after an injected release acquisition failure. The validated path uses immediate worker admission.
 
 - Documented the dedicated coordinator's retained claim after a retirement failure and the selected async Threading dispatch boundary. Immediate worker admission still uses the owner's facility mutex. Native queued cancellation requires a profile that exposes a queued Task handle.
