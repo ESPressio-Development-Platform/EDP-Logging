@@ -7,12 +7,12 @@
 #include <tuple>
 #include <utility>
 
-#include <BatchDemo.hpp>
+#include "../../../ConfigurableBoundedEdlsBatch/Arduino_IDE/src/BatchDemo.hpp"
 #include <ESPressio_Memory.hpp>
 #include <ESPressio_Platform_FreeRTOS.hpp>
 #include <ESPressio_Threading.hpp>
-#include <GeneratedLocalisationContract.hpp>
-#include <EDP-Platform-ESP-IDF/src/concurrency/AtomicWord32Provider.hpp>
+#include "generated/GeneratedLocalisationContract.hpp"
+#include <concurrency/AtomicWord32Provider.hpp>
 #include <execution/ExecutionContextProvider.hpp>
 #include <logging/DedicatedCoordinator.hpp>
 #include <logging/DiagnosticClockEraArguments.hpp>
