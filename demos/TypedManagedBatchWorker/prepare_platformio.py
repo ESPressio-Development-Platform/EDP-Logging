@@ -1,7 +1,11 @@
 """Generate the demo schema using PlatformIO's GitHub-installed owners."""
 from pathlib import Path
 import subprocess
+import runpy
 import sys
+
+setup = runpy.run_path(str(Path(__file__).resolve().parent.parent / "prepare_platformio.py"))
+setup["SelectNativeProviderHeaders"](env)
 
 project = Path(env.subst("$PROJECT_DIR")).resolve()
 packages = Path(env.subst("$PROJECT_LIBDEPS_DIR")) / env.subst("$PIOENV")
