@@ -929,8 +929,20 @@ bool Run() {
         struct CoordinatorThreadIdentity final {};
         struct TestSinkA {
             std::atomic<unsigned>* Count{};
+            std::atomic<bool>* RecoveryEntered{};
+            std::atomic<bool>* RecoveryHold{};
             Logging::RecordSinkSubmission operator()(const Record& record) noexcept {
                 Count->fetch_add(1U);
+                if (record.Value() == 953) {
+                    RecoveryEntered->store(true, std::memory_order_release);
+                    const auto bound = Deadline(2000U);
+                    while (RecoveryHold->load(std::memory_order_acquire)) {
+                        if (Clock::MonotonicNow() >= bound) {
+                            return Logging::RecordSinkSubmission::ProviderFailure;
+                        }
+                        vTaskDelay(1U);
+                    }
+                }
                 return record.Value()==951 ? Logging::RecordSinkSubmission::Accepted
                                            : Logging::RecordSinkSubmission::Rejected;
             }
@@ -980,13 +992,15 @@ bool Run() {
             Platform::ESPIDF::Synchronization::SpinLockProvider,Mutex
         >;
         static std::atomic<unsigned> callsA{0U},callsB{0U};
-        static TestSinkA sinkA{&callsA};
+        static std::atomic<bool> recoveryEntered{false}, recoveryHold{true};
+        static TestSinkA sinkA{&callsA, &recoveryEntered, &recoveryHold};
         static TestSinkB sinkB{&callsB};
         static Logging::DedicatedCoordinatorReport report{};
+        static Queue::ConsumerClaim recoveryClaim{};
         static NativeThreading dedicated(std::make_tuple(
             Threading::BindDedicatedThread<CoordinatorThreadIdentity>(
                 MeasuredCallable(
-                    Callable(queue,report,sinkA,sinkB),
+                    Callable(queue,report,recoveryClaim,sinkA,sinkB),
                     DedicatedWorkerStackMarginBytes
                 )
             )
@@ -1023,6 +1037,60 @@ bool Run() {
             report.PartialSubmissions.load()==1U &&
             Record::Live.load()==0,
             "dedicated-thread-two-source-fanout")) return false;
+        {
+            Lease scratch;
+            Queue::Reservation owner;
+            if (!Check(
+                Logging::AcquireRecordUntil<8U, 8U>(
+                    queue, lifecycle, wakes, 0U, pool, scratch, owner,
+                    Deadline(2000U), neverStop, 953
+                ).Status == Logging::RecordAdmissionStatus::Admitted &&
+                owner.Commit() == Logging::RecordQueueResult::Succeeded &&
+                worker.Wake() == Threading::ThreadWakeResult::Woken,
+                "dedicated-recovery-source-committed"
+            )) return false;
+        }
+        const auto enteredBound = Deadline(2000U);
+        while (!recoveryEntered.load(std::memory_order_acquire) &&
+               Clock::MonotonicNow() < enteredBound) {
+            vTaskDelay(1U);
+        }
+        if (!Check(
+            recoveryEntered.load(std::memory_order_acquire) &&
+            mutex.Acquire(Platform::Synchronization::WaitTimeout::NoWait()) ==
+                Threading::OrdinaryMutexAcquireResult::Acquired,
+            "dedicated-recovery-retirement-mutex-held"
+        )) return false;
+        recoveryHold.store(false, std::memory_order_release);
+        const auto quiescentBound = Deadline(2000U);
+        while (!dedicated.IsExecutionQuiescent() &&
+               Clock::MonotonicNow() < quiescentBound) {
+            vTaskDelay(1U);
+        }
+        const bool retained =
+            dedicated.IsExecutionQuiescent() &&
+            report.Exit.load(std::memory_order_acquire) ==
+                Logging::DedicatedCoordinatorExit::ReclaimUnconfirmed &&
+            recoveryClaim.IsActive() && Record::Live.load() == 1;
+        const auto blocked = recoveryClaim.CompleteUntil(Deadline(10U));
+        const auto unlocked = mutex.Release();
+        const auto completed = recoveryClaim.CompleteUntil(Deadline(100U));
+        if (!Check(
+            retained &&
+            (blocked == Logging::RecordQueueResult::DeadlineElapsed ||
+             blocked == Logging::RecordQueueResult::Busy) &&
+            unlocked == Threading::OrdinaryMutexReleaseResult::Released &&
+            completed == Logging::RecordQueueResult::Succeeded &&
+            !recoveryClaim.IsActive() && Record::Live.load() == 0 &&
+            callsA.load() == 3U && callsB.load() == 3U &&
+            report.RecordsRetired.load() == 2U,
+            "dedicated-bootstrap-retires-without-repeat-delivery"
+        )) return false;
+        if (!Check(
+            worker.Start() == Threading::ThreadStartResult::Started,
+            "dedicated-restart-after-claim-recovery"
+        )) return false;
+        std::printf("EDP_LOGGING_HIL|PASS|DEDICATED_EXTERNAL_CLAIM_RECOVERY\n");
         if(!Check(worker.RequestStop()==
             Threading::ThreadStopRequestResult::Accepted,
             "dedicated-thread-stop-request")) return false;

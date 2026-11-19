@@ -6,6 +6,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Added
 
+- Optional Bootstrap-owned claim binding for `DedicatedCoordinator`. After execution quiescence, the application can use the queue claim's existing bounded retirement operation to reconcile a failed reclaim without repeating sink delivery.
+
 - Allocation-free **C++20 severity and instrumentation foundation**: six emitted severities, Off/default-off compile-time thresholds, expression-lazy gated logging sites, no argument/Clock evaluation when compiled out, and nonwrapping 16/32/64-bit attempt identity. Full generated-schema producer activation is opt-in, not a default global logger.
 - Generated, type-governed **15-field diagnostic LogRecord** integration through the existing EDP-System, EDP-Localisation, EDP-Serialisation, EDP-Clock and EDP-BoundedTypes contracts. Canonical typed positional CBOR and JSON encoders have strict argument width/kind validation, optional coherent temporal/ClockEra evidence and bounded owned source arguments.
 - Application-composed finite **source acquisition, transactional record queue, tracked lease ownership, bounded deadline/wake coordination, a dedicated Threading worker and sink fan-out**. No duplicate Memory pool, scheduler, clock or platform synchronizer was introduced. A late acquisition remains an owned lease requiring explicit release; sink acceptance is separate from source retirement and durable completion.

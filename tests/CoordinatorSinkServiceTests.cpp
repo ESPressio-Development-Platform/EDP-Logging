@@ -368,6 +368,92 @@ namespace {
         assert(report.RecordsRetired.load() == 0U);
     }
 
+    /// Confirms external claim lifetime across a moved binding and explicit retirement retry.
+    /// @tparam TBounded Selects finite queue waits instead of immediate transitions.
+    template <bool TBounded>
+    void BootstrapClaimRecovery() {
+        ServiceFixture fixture{};
+        fixture.Produce(81);
+        Queue::ConsumerClaim claim{};
+        std::atomic<bool> acquire{false};
+        std::atomic<bool> locked{false};
+        std::atomic<bool> release{false};
+        std::thread holder([&]() {
+            while (!acquire.load()) {
+                std::this_thread::yield();
+            }
+            assert(fixture.QueueMutex.Acquire(
+                ESPressio::Platform::Synchronization::WaitTimeout::NoWait()
+            ) == T::OrdinaryMutexAcquireResult::Acquired);
+            locked.store(true);
+            while (!release.load()) {
+                std::this_thread::yield();
+            }
+            assert(fixture.QueueMutex.Release() == T::OrdinaryMutexReleaseResult::Released);
+        });
+        unsigned submissions = 0U;
+        auto sink = [&](const Rec&) noexcept {
+            ++submissions;
+            if (submissions == 1U) {
+                acquire.store(true);
+                while (!locked.load()) {
+                    std::this_thread::yield();
+                }
+            }
+            return L::RecordSinkSubmission::Accepted;
+        };
+        L::DedicatedCoordinatorReport report{};
+        using Callable = L::DedicatedCoordinator<1U, 5000000, Queue, decltype(sink)>;
+        ServiceContext state{};
+        state.Report = &report;
+        T::ThreadContext context(&state, ServiceOperations);
+        {
+            auto original = [&]() {
+                if constexpr (TBounded) {
+                    return Callable(
+                        L::CoordinatorQueueLockWait<1000000>{},
+                        fixture.Records,
+                        report,
+                        claim,
+                        sink
+                    );
+                } else {
+                    return Callable(fixture.Records, report, claim, sink);
+                }
+            }();
+            Callable coordinator(std::move(original));
+            coordinator(context);
+            assert(report.Exit.load() == L::DedicatedCoordinatorExit::ReclaimUnconfirmed);
+            assert(report.RecordsRetired.load() == 0U);
+            assert(claim.IsActive() && Rec::Live.load() == 1);
+            const auto blocked = claim.CompleteUntil(
+                DeadlineAfter(std::chrono::milliseconds(1))
+            );
+            assert(blocked == L::RecordQueueResult::Busy ||
+                   blocked == L::RecordQueueResult::DeadlineElapsed);
+            assert(claim.IsActive() && submissions == 1U);
+            release.store(true);
+            holder.join();
+            coordinator(context);
+            assert(report.Exit.load() == L::DedicatedCoordinatorExit::PriorClaimUnresolved);
+            assert(submissions == 1U);
+        }
+        // The binding's destruction leaves the borrowed claim in Bootstrap.
+        assert(claim.IsActive() && Rec::Live.load() == 1);
+        assert(claim.CompleteUntil(
+            DeadlineAfter(std::chrono::milliseconds(100))
+        ) == L::RecordQueueResult::Succeeded);
+        assert(!claim.IsActive() && Rec::Live.load() == 0);
+        // Reuse the queue only after confirmed retirement, without replaying the first sink.
+        fixture.Produce(82);
+        Callable resumed(fixture.Records, report, claim, sink);
+        state.ExpectedRetired = 1U;
+        resumed(context);
+        assert(report.Exit.load() == L::DedicatedCoordinatorExit::CooperativeStop);
+        assert(report.RecordsRetired.load() == 1U);
+        assert(submissions == 2U && !claim.IsActive());
+    }
+
 } // namespace
 
 int main() {
@@ -379,5 +465,7 @@ int main() {
     AbsoluteWaitFailureStops();
     BoundedQueueContentionRetainsSource();
     ReportsBoundedRetirementContention();
+    BootstrapClaimRecovery<false>();
+    BootstrapClaimRecovery<true>();
     std::puts("EXISTING_COORDINATOR_ABSOLUTE_SERVICE_AND_COMPLETION_NEGATIVES=PASS");
 }

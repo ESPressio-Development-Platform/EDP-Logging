@@ -71,7 +71,7 @@ namespace ESPressio::Logging {
     ///
     /// Bootstrap owns the actual Dedicated Thread topology, its native
     /// execution provider, wake signal, queue, sink callbacks and report.
-    /// This callable is movable but non-allocating: it stores only pointers.
+    /// This callable is movable and retains fixed claim storage plus borrowed owner pointers.
     /// No second scheduler/worker context, unmanaged std::thread or polling
     /// provider is created. Use BindDedicatedThread<TIdentity>(callable).
     ///
@@ -92,7 +92,7 @@ namespace ESPressio::Logging {
     /// stop without silently draining indefinitely. Bootstrap must reject new
     /// producers, then choose an explicit bounded shutdown/retention policy.
     /// When a native claim cannot be reclaimed, it remains owned by the
-    /// stable callback object: no pointer/claim is destroyed until topology
+    /// selected claim owner: no pointer/claim is destroyed until topology
     /// reclaims or aborts it according to the original owner contract.
     ///
     /// WARNING: each synchronous sink callback MUST return within an
@@ -115,17 +115,23 @@ namespace ESPressio::Logging {
                        } || CoordinatorServiceSink<TSinks>) && ...),
                       "Optional ServiceCoordinator must be noexcept and return "
                       "CoordinatorSinkServiceOutcome");
+        // Bootstrap resources and selected source ownership.
+
         /// Existing canonical source queue, retained through claim reconciliation.
         TQueue *_queue;
         /// Stable synchronous sink callbacks and their optional ordinary service methods.
         std::tuple<TSinks *...> _sinks;
         /// Bootstrap-owned atomic operational report.
         DedicatedCoordinatorReport *_report;
-        /// Stable exclusive source claim retained after unconfirmed retirement.
-        typename TQueue::ConsumerClaim _claim{};
+        /// Default-owned source claim when Bootstrap supplies no separate owner.
+        typename TQueue::ConsumerClaim _ownedClaim{};
+        /// Selected stable claim, owned here or borrowed from Bootstrap for recovery.
+        typename TQueue::ConsumerClaim *_claim{&_ownedClaim};
         /// Zero selects immediate NoWait transitions; a compile-time opt-in supplies a finite positive
         /// budget.
         std::int64_t _queueMutexWaitNanoseconds{0};
+
+        // Compile-time provider qualification and synchronous sink service.
 
         /// Existing queue must expose bounded transitions before that opt-in can be selected.
         static constexpr bool SupportsBoundedQueueWait =
@@ -177,24 +183,57 @@ namespace ESPressio::Logging {
 
       public:
         /// Borrows the existing owners and selects immediate NoWait queue transitions.
-        explicit DedicatedCoordinator(TQueue &queue,
-                                      DedicatedCoordinatorReport &report,
-                                      TSinks &...sinks) noexcept
+        explicit DedicatedCoordinator(
+            TQueue &queue,
+            DedicatedCoordinatorReport &report,
+            TSinks &...sinks
+        ) noexcept
             : _queue(&queue), _sinks(&sinks...), _report(&report) {}
 
         /// Selects bounded transitions using the already-bound canonical Clock and existing queue
         /// mutex.
         /// @tparam TMaximumNanoseconds Positive independent claim/retirement mutex wait budget.
         template <std::int64_t TMaximumNanoseconds>
-        explicit DedicatedCoordinator(CoordinatorQueueLockWait<TMaximumNanoseconds>,
-                                      TQueue &queue,
-                                      DedicatedCoordinatorReport &report,
-                                      TSinks &...sinks) noexcept
+        explicit DedicatedCoordinator(
+            CoordinatorQueueLockWait<TMaximumNanoseconds>,
+            TQueue &queue,
+            DedicatedCoordinatorReport &report,
+            TSinks &...sinks
+        ) noexcept
             : _queue(&queue), _sinks(&sinks...), _report(&report),
               _queueMutexWaitNanoseconds(TMaximumNanoseconds) {
-            static_assert(SupportsBoundedQueueWait,
-                          "Bounded coordinator locking requires existing queue PopUntil and claim "
-                          "CompleteUntil");
+            static_assert(
+                SupportsBoundedQueueWait,
+                "Bounded coordinator locking requires existing queue PopUntil and claim CompleteUntil"
+            );
+        }
+
+        /// Borrows a Bootstrap-owned claim so retirement can be reconciled after quiescence.
+        /// The claim and all queue providers must outlive the Threading binding.
+        explicit DedicatedCoordinator(
+            TQueue &queue,
+            DedicatedCoordinatorReport &report,
+            typename TQueue::ConsumerClaim &claim,
+            TSinks &...sinks
+        ) noexcept
+            : _queue(&queue), _sinks(&sinks...), _report(&report), _claim(&claim) {}
+
+        /// Selects bounded queue transitions and a Bootstrap-owned recovery claim.
+        /// @tparam TMaximumNanoseconds Positive independent claim/retirement mutex budget.
+        template <std::int64_t TMaximumNanoseconds>
+        explicit DedicatedCoordinator(
+            CoordinatorQueueLockWait<TMaximumNanoseconds>,
+            TQueue &queue,
+            DedicatedCoordinatorReport &report,
+            typename TQueue::ConsumerClaim &claim,
+            TSinks &...sinks
+        ) noexcept
+            : _queue(&queue), _sinks(&sinks...), _report(&report), _claim(&claim),
+              _queueMutexWaitNanoseconds(TMaximumNanoseconds) {
+            static_assert(
+                SupportsBoundedQueueWait,
+                "Bounded coordinator locking requires existing queue PopUntil and claim CompleteUntil"
+            );
         }
 
         /// A live source claim cannot be copied to another coordinator.
@@ -204,14 +243,18 @@ namespace ESPressio::Logging {
         /// Transfers the stable claim and selected mutex budget into the Threading binding.
         DedicatedCoordinator(DedicatedCoordinator &&source) noexcept
             : _queue(source._queue), _sinks(source._sinks), _report(source._report),
-              _claim(std::move(source._claim)),
+              _ownedClaim(std::move(source._ownedClaim)),
+              _claim(source._claim == &source._ownedClaim ? &_ownedClaim : source._claim),
               _queueMutexWaitNanoseconds(source._queueMutexWaitNanoseconds) {}
         /// Prevents assignment across active coordinator ownership boundaries.
         DedicatedCoordinator &operator=(DedicatedCoordinator &&) = delete;
 
         /// Runs finite quanta and optional service inside the one managed Threading context.
         void operator()(Threading::ThreadContext &context) noexcept {
-            _report->ReclaimFailure.store(RecordQueueResult::Empty, std::memory_order_relaxed);
+            _report->ReclaimFailure.store(
+                RecordQueueResult::Empty,
+                std::memory_order_relaxed
+            );
             while (!context.IsStopRequested()) {
                 const auto quantum = std::apply(
                     [&](TSinks *...sinks) noexcept {
@@ -221,14 +264,14 @@ namespace ESPressio::Logging {
                                     TRecordsPerQuantum,
                                     true>(
                                     *_queue,
-                                    _claim,
+                                    *_claim,
                                     _queueMutexWaitNanoseconds,
                                     *sinks...);
                             }
                         }
                         return DrainCoordinatorQuantum<TRecordsPerQuantum>(
                             *_queue,
-                            _claim,
+                            *_claim,
                             *sinks...);
                     },
                     _sinks);

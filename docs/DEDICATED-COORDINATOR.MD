@@ -153,11 +153,22 @@ Read the terminal pair after execution quiesces and before restarting the
 binding. The next activation resets that detail while `Exit` remains the
 last reported terminal reason until it publishes another exit.
 
-The private claim still owns its ticket. A restart with that claim
-reports `PriorClaimUnresolved` before any delivery. The dedicated binding
-has no public, bounded retirement-only recovery operation. Preserve the
-binding, queue and native providers on failure. Destroying the binding
-only invokes the queue guard's immediate scope-exit cleanup, which
-quarantines the queue if retirement again cannot be confirmed. The
-standalone quantum gives Bootstrap direct ownership of the claim and
-allows it to use `CompleteUntil` explicitly.
+The default-owned claim still retains its ticket after a failed retirement.
+Restarting with that claim reports `PriorClaimUnresolved`. Applications
+requiring explicit recovery can provide a separate Bootstrap-owned
+`TQueue::ConsumerClaim` as the argument following the report in either
+constructor form. That owner survives moving the callable into Threading.
+
+After the Threading execution is confirmed quiescent, Bootstrap can apply
+one `claim.CompleteUntil(originalRecoveryDeadline)` attempt. An incomplete
+retirement keeps the claim active. A confirmed successful retirement
+permits queue reuse or restart. Callback delivery is never repeated by
+this operation. All providers and the queue must remain alive until the
+claim is inactive. Serialize recovery with activation, sink use and
+shutdown through the application's existing lifecycle.
+
+The report counts only records accounted for by a completed coordinator
+quantum. An independently reconciled source is absent from those counters.
+Keep the original sink receipt and explicit recovery outcome in Bootstrap's
+accounting. `ReleasedNotificationFailed` confirms source reclamation but
+requires handling the advisory wake failure.
