@@ -41,13 +41,14 @@ an owned argument, then serializes the full **15-field typed JSON envelope**.
 It uses synchronous console output so that a first integration needs no
 worker, record queue or filesystem.
 
-Every project file is shown below. Start with an empty project directory;
+Every authored project file is shown below. Start with an empty project directory;
 you do not need a Logging checkout, sibling repositories or demo assets.
 
 ### 1. Create the project and select dependencies
 
-Create `platformio.ini`, `prepare_schema.py`, `include/AppIdentity.hpp`,
-`include/BasicLogger.hpp` and `src/main.cpp` at the paths used below.
+Create `platformio.ini`, the nine Localisation JSON files in Step 2,
+`include/AppIdentity.hpp`, `include/BasicLogger.hpp` and `src/main.cpp`
+at the paths used below.
 
 Save this as **`platformio.ini`**:
 
@@ -59,7 +60,6 @@ framework = arduino
 monitor_speed = 115200
 lib_compat_mode = off
 lib_ldf_mode = chain+
-extra_scripts = pre:prepare_schema.py
 
 platform_packages =
     framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32/archive/refs/tags/3.3.12.zip
@@ -97,73 +97,198 @@ explicitly above. These are application provider/package-resolution edges;
 basic Logging does not acquire a runtime Security or Mesh dependency.
 Configure Git access outside this file for any private repositories.
 
-### 2. Generate the application's diagnostic schema
+### 2. Author the Localisation source files
 
-Logging records identify a Localisation message and own arguments matching
-its generated signature. Do not invent numeric descriptors or hand-write a
-replacement generated header.
+Create the following JSON files at the exact paths shown. These are the
+application's editable authoring inputs. The catalogue declares message
+**1/0/3**, `Startup step {0}`, with one exact **`u32`** argument; the English
+strings file supplies its text. The source is authored directly before invoking the compiler.
 
-Save this as **`prepare_schema.py`**. The build hook reuses Localisation's
-complete getting-started source bundle, selects English, and defines message
-**1/0/3**, `Startup step {0}`, with one exact **`u32`** argument. It invokes
-the owning generator to create the headers under `include/generated`.
+First add this minimal tutorial Platform Localisation bundle. Its four
+files are shown in full, so no external example assets are needed.
+The application manifest below binds this exact bundle by its canonical
+integrity digest. For a product, select your authoritative Platform bundle
+and its matching identity/version/digest. Save the shown Platform files as UTF-8
+with LF line endings. The bundle digest is byte-sensitive: editing or
+reformatting that bundle requires its matching updated digest.
 
-```python
-"""Generate this application's diagnostic contract through EDP-Localisation."""
-from pathlib import Path
-import json
-import shutil
-import sys
+**`localisation/platform/platform-localisation-manifest.json`**
 
-Import("env")
-
-project = Path(env.subst("$PROJECT_DIR"))
-packages = Path(env.subst("$PROJECT_LIBDEPS_DIR")) / env.subst("$PIOENV")
-owner = packages / "EDP-Localisation"
-sys.path.insert(0, str(owner / "tools"))
-from edp_localisation.generator import compile_generated_set
-
-# Reuse the owner's complete source-bundle format, not a test-only generator.
-example = owner / "examples/getting-started"
-source = project / ".generated/localisation-source"
-shutil.copytree(example / "reference-source", source, dirs_exist_ok=True)
-for language in ("de", "de-AT"):
-    shutil.rmtree(source / language, ignore_errors=True)
-manifest_path = source / "manifest.json"
-manifest = json.loads(manifest_path.read_text())
-manifest["supportedLanguages"] = ["en-GB"]
-manifest_path.write_text(json.dumps(manifest))
-
-catalogue_path = source / "strings_catalogue.json"
-catalogue = json.loads(catalogue_path.read_text())
-message = catalogue["domains"][0]["subDomains"][0]["strings"][0]
-message["parameters"] = [
-    {"index": 0, "status": "active", "type": "u32", "symbol": "Step"}
-]
-catalogue_path.write_text(json.dumps(catalogue))
-language_path = source / "en-GB/language.json"
-language = json.loads(language_path.read_text())
-language["displayNames"] = {}
-language_path.write_text(json.dumps(language))
-strings_path = source / "en-GB/strings.json"
-strings = json.loads(strings_path.read_text())
-strings["domains"]["1"]["subDomains"]["0"]["strings"]["3"] = "Startup step {0}"
-strings_path.write_text(json.dumps(strings))
-
-compile_generated_set(
-    source,
-    example / "platform-localisation",
-    [source / "schema-inventory.json"],
-    project / "include/generated",
-    "App::Diagnostic",
-)
+```json
+{
+  "identity": "ESPressio-Platform-Localisation-Tutorial",
+  "schemaVersion": 1,
+  "version": "1.0.0"
+}
 ```
 
-The application source is the copied catalogue and the explicit edits above;
-the generated descriptor carries its diagnostic fingerprint. Nothing is
-loaded from a filesystem at runtime. The JSON record preserves message
-identity and the numeric argument; it does not automatically render a
-translated sentence.
+**`localisation/platform/strings_catalogue.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "domains": [
+    {
+      "id": 0,
+      "symbol": "Platform",
+      "status": "active",
+      "subDomains": [
+        {
+          "id": 0,
+          "symbol": "Root",
+          "status": "active",
+          "strings": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+**`localisation/platform/en-GB/strings.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "domains": {
+    "0": {
+      "subDomains": {
+        "0": {
+          "strings": {
+            "0": "ESPressio"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**`localisation/platform/en-GB/type_schema.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "types": {}
+}
+```
+
+Now add the application's own manifest, catalogue and English source.
+This message-only example exposes no application Type/Field presentation
+schema, so both `type_schema.json` files are empty and no schema inventory
+file is needed.
+
+**`localisation/application/manifest.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "terminalLanguage": "en-GB",
+  "supportedLanguages": [
+    "en-GB"
+  ],
+  "identifierWidths": {
+    "domain": 1,
+    "subDomain": 1,
+    "string": 2
+  },
+  "platformLocalisation": {
+    "identity": "ESPressio-Platform-Localisation-Tutorial",
+    "version": "1.0.0",
+    "integrity": "sha256-E6BC9649A5217697277E0B427E0C3EC0E3DF8620532589DAE92CAC84A88AEF45"
+  }
+}
+```
+
+**`localisation/application/strings_catalogue.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "domains": [
+    {
+      "id": 1,
+      "symbol": "Application",
+      "status": "active",
+      "subDomains": [
+        {
+          "id": 0,
+          "symbol": "Root",
+          "status": "active",
+          "strings": [
+            {
+              "id": 3,
+              "symbol": "StartupStep",
+              "status": "active",
+              "localisation": "translatable",
+              "parameters": [
+                {
+                  "index": 0,
+                  "status": "active",
+                  "type": "u32",
+                  "symbol": "Step"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**`localisation/application/en-GB/language.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "language": "en-GB",
+  "parent": null,
+  "selfName": "British English",
+  "displayNames": {}
+}
+```
+
+**`localisation/application/en-GB/strings.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "domains": {
+    "1": {
+      "subDomains": {
+        "0": {
+          "strings": {
+            "0": "README Logging",
+            "3": "Startup step {0}"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**`localisation/application/en-GB/type_schema.json`**
+
+```json
+{
+  "schemaVersion": 1,
+  "types": {}
+}
+```
+
+After saving these files, use the ordered commands in Step 6 to validate
+them and run the existing Localisation compiler. It produces the C++
+contract/identifier headers under `include/generated`, plus compiled
+`.edploc` language packs under `include/generated/packs`.
+
+The logging example includes the generated C++ contract. It does not load
+the language packs at runtime: the JSON record carries message identity
+and the numeric argument, rather than an automatically translated sentence.
+Edit the raw catalogue and language files when adding messages, then
+recompile; generated output is not an authoring input.
 
 ### 3. Establish device and runtime identity
 
@@ -629,9 +754,33 @@ lifetime. This finite example emits only during `setup()`; `loop()` is empty.
 
 ### 6. Build, upload and observe the records
 
-Run from the project directory:
+Run these commands in order from the project directory, using a POSIX shell
+and Python 3. The first command installs the declared GitHub dependencies,
+including the Localisation compiler. The next commands validate and compile
+the raw files you saved in Step 2, then verify the generated output.
+Repeat the compiler commands after changing those source files.
 
 ```bash
+pio pkg install -e esp32dev
+export PYTHONPATH="$PWD/.pio/libdeps/esp32dev/EDP-Localisation/tools"
+
+python3 -m edp_localisation validate \
+    --source localisation/application \
+    --platform-bundle localisation/platform \
+    --cpp-namespace App::Diagnostic
+
+python3 -m edp_localisation compile \
+    --source localisation/application \
+    --platform-bundle localisation/platform \
+    --output include/generated \
+    --cpp-namespace App::Diagnostic
+
+python3 -m edp_localisation verify-generated \
+    --source localisation/application \
+    --platform-bundle localisation/platform \
+    --generated include/generated \
+    --cpp-namespace App::Diagnostic
+
 pio run -e esp32dev
 pio run -e esp32dev -t upload --upload-port YOUR_BOARD_PORT
 pio device monitor --port YOUR_BOARD_PORT --baud 115200

@@ -101,8 +101,8 @@ source/profile scope; no new MCU flashing occurred in this migration.
 
 ## Complete root README application — 19 November 2026
 
-The [progressive consumer walkthrough](../README.MD#getting-started) now
-shows all five project files for actual governed source capture and typed
+The initial [progressive consumer walkthrough](../README.MD#getting-started) at
+commit e113d4898d19d0fd6c8a821d54f5c01519f371ea showed all five project files for actual governed source capture and typed
 JSON console output under PIOArduino. It includes the GitHub-only manifest,
 owner-generated diagnostic schema, committed identity metadata, canonical
 Clock composition, fixed resource capacities, severity sites and exact
@@ -139,3 +139,30 @@ The final run supersedes their example bytes and strengthens JSON assertions.
 This work did not upload firmware, execute the application on a physical
 device, measure UART throughput or requalify durable log archives. NVS is
 used for the runtime incarnation, not as a log sink.
+
+## Authored Localisation inputs — 19 November 2026
+
+The current README replaces the source-construction Python hook with all
+nine raw JSON files for the Platform/application Localisation bundles.
+Together with platformio.ini and the three unchanged C++ files, all thirteen
+authored project files are shown. Dependency installation is followed by the
+existing Localisation CLI validate, compile and verify-generated commands;
+headers and language packs are compiler outputs. The firmware consumes the
+contract header, without loading language packs at runtime.
+
+Run **20261119T120547-4d23f145 PASS** verified the exact raw source files,
+standard owner CLI sequence, language-pack output and complete ESP32
+PIOArduino firmware compile/link. Run **20261119T120731-30474162 PASS**
+verified fresh README/file byte equality, all local documentation links and
+docs discovery, unchanged runtime/package/demo/test source and eleven real-EDP
+scripted application cases each under GCC and Clang, including exact record
+field behavior for the newly generated schema. Installed Logging runtime
+headers were also byte-compared with the candidate source.
+
+Initial run 20261119T120436-3c0d55a8 failed the owner's integrity validation
+because the displayed pretty-printed Platform files had a different byte
+digest from the old compact bundle. The application manifest now binds the
+exact UTF-8/LF files shown, and the tutorial explains that editing/reformatting
+the bundle requires an updated matching digest. No library defect or runtime
+source change was involved. Earlier receipts retain their original scope.
+No firmware was uploaded or physically executed for this correction.

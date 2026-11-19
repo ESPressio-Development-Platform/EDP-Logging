@@ -723,3 +723,12 @@ edges remain application-only: no mandatory Logging -> Security, Mesh, Serial
 or native SDK dependency is introduced. NVS stores the boot identity counter,
 not log records. The full-record JSON projection imports Serialisation's
 ClockEra adapter and therefore selects its optional Clock edge.
+
+### Authored Localisation input follow-up
+
+The consumer walkthrough now shows the complete raw Platform/application
+Localisation source as nine JSON files and invokes the existing owner's CLI
+after dependency installation. The application has no custom Python source
+constructor or pre-build hook. This changes authoring instructions only;
+conditional C++ and host-tool owner edges above remain unchanged. No Type/Field
+presentation inventory is selected in this message-only source profile.

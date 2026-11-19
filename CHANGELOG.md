@@ -1,5 +1,12 @@
 # Changelog — EDP-Logging
 
+## Authored Localisation walkthrough — unreleased 0.1.0
+
+- Replaced the README's catalogue-construction Python script with all raw Platform/application Localisation JSON file contents.
+- Added ordered dependency-install and standard Localisation validate/compile/verify commands before the firmware build.
+- Removed the tutorial pre-build hook; generated headers and language packs are compiler outputs, not authoring inputs.
+- Runtime, package versions and existing demos remain unchanged.
+
 ## Complete consumer walkthrough — unreleased 0.1.0
 
 - Added a complete source-led PIOArduino application for governed LogRecord capture and typed JSON console output.

@@ -56,9 +56,16 @@ providers. The identity NVS counter is not a durable log sink.
 
 The manifest declares GitHub URLs for all selected source owners. The native
 Platform pin supplies the existing timebase; its Security package dependency
-is a package-resolution edge, not a new Logging runtime dependency. Schema
-generation uses the downloaded Localisation owner's complete source bundle
-and public compiler, never Logging's HIL/test generator. No sibling checkout,
+is a package-resolution edge, not a new Logging runtime dependency. The README shows all nine raw JSON authoring files for a minimal Platform
+Localisation bundle and the application's one-language diagnostic source.
+The application manifest binds the displayed Platform bundle by its canonical
+integrity digest. No application Type/Field presentation inventory is needed
+for this message-only profile. After dependency installation, the existing
+Localisation CLI validates, compiles and verifies those authored inputs,
+producing the C++ contract/identifier headers and .edploc language packs.
+The firmware includes the generated contract; it does not load the packs.
+Edit authoring JSON and rerun the compiler when adding messages.
+No custom source-construction script or build hook is required. No sibling checkout,
 extra partition image, filesystem upload or external Python package is needed.
 
 Verification must extract the README's exact source blocks and compare them
