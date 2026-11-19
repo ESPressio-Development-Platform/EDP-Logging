@@ -150,7 +150,10 @@ namespace ESPressio::Logging {
 
             Detail::ThreadingWaitSlot<TWaitWakeProvider> waiter{_waitWake, slot};
             const auto acquired = AcquirePoolUntil<TMaximumWakeRetries>(
-                pool, waiter, lease, deadline,
+                pool,
+                    waiter,
+                    lease,
+                    deadline,
                 std::forward<TArguments>(arguments)...
             );
 

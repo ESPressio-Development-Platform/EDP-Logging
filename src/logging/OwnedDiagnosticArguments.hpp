@@ -348,13 +348,15 @@ namespace ESPressio::Logging {
             std::string_view text
         ) noexcept {
             if (!ESPressio::Serialisation::ValidateUtf8(
-                text.data(), text.size()
+                text.data(),
+                    text.size()
             ).IsSuccessful()) {
                 return OwnedArgumentResult::InvalidUtf8;
             }
 
             const auto bytes =
-                std::as_bytes(std::span(text.data(), text.size()));
+                std::as_bytes(std::span(text.data(),
+                    text.size()));
             return Store(
                 OwnedArgumentKind::Utf8,
                 bytes

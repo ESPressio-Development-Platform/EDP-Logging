@@ -193,7 +193,8 @@ namespace ESPressio::Logging {
             std::array<std::byte, TMaximumValueBytes> &buffer) const noexcept {
             namespace P = ESPressio::Persistence;
             const auto native = storage_->ReadValue(
-                keys_[slot], P::DestinationBufferView{buffer.data(), buffer.size()});
+                keys_[slot],
+                    P::DestinationBufferView{buffer.data(), buffer.size()});
             if (native.Status == P::KeyValueReadStatus::NotFound) {
                 return {DurableEdlsStatus::Empty};
             }
@@ -211,8 +212,10 @@ namespace ESPressio::Logging {
             }
             EdlsHeader header{};
             const auto data = std::span<const std::byte>(
-                buffer.data(), native.BytesTransferred);
-            if (ReadEdlsHeader(data.first(EdlsHeaderBytes), header) !=
+                buffer.data(),
+                    native.BytesTransferred);
+            if (ReadEdlsHeader(data.first(EdlsHeaderBytes),
+                header) !=
                     EdlsHeaderStatus::Succeeded ||
                 header.Slot != slot) {
                 return {DurableEdlsStatus::Degraded};
@@ -461,7 +464,8 @@ namespace ESPressio::Logging {
             );
             const auto total = EdlsHeaderBytes + frame.size();
             result.Native = storage_->StoreValue(
-                keys_[target], P::SourceBufferView{bytes.data(), total});
+                keys_[target],
+                    P::SourceBufferView{bytes.data(), total});
             if (result.Native != P::KeyValueStoreStatus::Succeeded) {
                 result.Status = DurableEdlsStatus::StorageRejected;
                 return result;

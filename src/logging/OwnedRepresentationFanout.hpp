@@ -145,10 +145,13 @@ namespace ESPressio::Logging {
         static_assert(Count >= 1U && Count <= 8U);
         static_assert(std::is_same_v<
             typename TPool::ObjectType, OwnedEncodedPayload<TMaximumPayloadBytes>
-        >, "EDP-Memory pool must own exactly this representation's bounded payload");
-        static_assert(noexcept(encoder(record, std::declval<std::span<std::byte>>())));
+        >,
+            "EDP-Memory pool must own exactly this representation's bounded payload");
+        static_assert(noexcept(encoder(record,
+            std::declval<std::span<std::byte>>())));
         static_assert(std::is_same_v<
-            decltype(encoder(record, std::declval<std::span<std::byte>>())),
+            decltype(encoder(record,
+                std::declval<std::span<std::byte>>())),
             RepresentationEncodeResult
         >);
 
@@ -188,7 +191,9 @@ namespace ESPressio::Logging {
             return outcome;
         }
         const auto encoded = encoder(
-            record, std::span<std::byte>(payload->Bytes.data(), payload->Bytes.size())
+            record,
+                std::span<std::byte>(payload->Bytes.data(),
+                payload->Bytes.size())
         );
         outcome.EncoderInvocations = 1U;
         if (encoded.Status == RepresentationEncodeStatus::Succeeded &&

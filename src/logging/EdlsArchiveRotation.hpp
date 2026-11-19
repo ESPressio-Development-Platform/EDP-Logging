@@ -243,7 +243,8 @@ namespace ESPressio::Logging {
 
         EdlsRollingOutcome<TSlots> result{};
         const auto current = InspectEdlsArchive<TSlots, TPayloadMaximum>(
-            storage, paths);
+            storage,
+                paths);
         if (current.Condition != EdlsArchiveCondition::Unambiguous ||
             current.NextGeneration == 0U) {
             return result;
@@ -392,7 +393,8 @@ namespace ESPressio::Logging {
         );
         const auto used = EdlsHeaderBytes + completeEdlg.size();
         result.Native = storage.ReplaceFile(
-            paths[oldest], SourceBufferView{expected.data(), used});
+            paths[oldest],
+                SourceBufferView{expected.data(), used});
 
         // Independently re-read the protected prior newest even when native
         // replacement failed, so a single failure cannot masquerade as
@@ -414,7 +416,9 @@ namespace ESPressio::Logging {
         }
 
         const auto verification = InspectEdlsSlot<TPayloadMaximum>(
-            storage, paths[oldest], static_cast<std::uint16_t>(oldest));
+            storage,
+                paths[oldest],
+                static_cast<std::uint16_t>(oldest));
         const auto measuredAfter = storage.GetFileSize(paths[oldest]);
         if (verification.Condition != EdlsSlotCondition::Clean ||
             !verification.HasHeader ||

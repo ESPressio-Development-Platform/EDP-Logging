@@ -166,7 +166,9 @@ namespace ESPressio::Logging {
         const auto current = alreadyVerifiedInThisTransaction != nullptr
                                  ? *alreadyVerifiedInThisTransaction
                                  : InspectEdlsArchiveWithScratch<TSlots, TPayloadMaximum>(
-                                       storage, paths, callerScratch);
+                                       storage,
+                                           paths,
+                                           callerScratch);
 
         if (current.Condition != EdlsArchiveCondition::Unambiguous ||
             current.NextGeneration == 0U) {
@@ -251,13 +253,17 @@ namespace ESPressio::Logging {
         }
         const auto used = sealOffset + sealBytes;
         outcome.Native = storage.ReplaceFile(
-            paths[outcome.Slot], SourceBufferView{buffer.data(), used});
+            paths[outcome.Slot],
+                SourceBufferView{buffer.data(), used});
         if (outcome.Native != FileReplaceStatus::Succeeded) {
             outcome.Status = EdlsSuccessorStatus::ProviderRejected;
             return outcome;
         }
         const auto verification = InspectEdlsSlotWithScratch<TPayloadMaximum>(
-            storage, paths[outcome.Slot], header.Slot, callerScratch);
+            storage,
+                paths[outcome.Slot],
+                header.Slot,
+                callerScratch);
         const auto measured = storage.GetFileSize(paths[outcome.Slot]);
         if (verification.Condition != EdlsSlotCondition::Clean ||
             !verification.HasHeader ||
