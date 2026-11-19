@@ -34,3 +34,5 @@ Bootstrap selects the existing **Clock**, **Memory**, **Threading**, **System**,
 The core has **finite, configuration-specific** native ESP32-WROOM-32 throughput, resource and relay-controlled PowerLoss evidence, and GCC/Clang regression coverage. It is not a claim that every Flash provider is interruption-atomic, that all hardware sustains the same rate indefinitely, or that any Flash lifespan is guaranteed.
 
 For the authoritative tested configurations, failures, and unfinished optional coverage, consult [G1–G15 Acceptance](../docs/ACCEPTANCE-G1-G15.MD) and [Qualification Status](../docs/LOGGING-QUALIFICATION-STATUS.MD). The historical execution narrative belongs in the governed Policy living handoff, not the Wiki landing page.
+
+New consumers should start with the complete [PIOArduino console walkthrough](../README.MD#getting-started) and its [integration contract](../docs/BASIC-CONSOLE-INTEGRATION.MD). This profile emits real generated records synchronously; it does not enable a queue or persistent log sink.

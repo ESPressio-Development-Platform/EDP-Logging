@@ -1,5 +1,12 @@
 # Changelog — EDP-Logging
 
+## Complete consumer walkthrough — unreleased 0.1.0
+
+- Added a complete source-led PIOArduino application for governed LogRecord capture and typed JSON console output.
+- Included schema generation, committed boot identity, canonical Clock composition, lazy severity sites, exact capacities and explicit failure handling.
+- Expanded the README dependency tree recursively and documented the application-only provider closure and synchronous console contract.
+- Runtime, package versions and existing demos remain unchanged.
+
 ## Demo dependency portability — unreleased0.1.0
 
 - PlatformIO demos now resolve library dependencies from explicit GitHub URLs.

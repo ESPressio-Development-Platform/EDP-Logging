@@ -6,7 +6,7 @@ owners and no mandatory dependency in the core package. All selected
 release builds and tests passed; dated pin snapshots below remain
 historical evidence.
 
-**Implementation baseline:** Logging is published on `main` and the retained `feature/logging-v1` branch. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. The conditional package graph below must be verified against the actual header profile and published owner revisions. The complete cross-repository manifest pin scan remains a separate, explicitly scoped acceptance check; historical notes alone do not certify all optional profiles.
+**Implementation baseline:** Logging is published on `main`; feature-branch references below are historical snapshots. **Package:** 0.1.0. The dependency graph is conditional on the headers and Bootstrap capabilities selected by the application. The graph retains dated audits as historical implementation provenance. The current implementation surface is defined by [architecture](docs/ARCHITECTURE.MD), the [G1–G15 owner matrix](docs/ACCEPTANCE-G1-G15.MD), and the current activation summary below. The conditional package graph below must be verified against the actual header profile and published owner revisions. The complete cross-repository manifest pin scan remains a separate, explicitly scoped acceptance check; historical notes alone do not certify all optional profiles.
 
 A pinned [current G14 owner and manifest-branch baseline](docs/DEPENDENCY-OWNER-BASELINE.MD) documents directly relevant repository heads, source-import owners, branch mismatches and the exact limits of cross-repository coverage. [Optional G12 Serial output](docs/SERIAL-OUTPUT-INTEGRATION.MD) is a downstream Serial-to-Logging feature, not a default Logging dependency.
 
@@ -701,3 +701,25 @@ Security/mesh_v1 and Persistence closure; those package-resolution edges
 do not introduce Security or a Serial reverse edge into Logging's abstract
 production headers. The all-main Platform-ESP-IDF integration remains a
 separate task.
+
+## Complete basic console application profile — 19 November 2026
+
+The root [source-led PIOArduino walkthrough](README.MD#getting-started)
+imports LogRecordSourceAssembly and GeneratedLogRecordWireProjection. Its
+recursive library closure is the README Dependencies tree; it does not import
+Threading/admission/queue/persistent-log archive facilities. Application bootstrap
+additionally selects Persistence's NvsKeyValueStorage from Persistence-ESP-IDF
+for identity metadata, Portable Memory byte operations and the qualified native
+Platform-ESP-IDF timebase feeding the canonical Clock.
+
+The explicit provider package pin 87f9a71918be0ac606b5acc2479204fbe45b77db
+resolves Platform, Memory, Security (mesh_v1), Persistence, System and Clock
+through its package metadata. Security resolves System/Platform/Memory.
+Persistence-ESP-IDF's imported NVS header consumes Persistence and Memory;
+those edges are declared explicitly in the application even though that owner
+does not currently declare them in a library.json. All foundations and their
+recursive closure are listed above/in the root tree. These concrete package
+edges remain application-only: no mandatory Logging -> Security, Mesh, Serial
+or native SDK dependency is introduced. NVS stores the boot identity counter,
+not log records. The full-record JSON projection imports Serialisation's
+ClockEra adapter and therefore selects its optional Clock edge.

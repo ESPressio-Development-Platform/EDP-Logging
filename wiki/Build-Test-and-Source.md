@@ -98,3 +98,44 @@ No global Git settings or demo credentials were introduced.
 These are build/recipe qualifications. The earlier independent UART,
 archive, finite-load and relay PowerLoss receipts retain their original
 source/profile scope; no new MCU flashing occurred in this migration.
+
+## Complete root README application — 19 November 2026
+
+The [progressive consumer walkthrough](../README.MD#getting-started) now
+shows all five project files for actual governed source capture and typed
+JSON console output under PIOArduino. It includes the GitHub-only manifest,
+owner-generated diagnostic schema, committed identity metadata, canonical
+Clock composition, fixed resource capacities, severity sites and exact
+error disposition. The [profile contract](../docs/BASIC-CONSOLE-INTEGRATION.MD)
+distinguishes synchronous console acceptance from delivery or durable logs.
+
+Final RPI400 run **20261119T115428-a557d627 PASS** verifies:
+
+- Extraction of the exact README manifest, schema hook, two application
+  headers and Arduino main, followed by actual ESP32 firmware compilation
+  and ELF/binary linkage. Tested file bytes match the published source blocks.
+- Both GCC and Clang execution of the same application against real EDP
+  headers/providers with scripted native NVS/MAC/console services and a
+  deterministic Clock-compatible test timebase.
+- Eleven cases per compiler: initial identity, existing incarnation advance,
+  corrupt/zero/exhausted counter, commit/readback failure, NVS init/open
+  failure, MAC failure and partial console acceptance.
+- Exact JSON envelope and field checks: Info/Warning, attempts1/2,
+  arguments[1]/[2], message1/0/3, nonzero incarnation, canonical time,
+  unsynchronized provenance, fingerprint and reserved record facts.
+  Optional synchronized field7 is correctly absent.
+- README relative links, direct discovery of every current docs page,
+  whitespace and unchanged runtime/package/demo/test source.
+
+Earlier receipts remain accurate: 20261119T114630-05d1df5f failed while
+narrowing the source bundle's language configuration, and
+20261119T114751-05dedd6e rejected an incorrect tutorial SynchronizedReading
+constructor. Both defects were corrected in the application example.
+20261119T114937-7056aecd passed the initial complete firmware;
+20261119T115146-9e289250 passed initial exact README firmware extraction;
+20261119T115248-66003b3d passed the initial scripted application cases.
+The final run supersedes their example bytes and strengthens JSON assertions.
+
+This work did not upload firmware, execute the application on a physical
+device, measure UART throughput or requalify durable log archives. NVS is
+used for the runtime incarnation, not as a log sink.
