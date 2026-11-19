@@ -1,5 +1,7 @@
 # Logging qualification status
 
+Current release assessment: [19 November acceptance](ACCEPTANCE-G1-G15.MD#current-release-assessment--19-november-2026). Earlier dated outcomes and failures below remain historical evidence.
+
 Maintained source: the checked-out Logging branch; authoritative source revisions and main publication are tracked below. All EDP library versions remain **0.1.0**.
 Execution host: authorised RPI400. Hosted GitHub Actions is not a coverage
 dependency; the user confirmed its monthly action budget was exhausted.
@@ -303,3 +305,53 @@ at 100 records/s and verified the retained LittleFS data and raw NVS ACK472.
 It uses a 20 ms coordinator mutex budget with the 300 ms producer deadline.
 GCC and Clang passed 34 runners each, and Python passed 40 tests. See
 [scoped workload qualification](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD#18-november-2026--scoped-252-slot-workload-qualification).
+
+## Final integrated release qualification — 19 November 2026
+
+The [current acceptance assessment](ACCEPTANCE-G1-G15.MD#current-release-assessment--19-november-2026)
+records completion of the selected release review and maps the original
+G1–G15 requirements and V2 policy obligations to source and evidence.
+Library baseline 9a7493e031054b8ac8ebfc8db6aa62ea134f931f passed the
+complete 34 GCC/34 Clang/40 Python matrix in
+20261119T070022-0e9b963e and 20261119T070022-a2a8c75f.
+All eight selected downstream Serial cases passed in
+20261119T070603-eb119fe3. Later production edits are token-identical
+comments; the manifest and new demo changes have separate builds.
+
+Native source build 20261119T071404-141e5cc1 and guarded workload/raw-media
+run 20261119T071435-0871a72d passed the 30,000 scheduled-record/100-per-second
+profile. All 30,129 phase records retired and completed, ACK472, with
+zero missed admissions or queue contentions. Independent media verified
+124 retained original15-field records and LittleFS/NVS CRCs, incarnation7.
+The complete original4MiB image was restored and verified; target OFF.
+See the [workload ledger](LONG-MANAGED-WORKLOAD-QUALIFICATION.MD) for resources,
+latencies, exact configuration and historical failures.
+
+The coordinator's Bootstrap-owned retained claim passed host UBSan and
+actual WROOM 23/23 in 20261119T065003-ce4c4af8 and
+20261119T065022-6c55ef18. It permits explicit reconciliation after
+execution quiescence without repeated sink delivery. Queue wait budgets
+retain the Memory/wake provider scope stated in the coordinator contract.
+
+All twelve builds across four demo families passed. The new independent
+async payload example passed native, Arduino IDE and PlatformIO Arduino
+in 20261119T075417-5f1e5abd, 20261119T075931-d1708d46 and
+20261119T075931-4c9d7d3a. Guarded WROOM execution
+20261119T080249-d436698d returned result0, confirmed payload independence
+and owner teardown, then restored and verified the full original image.
+
+The first final-sweep native build 20261119T070022-b3785931 failed in a
+shared SCons compiledb-cache replacement after linking. Its dependent
+hardware job stopped before flashing. The original demo sweep
+20261119T070022-2e0dcaff passed framing Arduino IDE and then failed from
+uncontrolled framework development-package resolution. Explicit
+Arduino3.3.12/IDF5.5 bundle pins and separate caches resolved those build
+conditions. Corrected native build141e5cc1 and demo sweep
+20261119T071436-bca1f94d passed. Preserve all original negative receipts.
+
+The previous exact sealed PowerLoss and native async-fault receipts
+remain independent qualifications. No new relay-cut claim follows from
+the final workload or example execution. The selected release is ready
+for approval; no tag or version mutation has occurred. The
+[current living handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-19/2026-11-19-06-45-EDP-Logging-Release-Completion.MD)
+owns exact publication and safe continuation state.

@@ -1,5 +1,14 @@
 # Build and test qualification
 
+The [19 November release assessment](../docs/ACCEPTANCE-G1-G15.MD#current-release-assessment--19-november-2026)
+supersedes the historical open-work statements below. Current qualification
+passed all 68 Logging host runners,40 Python tests,eight consuming Serial
+cases and all12 demo builds. The current retained-claim and owned-async
+WROOM executions, final five-minute workload and independent raw-media
+receipts are recorded there with exact executable revisions and scope.
+Declaration/reference and compiler-control reconciliation is complete
+for this selected release. No hosted Actions execution is claimed.
+
 Native GCC and Clang suites include negative compile cases, canonical wire, Memory/Threading integration, queue lifetime, EDLS capacity/rolling/recovery and Python media audits. Additional ESP-IDF/Arduino firmware builds and RPI400 relay-controlled hard power cuts are separate qualification dimensions.
 
 ## Boundaries
@@ -15,7 +24,7 @@ The newly maintained `demos/FramingAndInstrumentation/` family contains separate
 
 Published `EDP-Logging/main` code-equivalent baseline `9fea51b0bdebcd8a4206628b1e1def81ff620381`, branch version `0.1.0` with no tag. Host/native job `20261112T092223-3f2f828e` PASSED **83/83**: 34 GCC + 34 Clang Logging tests, eight optional downstream Serial/Serial-ESP-IDF feature host tests, and all three demo families compiled/linked for both PlatformIO Arduino-ESP32 and ESP-IDF, plus Python. Exact final Python docstring/CLI description changes passed 40 tests. The separate 9–10 Nov and earlier physical WROOM finite-rate and genuine relay PowerLoss receipts remain distinct from these build-only 12 Nov results.
 
-Current [qualification status](../docs/LOGGING-QUALIFICATION-STATUS.MD), [acceptance matrix](../docs/ACCEPTANCE-G1-G15.MD) and [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-09/2026-11-09-09-29-EDP-Logging-Dependency-First-Reintegration.MD) distinguish exact tested profiles, historical negatives, pending full V2 source member audit and optional providers. The RPI400 lock was absent and MCU power OFF at final verification.
+Current [qualification status](../docs/LOGGING-QUALIFICATION-STATUS.MD), [acceptance matrix](../docs/ACCEPTANCE-G1-G15.MD) and [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-09/2026-11-09-09-29-EDP-Logging-Dependency-First-Reintegration.MD) distinguish exact tested profiles, historical negatives, the then-pending V2 source member audit and optional providers. The RPI400 lock was absent and MCU power OFF at final verification.
 
 ## Maintained workflow dependency selection
 

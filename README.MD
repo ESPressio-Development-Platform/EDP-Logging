@@ -44,7 +44,7 @@ component, add the library's `src/` headers to its include path.
 
 The Arduino-ESP32 [framing demo manifest](./demos/FramingAndInstrumentation/PlatformIO_Arduino/platformio.ini)
 shows the qualified PIOArduino revision and the C++20 flags. Copy the
-`platform`, `build_flags` and `build_unflags` settings into your ESP32
+`platform`, `platform_packages`, `build_flags` and `build_unflags` settings into your ESP32
 environment, then run `pio run -e esp32dev` with the demo's board environment.
 
 The default `library.json` declares no mandatory EDP library dependencies. Frame writing imports `logging/EdlgFrameWriter.hpp` and takes the application-selected EDP-Memory ByteOperations provider. The umbrella includes the reader and wire vocabulary. Additional dependencies are activated by selecting individual Logging facilities; see [Dependencies](#dependencies) before importing opt-in headers.

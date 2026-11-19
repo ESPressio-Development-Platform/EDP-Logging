@@ -1,5 +1,7 @@
 # Five-minute managed workload qualification
 
+Current release assessment: [19 November acceptance](ACCEPTANCE-G1-G15.MD#current-release-assessment--19-november-2026). Earlier dated outcomes and failures below remain historical evidence.
+
 This profile extends the existing finite managed producer/worker fixture to15000 sources per producer,30000 scheduled records over300seconds at an offered100records/s. It reuses the same source/representation Memory topologies,128-slot queue, one DedicatedCoordinator, generated full15-field record codec,64-record batch, strict LittleFS/NVS archive,500ms dwell, applicationO2, enabled assertions and160MHz. No production API or provider changes; all versions remain0.1.0.
 
 Select esp32dev-batch-worker-500-o2-30000. Native command verification requires the actual15000U per-producer define; short and long profiles cannot borrow each other's compile proof. The original2000/6000 modes remain selectable. The16-bit fixture asserts its finite ticket horizon;30161 is the last permitted ticket after pressure refusals.
@@ -169,3 +171,43 @@ native read per successor than the matched baseline. The result
 qualifies the named workload and records prior intermittent failures
 separately. Future failures can now be diagnosed from the typed
 retirement receipt.
+
+## Final integrated profile — 19 November 2026
+
+Executable library baseline9a7493e031054b8ac8ebfc8db6aa62ea134f931f
+built in 20261119T071404-141e5cc1. Factory SHA-256:
+98913359cd8d37cc65c14bf9f1f4fcf58630e22983ecbc60effd0c1f46f36030.
+
+Guarded physical/raw-media run20261119T071435-0871a72d passed. It
+retains the selected252-slot,64-record,500ms,160MHz,O2/assertions2,
+20ms coordinator/300ms producer configuration on the100Hz target.
+
+| Observation | Result |
+| --- | ---: |
+| Scheduled records, two50Hz producers | 30,000 |
+| Total phase records retired/completed | 30,129 |
+| Drain-inclusive elapsed | 300.881720s |
+| Missed admissions / queue contentions | 0 / 0 |
+| Sampled backlog peak | 75 |
+| Minimum sampled free heap | 133,564B |
+| Worker / main stack headroom reported by fixture | 3,340 / 4,936 |
+| Producer0 / producer1 stack headroom | 2,884 / 2,892 |
+| Last6,000 ACK p50 / p95 / p99 | 803.710 / 1110.722 / 1261.166ms |
+| All30,000 ACK minimum / maximum / mean | 365.252 / 1480.345 / 796.810ms |
+| Largest schedule lateness | 81.494ms |
+| Independent retained originals, complete15 fields | 124 |
+| NVS ACK / incarnation | 472 / 7 |
+
+Independent parsing passed the LittleFS/archive/frame validation and NVS
+page, entry and blob CRCs. Raw media are retained under
+/srv/espressio/scratch/codex-logging-finish-20261119-c621/workload-private.GdM4z5YL.
+The full original4MiB flash was restored and independently verified,
+then the integrated target was powered OFF. The exact receipt finished
+PASS, exit0.
+
+This is the final finite-profile repeat, with no indefinite throughput,
+flash-lifetime, global owner-wait or arbitrary interruption claim.
+Historical5ms failures and their unknown underlying queue cause remain
+documented above. The new typed reclaim diagnostics and explicit
+Bootstrap-owned claim reconciliation preserve any future failure for
+safe investigation without repeating sink delivery.

@@ -1,8 +1,98 @@
 # EDP-Logging G1–G15 acceptance and V2 owner review
 
-**Status:** Logging and its Serial companions are integrated on main. The 18 November evidence below records the latest source and validation. The 13 November checkpoint records the prior ByteOperations and UART qualification. The earlier G14 feature audits remain dated evidence. All versions remain `0.1.0`. This is a **requirement-to-evidence reconciliation**, not certification that all gates or V2 requirements are complete. The original gate definitions and locked D1–D13 design are in the [15 October living architecture handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-10-15/2026-10-15-11-46-EDP-Logging-Architecture-Living-Handoff.MD). Their 2026-10-15 blocker labels are historical: later source and evidence supersede them. The current [qualification ledger](LOGGING-QUALIFICATION-STATUS.MD) and [immutable capacity contract](IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD) provide concrete test receipts.
+## Current release assessment — 19 November 2026
 
-For the inspected newest working branches, optional provider activation and manifest-pin differences, see [G14 conditional owner and transitive baseline](DEPENDENCY-OWNER-BASELINE.MD). It now includes a 37-repository source/manifest inventory, 12 dependency-branch-pin comparisons, representative owner contract tests and four independently successful current-source ESP-IDF/Arduino builds; these do not certify all provider combinations or all 37 repositories for every V2 source convention.
+The selected C++20 Logging release profile is ready for release approval.
+The review reconciled the production headers and their public, internal
+and private reference surfaces, the affected owner contracts, the original
+G1–G15 requirements, and the maintained build/demo surface. Versions remain
+0.1.0. Tagging remains subject to the established release approval.
+
+The reviewed library executable baseline is
+9a7493e031054b8ac8ebfc8db6aa62ea134f931f. Subsequent production-header
+comments preserve the exact Clang raw-token stream. The qualified fourth
+demo was introduced at db0bdf797756709b51ed8c926af4f6a09671c4fa.
+Documentation, demo framework pins and workflow changes have their own
+qualification below. The earlier dated sections preserve historical
+failures and former open work; this section supersedes their current-status
+claims.
+
+| Final qualification | Actual result and receipt |
+| --- | --- |
+| Complete Logging host matrix | 34 GCC runners and 40 Python tests, 20261119T070022-0e9b963e; 34 Clang runners, 20261119T070022-a2a8c75f; all PASS |
+| Consuming Serial owners | Eight GCC/Clang Serial and Serial-ESP-IDF cases, 20261119T070603-eb119fe3, PASS |
+| Retained coordinator claim | GCC/Clang/UBSan and negative compile checks, 20261119T065003-ce4c4af8; actual WROOM 23/23 and independent UART frame CRC, 20261119T065022-6c55ef18, PASS |
+| Native workload build | 20261119T071404-141e5cc1, PASS; factory SHA-256 98913359cd8d37cc65c14bf9f1f4fcf58630e22983ecbc60effd0c1f46f36030 |
+| Five-minute 100 records/s profile | 20261119T071435-0871a72d, PASS; 30,000 scheduled plus 129 phase records, zero admission misses/contentions, 300.881720 s including drain |
+| Independent durable media | Same guarded run; 124 retained originals, all 15 fields, LittleFS frame/archive checks and NVS ACK472/incarnation7 with page/entry/blob CRCs, PASS |
+| Strict sealed physical power cut | 20261118T125849-63124424, PASS; externally verified 8.277 s OFF and POR, 128 protected original records/all 15 fields, ACK4/incarnation7 |
+| Native async lifecycle/fault profile | 20261118T140753-4d196cfd, PASS; running cancellation, active shutdown refusal, pre-capacity-return release fault and retained-token retry |
+| Four demo families, three targets each | All 12 builds PASS. Original families: framing Arduino IDE in 20261119T070022-2e0dcaff and eight corrected sweep cases in 20261119T071436-bca1f94d. OwnedAsyncSink: native 20261119T075417-5f1e5abd, Arduino IDE 20261119T075931-d1708d46 and PIO Arduino 20261119T075931-4c9d7d3a |
+| OwnedAsyncSink device execution | 20261119T080249-d436698d, result0, PASS; copied source lifetime, terminal callback result, independent release and owner teardown |
+| Production declaration/reference reconciliation | 42 production headers; 1,024 header/name entries, 1,220 primary Logging locations and explicit Serialisation/Clock/Bounded extension review; corrected source comments and semantic reference pages. Counts corroborate source review and navigation; they are not a substitute for contract reasoning |
+| Compiler-definition inventory | All 34 maintained EDP controls documented with defaults, constraints and activation; SDK controls remain owned by their selected framework |
+| Physical appliance recovery | Each named guarded physical run restored and verified the original full 4 MiB image and powered the integrated target OFF |
+
+### V2 policy disposition
+
+| Policy | Disposition for this release work |
+| --- | --- |
+| ABSTRACTION / COMPOSITION | Existing abstract owners and explicitly selected providers reused; concrete SDK wiring is application/fixture composition |
+| COMPONENT_REUSE | Existing Memory byte operations, pool/lease, Threading Worker/Task/synchronization, canonical Clock, codecs and Persistence contracts reused; catalogue updated for the external coordinator claim |
+| CODE_CONVENTION | Typed operational results and Is predicates, explicit enum values/comments, source lifetime comments and multi-argument layout reconciled; comment/layout repairs checked for token identity |
+| CPP_VERSION / PIOARDUINO | C++20; pinned PIOArduino platform, Arduino3.3.12 and IDF5.5 bundle; all 12 demo builds qualified |
+| CIRCULAR_DEPENDENCIES / DEPENDENCIES / DEPENDENCY_GRAPH | Conditional production closure and manifest cycle check reconciled with source imports; owner baseline and graph identify exact pins and application-only edges |
+| DETERMINISM / MONOTONIC_TIME | Bootstrap-selected finite capacities and canonical Clock deadlines; source admission uses Memory NoWait. Owner operations retain their explicit provider wait contracts |
+| ISR | Managed queue, allocation, Task delivery and storage paths require ordinary execution context; no new ISR contract |
+| OPTIMISATION | Exact-byte successor readback and protected retirement order preserved; selected native O2/assertions2/160MHz workload qualified |
+| TEST_COVERAGE | Full host matrix, downstream cases, targeted UBSan, native lifecycle/fault, raw-media, finite-load and real relay receipts retained with negatives |
+| DOCUMENTATION | Concise consumer README with focused normative docs; current lifecycle, failure and storage boundaries reconciled |
+| WIKI_STRUCTURE / WIKI_REFERENCE / WIKI_MAINTENANCE | Branch-local navigation and public/internal/private references reconciled with production declarations and tooling; compiler controls and resource recovery documented |
+| DEMOS | Four logically focused families, all three required targets; async ownership example closes the missing consumer example |
+| GITHUB_ACTIONS | Maintained local workflow recipes include all four families; actual validation ran on authorised RPI400. No hosted execution is claimed |
+| GITHUB_ISSUES | Implementation, audit and qualification tracked under the corresponding Logging issues; current receipts linked to the living handoff |
+| GITIGNORE | Existing OS, IDE and generated PlatformIO exclusions retained; no build artifacts added to the release source |
+| LEGACY | Authorised source-breaking corrections and all identified consumers migrated; no compatibility aliases added |
+| BRANCHING / VERSIONING | Authorised main/feature publication topology retained; version remains0.1.0; no tag produced |
+| HANDOFF | Coherent changes and exact receipts published chronologically in Policy/main; continuation state includes appliance and preserved checkout state |
+
+### Qualification boundaries and follow-up
+
+The selected workload uses 252 queue slots, 64-record batches, 500 ms
+maximum dwell, 160 MHz, O2, enabled level2 assertions, a 20 ms coordinator
+queue-mutex budget and a 300 ms producer deadline on a 100 Hz FreeRTOS
+target. It establishes the finite five-minute profile. The final run
+sampled 133,564 B minimum free heap, worker stack headroom 3,340 B and
+p99 ACK latency 1.261166 s over the last 6,000 records. Full-run ACK
+latency was 365.252–1480.345 ms with mean796.810 ms. Stack figures use the
+fixture's reported units. Separate storage is recommended for substantial
+production logging.
+
+CompleteUntil applies its deadline to queue-mutex acquisitions. Memory
+release and wake retain their provider waits; this is not a global
+shutdown-duration guarantee. The selected Threading immediate-admission
+profile returns a Task after a Worker grant, so native cancel-while-queued
+belongs to an alternate profile. Direct blocked Memory waiter failed-relock
+safety remains [Memory#16](https://github.com/ESPressio-Development-Platform/EDP-Memory/issues/16);
+Logging's selected source path uses NoWait.
+
+Generic Serial-Arduino/USB, native-object raw output, exact arbitrary flash
+GC instruction interruption, indefinite throughput and flash lifespan are
+outside this release profile. G13 native-object dumping is excluded by
+the design. Application-provided Clock synchronization, storage providers,
+capacities and resource budgets require their own qualification.
+
+The older 5 ms ReclaimUnconfirmed failures remain genuine. Their precise
+underlying queue result was not captured and has not been proven. Typed
+ReclaimFailure reporting and externally retained claim recovery now
+preserve and expose the failure without a second sink delivery. The
+qualified 20 ms profile has passing repeated 18 November trials and the
+final 19 November run; these results do not manufacture a diagnosis of
+the earlier failures.
+
+## Earlier requirement-to-evidence reconciliation
+
+The following dated evidence is retained for history. The current assessment above supersedes earlier open-gate and remaining-work statements.
 
 ## Reconciled original gates
 

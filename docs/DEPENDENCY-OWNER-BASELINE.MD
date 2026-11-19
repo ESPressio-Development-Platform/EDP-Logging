@@ -1,5 +1,54 @@
 # Conditional dependency ownership and cross-repository audit (G14)
 
+## Current selected owner baseline — 19 November 2026
+
+The refreshed branch inventory and actual RPI400 checkouts identify these
+selected revisions. The wider leading-tip source/consumer review is
+recorded in the dated sections below. Selection of a validated owner pin
+is explicit and does not assert every alternate branch is interchangeable.
+
+| Repository | Selected revision |
+| --- | --- |
+| EDP-BoundedTopology | 362042c3916d9649759bbe69bf53c920999cdcf8 |
+| EDP-BoundedTypes | 1992b515b9a246477f56eb488ee482b9b6e75fe2 |
+| EDP-Clock | 0d799aa88e623c5dae87c866e442b69068ee5a54 |
+| EDP-Localisation | 8b826f4c9becfa34eb3a885361f70033f8ff3f22 |
+| EDP-Memory | 9c5a994eb1e101b80a6fb0e1357c0add0e3a38c4 |
+| EDP-Persistence | 6f7134bb945f3f36d59a222cab4dc757c00cc14a |
+| EDP-Persistence-Arduino | b4b49461fa085892ba53ae8f3ba8770a5a849bb2 |
+| EDP-Persistence-ESP-IDF | d3e1febe6565ec59ca3f23324719e1a3279ac09d |
+| EDP-Platform | ee325662404576ab8251b035d78a67abdca21610 |
+| EDP-Platform-ESP-IDF | adc4164031016c200ad88d742fc4f05c86d66833 |
+| EDP-Platform-FreeRTOS | 2a52ba81e8509673981dd342173b3a9fb986b770 |
+| EDP-Platform-Portable | 267411bf319a269883d2273928ad19fc05e2f324 |
+| EDP-Serial | b021ff65fb405937ce2d097d17abe0d59422556e |
+| EDP-Serial-ESP-IDF | 11bca276fa6a851bd475cd373a4ffbcc1b15a287 |
+| EDP-Serial-Arduino | 99b5f53b558fce1c2fa7cc61e29f4f208059a880 (deferred stub; not linked) |
+| EDP-Serialisation | f7c99b20578188636743120fcbc49e69f5021a2c |
+| EDP-System | c69d4b082db5dc5227cd332f4578a067ad64f662 |
+| EDP-Threading | 1c5ff530c7051d0ccb9480c9a46fbb3cd9424750 |
+
+EDP-Platform-ESP-IDF's leading mesh_v1 source equals the selected pin
+under src; its manifest selects a newer Clock branch. Main lacks the
+qualified timing/atomic providers. The explicit pin is retained and
+composed with the Clock revision above. No owner code changed in the
+19 November tranche. The full 68 Logging host runners, 40 Python tests,
+eight consuming Serial cases and 12 demo builds passed on this selected
+closure. Native workload, UART, retained-claim and new async-example
+receipts appear in the [acceptance matrix](ACCEPTANCE-G1-G15.MD).
+
+The coordinator now accepts an optional Bootstrap-owned ConsumerClaim;
+this resolves the private-claim recovery finding in the 18 November
+contract table. After execution quiescence, Bootstrap can reconcile
+queue retirement without invoking sinks again. CompleteUntil budgets
+queue mutex waits only. Selected Memory release/wake contracts remain
+independent. Native retained-claim recovery passed23/23, while the
+separate immediate-admission async lifecycle profile passed its running
+cancellation, shutdown and release-fault cases. Alternate queued-Task
+native cancellation and direct blocked Memory waiters remain separate
+scopes, with no general end-to-end duration guarantee.
+
+
 EDP-Logging's root C++20 umbrella intentionally has **no mandatory EDP dependencies**. Importing opt-in source, generated record, queue, codec, worker, persistence or host tools imposes their respective direct owner contracts. This document fixes the **reviewed source revisions and boundaries** for those profiles; it is not a global certification of every build combination across the ESPressio organisation.
 
 ## Source-based direct dependency inventory
