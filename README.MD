@@ -179,6 +179,12 @@ See also [Dependency Graph](./DEPENDENCY_GRAPH.MD) and the [internal developer W
 
 ## Examples and testing
 
+PlatformIO demo projects declare their library dependencies as GitHub URLs
+in lib_deps. Run their pio commands directly with the repository-owned demo
+source/assets present; dependency resolution does not require sibling
+library checkouts. See the [demo index](./demos/README.MD).
+
+
 Buildable applications are indexed in [demos/README.MD](./demos/README.MD), with all three target source layouts documented in their own READMEs. The [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) core example has independently passed GCC/Clang execution and both PlatformIO Arduino-ESP32 and ESP-IDF compile/link builds on the approved RPI400; it does not constitute generated-record or persistence qualification. The repository's `tests/` tree contains GCC/Clang host validations, generated-schema and CBOR tests, bounded queue and recovery negatives, and separate physical ESP32 HIL fixtures.
 
 A typical host prerequisite is to provide a **pinned sibling source dependency root** for the opt-in tests:

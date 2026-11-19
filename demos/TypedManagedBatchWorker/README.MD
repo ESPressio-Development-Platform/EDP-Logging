@@ -99,3 +99,30 @@ GCC/Clang UBSan, both lifecycle atomic bindings and contended scope/drain tests:
 Earlier compile and harness-initialisation failures are preserved in the living
 handoff. All execution used RPI400, with no GitHub Actions coverage dependency.
 Private UART and images remain on the appliance.
+
+## PlatformIO dependency setup
+
+The two PlatformIO manifests declare GitHub URLs in lib_deps.
+Keep this demo's repository-owned source and project assets together,
+then run either command from the repository root:
+
+```sh
+pio run -d demos/TypedManagedBatchWorker/PlatformIO_Arduino
+pio run -d demos/TypedManagedBatchWorker/PlatformIO_ESP-IDF
+```
+
+PlatformIO downloads the libraries; sibling library checkouts and local
+dependency path overrides are unnecessary. Arduino-ESP32 selects the
+qualified3.3.12 framework and ESP-IDF5.5 library bundle. Project-owned
+partition files and build hooks are resolved within the demo itself.
+
+The native Platform-ESP-IDF provider is selected by GitHub commit
+87f9a71918be0ac606b5acc2479204fbe45b77db, whose provider source matches the
+earlier qualified adc4164 snapshot. Its manifest selects Clock/main.
+The separate native provider main reintegration remains outstanding;
+this explicit pin does not claim it is already merged.
+
+PlatformIO's preparation hook generates the schema using the downloaded
+Logging fixture tool and Localisation owner. No external generator checkout
+or manually supplied generated-header include path is needed. The Arduino
+IDE helper retains its documented separate schema-generation setup.

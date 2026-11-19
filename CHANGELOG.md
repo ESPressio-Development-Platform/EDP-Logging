@@ -1,5 +1,11 @@
 # Changelog — EDP-Logging
 
+## Demo dependency portability — unreleased0.1.0
+
+- PlatformIO demos now resolve library dependencies from explicit GitHub URLs.
+- Removed symlink and sibling-header dependency bypasses and reconciled consumer build guidance.
+- Arduino recipes retain the qualified framework/library bundle; native provider selection stays explicit.
+
 All notable, implemented changes to the ESPressio Logging library are recorded here by **public contract and supported integration profile**, not by agent sessions. Repository versions remain **`0.1.0`** during this development; entries below describe the current **unreleased 0.1.0 development baseline**, not an already tagged or generally certified release.
 
 ## Unreleased — development baseline 0.1.0

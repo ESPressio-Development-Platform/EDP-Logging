@@ -684,3 +684,20 @@ ordinary synchronization, topology-owned Worker and Memory ByteOperations.
 It adds no production dependency edge. Neither Persistence, Mesh,
 Serial nor generated diagnostic schemas are activated by this small
 encoded-payload example.
+
+## PlatformIO demo source resolution
+
+The demo manifests express their selected direct and supporting owner
+closure through explicit GitHub lib_deps URLs. The library's production
+dependency activation above is unchanged. Project-local source, partition
+files and framework setup hooks are application assets; dependencies are
+downloaded by PlatformIO.
+
+The storage, managed-worker and asynchronous demo applications pin
+Platform-ESP-IDF to87f9a71918be0ac606b5acc2479204fbe45b77db. Its source
+under src matches adc4164031016c200ad88d742fc4f05c86d66833 and its package
+manifest selects Clock/main. The concrete package also declares its
+Security/mesh_v1 and Persistence closure; those package-resolution edges
+do not introduce Security or a Serial reverse edge into Logging's abstract
+production headers. The all-main Platform-ESP-IDF integration remains a
+separate task.

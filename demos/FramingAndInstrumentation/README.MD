@@ -12,7 +12,7 @@ All storage is stack/static, with a 64-byte frame array and no runtime heap, tas
 - `PlatformIO_Arduino` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_Arduino`. `EdpLoggingFramingDemoResult` is a volatile result sink, zero on success.
 - `PlatformIO_ESP-IDF` — run `pio run -d demos/FramingAndInstrumentation/PlatformIO_ESP-IDF`. `app_main` stores the check outcome in the externally debugger-visible `EdpLoggingFramingDemoResult` for debugging.
 
-**Build success does not prove the application executed on hardware.** The examples have deliberately no serial transport or persistent output; the higher-level full Logger demos own those facilities. The selected `EDP-Logging` package is the relative sibling source of each PlatformIO application. C++20 and zero mandatory EDP library dependencies apply to this minimal umbrella. All package versions remain 0.1.0.
+**Build success does not prove the application executed on hardware.** The examples have deliberately no serial transport or persistent output; the higher-level full Logger demos own those facilities. The selected `EDP-Logging` package is fetched from the GitHub URL declared by each PlatformIO application. C++20 and zero mandatory EDP library dependencies apply to this minimal umbrella. All package versions remain 0.1.0.
 
 
 Frame writing uses the explicitly selected EDP-Platform-Portable
@@ -22,3 +22,19 @@ the PlatformIO manifests. Arduino IDE builds need the same libraries
 available in the library search path.
 
 The PlatformIO Arduino project explicitly selects Arduino-ESP32 3.3.12 and its ESP-IDF 5.5 library bundle, matching the managed Logging demo recipes. The PIOArduino platform revision and C++20 flags are fixed in its manifest.
+
+## PlatformIO dependency setup
+
+The two PlatformIO manifests declare GitHub URLs in lib_deps.
+Keep this demo's repository-owned source and project assets together,
+then run either command from the repository root:
+
+```sh
+pio run -d demos/FramingAndInstrumentation/PlatformIO_Arduino
+pio run -d demos/FramingAndInstrumentation/PlatformIO_ESP-IDF
+```
+
+PlatformIO downloads the libraries; sibling library checkouts and local
+dependency path overrides are unnecessary. Arduino-ESP32 selects the
+qualified3.3.12 framework and ESP-IDF5.5 library bundle. Project-owned
+partition files and build hooks are resolved within the demo itself.

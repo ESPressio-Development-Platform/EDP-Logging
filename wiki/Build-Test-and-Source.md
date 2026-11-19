@@ -68,3 +68,11 @@ of the original full flash image. The native workflow covers eight
 PlatformIO combinations; RPI400 also built all four Arduino IDE sketches.
 See the demo README for exact receipts and [async ownership](../docs/ASYNC-COPYING-TASK-SINK.MD)
 for the provider-wait and failure-preservation contracts.
+
+## GitHub-resolved PlatformIO demos
+
+Current demo manifests fetch library dependencies through GitHub lib_deps
+URLs. The source/profile migration and exact isolated-build receipts are
+tracked in the [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-19/2026-11-19-09-25-Logging-Estate-Demo-GitHub-Dependencies.MD).
+These recipe builds are separate from earlier physical UART/archive
+qualification. No fresh hardware execution is implied.

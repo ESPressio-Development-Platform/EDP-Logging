@@ -15,7 +15,7 @@ Task admission uses AbandonImmediately and reports refusal explicitly.
 
 ## Building
 
-Check out the selected owners beside EDP-Logging. The
+PlatformIO installs the selected owners from the manifest's GitHub URLs. The
 [dependency baseline](../../docs/DEPENDENCY-OWNER-BASELINE.MD) records the
 qualified revisions, including the native Platform-ESP-IDF provider pin.
 This example directly selects Clock, Memory, Threading, Platform,
@@ -73,3 +73,25 @@ Guarded WROOM execution 20261119T080249-d436698d passed with result 0.
 The original full 4 MiB flash image was restored and verified, and the
 board was powered off. The Arduino results are build qualifications;
 the execution receipt applies to the ESP-IDF image.
+
+## PlatformIO dependency setup
+
+The two PlatformIO manifests declare GitHub URLs in lib_deps.
+Keep this demo's repository-owned source and project assets together,
+then run either command from the repository root:
+
+```sh
+pio run -d demos/OwnedAsyncSink/PlatformIO_Arduino
+pio run -d demos/OwnedAsyncSink/PlatformIO_ESP-IDF
+```
+
+PlatformIO downloads the libraries; sibling library checkouts and local
+dependency path overrides are unnecessary. Arduino-ESP32 selects the
+qualified3.3.12 framework and ESP-IDF5.5 library bundle. Project-owned
+partition files and build hooks are resolved within the demo itself.
+
+The native Platform-ESP-IDF provider is selected by GitHub commit
+87f9a71918be0ac606b5acc2479204fbe45b77db, whose provider source matches the
+earlier qualified adc4164 snapshot. Its manifest selects Clock/main.
+The separate native provider main reintegration remains outstanding;
+this explicit pin does not claim it is already merged.

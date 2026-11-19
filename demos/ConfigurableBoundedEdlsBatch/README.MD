@@ -29,7 +29,7 @@ Run bash demos/ConfigurableBoundedEdlsBatch/build.sh all from EDP-Logging,
 or select espidf, platformio-arduino or arduino-ide. EDP_PIO_COMMAND,
 EDP_ARDUINO_CLI_COMMAND and EDP_DEMO_JOBS select installed build executables
 and finite parallelism. Arduino IDE/CLI needs Arduino-ESP32 3.3.12 and
-C++20 plus the same sibling-owner include paths supplied by build.sh.
+C++20 and the manifest's explicit GitHub library dependencies. The Arduino CLI helper retains its separate selected-owner setup.
 The PlatformIO projects pin the qualified pioarduino platform revision.
 The custom partition table is supplied for all three targets.
 
@@ -106,3 +106,25 @@ These are normal-boot demonstrations, not electrical-cut or endurance proof.
 The archive accepts a trailing byteCapacity constructor argument before initialisation. BoundedEdlsBatch respects the resulting smaller per-segment share during admission and deadline service. The bound includes EDLS files, the temporary successor and the 40-byte ACK value; provider-internal physical allocation overhead needs a separate application reserve. See [consumer and library-expansion contract](../../docs/IMMUTABLE-PERSISTENCE-BYTE-CAPACITY.MD).
 
 The shared three-target demonstration explicitly selects 640 logical bytes. This is an example application choice, not a platform default.
+
+## PlatformIO dependency setup
+
+The two PlatformIO manifests declare GitHub URLs in lib_deps.
+Keep this demo's repository-owned source and project assets together,
+then run either command from the repository root:
+
+```sh
+pio run -d demos/ConfigurableBoundedEdlsBatch/PlatformIO_Arduino
+pio run -d demos/ConfigurableBoundedEdlsBatch/PlatformIO_ESP-IDF
+```
+
+PlatformIO downloads the libraries; sibling library checkouts and local
+dependency path overrides are unnecessary. Arduino-ESP32 selects the
+qualified3.3.12 framework and ESP-IDF5.5 library bundle. Project-owned
+partition files and build hooks are resolved within the demo itself.
+
+The native Platform-ESP-IDF provider is selected by GitHub commit
+87f9a71918be0ac606b5acc2479204fbe45b77db, whose provider source matches the
+earlier qualified adc4164 snapshot. Its manifest selects Clock/main.
+The separate native provider main reintegration remains outstanding;
+this explicit pin does not claim it is already merged.
