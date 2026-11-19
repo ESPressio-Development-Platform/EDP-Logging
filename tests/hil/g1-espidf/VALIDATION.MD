@@ -1057,7 +1057,7 @@ this G4 procedure, for 10,824 B overall peak consumed (all three
 runs identical). Private capture-manifest SHA256
 `3540448f25bb2e907ba27fe57b3c094a83beb7f2f812cc110f8940feaf63a807`.
 No physical unexpected power cut or product stack budget qualified.
-See [G4 full typed record](../../docs/G4-GENERATED-WHOLE-RECORD.MD).
+See [G4 full typed record](../../../docs/G4-GENERATED-WHOLE-RECORD.MD).
 
 
 
