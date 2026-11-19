@@ -1,0 +1,61 @@
+# Independently owned asynchronous sink
+
+This example composes Logging's AsyncCopyingTaskSink with one existing
+EDP-Threading DedicatedWorkerLease and one EDP-Memory payload slot.
+It submits the CBOR array [1, 2, 3], mutates the caller's original bytes,
+and lets the Worker verify its independent copy. The example then checks
+the final delivery result, returns the Memory lease and tears down both
+runtimes.
+
+The selected codec is CBOR, payload capacity is 32 bytes, Task capacity
+is one and Worker stack capacity is 6144 bytes. The byte comparison and
+copy use the application-selected Memory ByteOperations provider.
+Bootstrap binds the existing canonical Clock to the ESP-IDF timebase.
+Task admission uses AbandonImmediately and reports refusal explicitly.
+
+## Building
+
+Check out the selected owners beside EDP-Logging. The
+[dependency baseline](../../docs/DEPENDENCY-OWNER-BASELINE.MD) records the
+qualified revisions, including the native Platform-ESP-IDF provider pin.
+This example directly selects Clock, Memory, Threading, Platform,
+Platform-Portable, Platform-FreeRTOS, Platform-ESP-IDF, System and
+BoundedTopology. Use C++20.
+
+| Target | Command |
+| --- | --- |
+| Arduino IDE | ./build.sh arduino-ide |
+| PlatformIO Arduino-ESP32 | ./build.sh platformio-arduino |
+| PlatformIO ESP-IDF | ./build.sh espidf |
+
+The build helper accepts EDP_ARDUINO_CLI_COMMAND, EDP_PIO_COMMAND and
+EDP_DEMO_JOBS to select installed tools and build parallelism.
+The PlatformIO Arduino recipe fixes Arduino-ESP32 3.3.12 and the
+ESP-IDF 5.5 library bundle. The Arduino IDE sketch is in
+[Arduino_IDE](./Arduino_IDE). The two PlatformIO projects are in their
+named target directories.
+
+## Runtime result
+
+A successful run prints EDP_LOGGING_ASYNC_DEMO|RESULT|0 at 115200 baud.
+The typed Result enum in [AsyncDemo.hpp](./Arduino_IDE/src/AsyncDemo.hpp)
+distinguishes clock, Memory, dispatch, completion, delivery and shutdown
+failures.
+
+The read gate ensures that the Worker examines its copy after the
+caller mutates the source. Accepted Task admission, final callback
+acceptance and confirmed Memory release are observed separately.
+The payload is a small encoded CBOR value. The
+[typed managed example](../TypedManagedBatchWorker/README.MD) demonstrates
+the complete governed LogRecord and durable archive pipeline.
+
+The example is one-shot. It retains static Bootstrap owners on any
+uncertain outcome. Polling intervals use canonical Clock differences
+and yield to the SDK scheduler. Their two-second checks apply between
+owner operations. Native synchronization and release retain their
+selected provider wait contracts. An application reconciles an
+uncertain result before destroying these owners or starting another run.
+
+The [async contract](../../docs/ASYNC-COPYING-TASK-SINK.MD) describes
+concurrency and recovery requirements. Qualification receipts are kept
+in the [acceptance matrix](../../docs/ACCEPTANCE-G1-G15.MD).

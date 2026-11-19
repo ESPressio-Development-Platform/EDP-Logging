@@ -6,6 +6,8 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 
 ### Added
 
+- A three-target OwnedAsyncSink example composes one existing Memory payload slot and Dedicated Worker, verifies source-copy independence and final Task/release outcomes, and demonstrates owner teardown.
+
 - Optional Bootstrap-owned claim binding for `DedicatedCoordinator`. After execution quiescence, the application can use the queue claim's existing bounded retirement operation to reconcile a failed reclaim without repeating sink delivery.
 
 - Allocation-free **C++20 severity and instrumentation foundation**: six emitted severities, Off/default-off compile-time thresholds, expression-lazy gated logging sites, no argument/Clock evaluation when compiled out, and nonwrapping 16/32/64-bit attempt identity. Full generated-schema producer activation is opt-in, not a default global logger.
@@ -14,7 +16,7 @@ All notable, implemented changes to the ESPressio Logging library are recorded h
 - Portable CRC32C-checked **EDLG frames and EDLS headers**, complete immutable segment inspection, optional multi-frame EDLC sealing, bounded archive publication, strict invalid-tail rejection, guarded physical empty-slot successor and explicit protected N+1 finite rolling lifecycle.
 - Application-chosen finite persisted log capacity, configured before initialization; oldest **eligible** entries are retired only after safe successor verification and required durable **KeyValueStorage/NVS acknowledgement**. Durable diagnostics retain explicit failure/uncertainty states for Flash/KeyValueStorage provider faults. A separate NVS key/value history adapter is available for its narrowly qualified atomic-key profile.
 - Host tooling for bounded decode, corruption validation, historical schema provenance and forensic CSV output. Archived wording is not fabricated from a schema fingerprint.
-- **Three focused demonstration families**, each containing Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source surfaces: `FramingAndInstrumentation` (in-memory only), `TypedManagedBatchWorker` (generated-record/worker/strict ACK) and `ConfigurableBoundedEdlsBatch` (application-selected finite batch sizing and dwell). Each demo distinguishes source availability, compile success and actual physical execution.
+- **Four focused demonstration families**, each containing Arduino IDE, PlatformIO Arduino-ESP32 and PlatformIO ESP-IDF source surfaces: `FramingAndInstrumentation` (in-memory only), `TypedManagedBatchWorker` (generated-record/worker/strict ACK) and `ConfigurableBoundedEdlsBatch` (application-selected finite batch sizing and dwell), plus `OwnedAsyncSink` (independent Task payload ownership). Each demo distinguishes source availability, compile success and actual physical execution.
 - Maintained V2 normative `docs/`, comprehensive repository-local source/reference `wiki/` and a conditional, transitive library dependency graph.
 
 ### Corrected and clarified

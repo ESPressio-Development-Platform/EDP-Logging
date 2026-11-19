@@ -159,13 +159,13 @@ jobs:
         run: bash tests/run-g11-whole-firmware-comparison.sh
 
 
-      - name: Build the three public demos for both PlatformIO frameworks
+      - name: Build the four public demos for both PlatformIO frameworks
         working-directory: EDP-Logging
         run: |
           for target in PlatformIO_Arduino PlatformIO_ESP-IDF; do
             pio run -d "demos/FramingAndInstrumentation/$target" -j 2
           done
-          for demo in ConfigurableBoundedEdlsBatch TypedManagedBatchWorker; do
+          for demo in ConfigurableBoundedEdlsBatch TypedManagedBatchWorker OwnedAsyncSink; do
             for target in platformio-arduino espidf; do
               bash "demos/$demo/build.sh" "$target"
             done

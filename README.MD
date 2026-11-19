@@ -69,6 +69,7 @@ Use the [complete demo index](./demos/README.MD) and choose a maintained, target
 - [Framing and Instrumentation](./demos/FramingAndInstrumentation/README.MD) — bounded framing: compile-time severity gate, attempt identity, bounded EDLG frame, strict validation and corruption rejection (not a complete generated LogRecord).
 - [Typed Managed Batch Worker](./demos/TypedManagedBatchWorker/README.MD) — original 15-field records, bounded source queue, generated CBOR, sealed EDLS batching, strict LittleFS/NVS acknowledgement and replay.
 - [Configurable Bounded EDLS Batch](./demos/ConfigurableBoundedEdlsBatch/README.MD) — finite batch sizing and dwell configuration.
+- [Owned Asynchronous Sink](./demos/OwnedAsyncSink/README.MD) — independent Memory payload lifetime, Task admission/completion and verified teardown.
 
 Each demo provides **Arduino IDE**, **PlatformIO Arduino-ESP32**, and **PlatformIO ESP-IDF** projects. Follow its README for build commands, generated-schema prerequisites and Flash partition provisioning. Demo configurations are examples, **not platform-wide default allocations**.
 
