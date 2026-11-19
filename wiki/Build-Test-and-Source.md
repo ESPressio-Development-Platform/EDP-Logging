@@ -76,3 +76,25 @@ URLs. The source/profile migration and exact isolated-build receipts are
 tracked in the [Policy handoff](https://github.com/ESPressio-Development-Platform/Policy/blob/main/Handoff/2026-11-19/2026-11-19-09-25-Logging-Estate-Demo-GitHub-Dependencies.MD).
 These recipe builds are separate from earlier physical UART/archive
 qualification. No fresh hardware execution is implied.
+
+## GitHub URL demo recipe qualification — 19 November2026
+
+All eight Logging PlatformIO recipes passed in isolated inputs containing
+demo assets and no local production src tree or sibling repositories.
+Arduino framing passed in20261119T094437-9c5c966d before that larger
+matrix's later async include-collision failure. Corrected async,
+configurable and typed Arduino cases passed in20261119T095314-6b9b7bcc.
+All four native cases passed in20261119T094437-f381dc01; the shared typed
+hook preparation also passed20261119T095733-c35b053f.
+
+The package-aware selector preserves the intended ESP-IDF provider for
+overlapping header names; dependency sources remain installed GitHub
+packages. Current manifest bytes match the tested copies, and each case
+has an actual linked firmware image. Installed Git revisions are retained
+in the case receipts. Private dependencies use the authorized GitHub
+transport cache on RPI400; normal developers need repository access in Git.
+No global Git settings or demo credentials were introduced.
+
+These are build/recipe qualifications. The earlier independent UART,
+archive, finite-load and relay PowerLoss receipts retain their original
+source/profile scope; no new MCU flashing occurred in this migration.
