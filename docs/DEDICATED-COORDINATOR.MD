@@ -172,3 +172,22 @@ quantum. An independently reconciled source is absent from those counters.
 Keep the original sink receipt and explicit recovery outcome in Bootstrap's
 accounting. `ReleasedNotificationFailed` confirms source reclamation but
 requires handling the advisory wake failure.
+
+## Bootstrap claim recovery qualification
+
+RPI400 host run 20261119T065003-ce4c4af8 passed GCC and Clang with
+UBSan for the real Memory queue, both external-claim constructors,
+move/destruction, failed bounded retirement and safe queue reuse.
+The exact WROOM image from 0d272acab710fad86ef14dfae78302eb9a9566f8
+built in 20261119T065004-69460328 with factory SHA-256
+27a49d61e576dfbd4fd06f1a8e7affab0eaacdf5bc31a10f03217b8498c3466e.
+
+Physical 20261119T065022-6c55ef18 passed all 23 UART markers. The
+real Threading binding retained the Bootstrap claim through a forced
+retirement mutex conflict. Finite retry while locked preserved ownership.
+Retry after unlock reclaimed the source without another sink call, and
+the Dedicated Thread restarted and stopped successfully. The UART frame,
+application resource snapshot and configured G11 site check passed.
+The original full 4 MiB flash was restored and verified and the target
+powered OFF. Header/Wiki inventory 20261119T065101-8ca71020 compiled
+1,024 named declaration entries and resolved 570 local file links.
