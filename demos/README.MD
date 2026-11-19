@@ -9,3 +9,5 @@ Each demonstrable family supplies Arduino IDE, PlatformIO Arduino-ESP32 and Plat
 - [Owned Asynchronous Sink](./OwnedAsyncSink/README.MD) — one Memory-owned encoded payload copied before Threading admission, consumed after caller-source mutation, and reclaimed after terminal Task completion. All three target projects share the same bounded Bootstrap.
 
 A successful build is not physical execution or power-cut evidence. For exact bounded native and electrical test qualifications, consult [Logging qualification](../docs/LOGGING-QUALIFICATION-STATUS.MD) and [G1–G15 acceptance](../docs/ACCEPTANCE-G1-G15.MD). The application determines retention capacity and where logs are stored; no flash-life warranty, generic filesystem atomicity or unlimited throughput is implied.
+
+Private GitHub dependencies require a Git account with repository access. Configure authentication in Git outside the demo manifest; the URLs contain no credentials.
