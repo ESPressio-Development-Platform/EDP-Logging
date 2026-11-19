@@ -20,3 +20,5 @@ ByteOperations provider. Put EDP-Memory, EDP-Platform-Portable,
 EDP-Platform, EDP-System and EDP-BoundedTopology alongside EDP-Logging for
 the PlatformIO manifests. Arduino IDE builds need the same libraries
 available in the library search path.
+
+The PlatformIO Arduino project explicitly selects Arduino-ESP32 3.3.12 and its ESP-IDF 5.5 library bundle, matching the managed Logging demo recipes. The PIOArduino platform revision and C++20 flags are fixed in its manifest.
