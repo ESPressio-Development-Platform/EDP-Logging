@@ -57,3 +57,16 @@ Private `_unique_object` rejects duplicate JSON properties, `_reject_nonfinite` 
 ## Ownership, resource limits, exceptions and source traceability
 
 All modules require only the host Python standard library, plus **optional** independently selected EDP-Localisation archival tooling for historical-resolution mode. Pure readers accept bytes/streams **borrowed during their call**, return immutable value objects or bounded iterators/evidence, and must not retain a live device file handle or silently mutate archive storage. `ValueError` and dedicated `EnvelopeError`, `SegmentHeaderError`, `SchemaError`, `RecordFactError`, `CsvEvidenceError`, and `EvidenceError` denote different rejection owners; the CLI maps these to user-visible typed results and nonzero termination when requested validation cannot complete. Each module's source code and maintained tests are paired under `tools/tests/` and the root `tests/` host integration suite. Future changes to a parser/CLI option/return shape must update **both** these Wiki sections and its normative `docs/` contract on the same branch. No module may claim an independent physical cut proof; such evidence remains in native RPI400 HIL receipts and G1–G15 acceptance.
+
+## PlatformIO demo preparation
+
+The shared [native-provider selector](../demos/prepare_platformio.py)
+uses PlatformIO's installed Git package root to resolve overlapping ESP-IDF
+and FreeRTOS header names on IDF-backed Arduino. It preserves the selected
+native provider and never consults a sibling checkout. Dependency inputs
+remain the explicit GitHub URLs in each manifest.
+
+The [typed schema hook](../demos/TypedManagedBatchWorker/prepare_platformio.py)
+reuses the downloaded Logging fixture generator and Localisation tools
+before compilation. Its two project entry hooks supply the selected
+PlatformIO environment. Native ESP-IDF provider ordering is unchanged.

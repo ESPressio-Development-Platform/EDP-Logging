@@ -126,3 +126,8 @@ PlatformIO's preparation hook generates the schema using the downloaded
 Logging fixture tool and Localisation owner. No external generator checkout
 or manually supplied generated-header include path is needed. The Arduino
 IDE helper retains its documented separate schema-generation setup.
+
+For IDF-backed Arduino, the project preparation hook selects native headers
+from the installed Git package before overlapping FreeRTOS header names.
+This preserves the qualified provider choice without a sibling include
+path or a manually supplied checkout.

@@ -95,3 +95,8 @@ The native Platform-ESP-IDF provider is selected by GitHub commit
 earlier qualified adc4164 snapshot. Its manifest selects Clock/main.
 The separate native provider main reintegration remains outstanding;
 this explicit pin does not claim it is already merged.
+
+For IDF-backed Arduino, the project preparation hook selects native headers
+from the installed Git package before overlapping FreeRTOS header names.
+This preserves the qualified provider choice without a sibling include
+path or a manually supplied checkout.
